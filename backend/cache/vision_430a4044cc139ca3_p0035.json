@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 65,
+    "question": "Which of the following statement can best be described as having resulted in the recovery of India's external sector?",
+    "options": {
+      "1": "Moderation in India's merchandise export growth in FY24 accompanied by a sharp decline in India's merchandise import growth",
+      "2": "Increasing commodity prices with escalating global demand",
+      "3": "Increase in merchandise exports and imports followed by a decline in net services receipts",
+      "4": "Growth in world output out-pacing the world trade volume"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 66,
+    "question": "Consider the following Assertion (A) and Reason (R) and choose the correct code:\nAssertion (A):\nTax reforms directed towards a simple tax system will result in positive productivity gains.\nReason (R):\nThey boost GDP growth and employment growth by removing deadweight costs and reduce distortions in resource allocation.\nCode:",
+    "options": {
+      "1": "Both (A) and (R) are true and (R) explains A.",
+      "2": "Both (A) and (R) are true, but (R) does not explain (A).",
+      "3": "(A) is true, but (R) is false.",
+      "4": "(A) is false, but (R) is true."
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

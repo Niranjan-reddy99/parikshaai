@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 62,
+    "question": "Identify the correct relationship between the geographical regions of Andhra Pradesh and their predominant disaster vulnerabilities.",
+    "options": {
+      "1": "Coastal Andhra experiences frequent droughts, whereas Rayalaseema is highly prone to cyclones and storm surges.",
+      "2": "Both Rayalaseema and Coastal Andhra experience identical disaster profiles dominated by landslides.",
+      "3": "Coastal districts such as Srikakulam, Vizianagaram and Nellore are highly prone to cyclones and floods, while Rayalaseema districts like Anantapur and Kurnool are more susceptible to droughts due to arid climate and low rainfall.",
+      "4": "The entire state of Andhra Pradesh is equally vulnerable to all types of natural disasters without any regional variation."
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 63,
+    "question": "Which of the following statements correctly identifies the institutional hierarchy and primary responsibilities of the National Disaster Management Authority (NDMA) and the National Institute of Disaster Management (NIDM) as established under the Disaster Management Act, 2005 ?",
+    "options": {
+      "1": "NDMA operates under the Ministry of Science and Technology, while NIDM functions as a state-level training body.",
+      "2": "NDMA, chaired by the Prime Minister of India, is responsible for national policy and coordination, whereas NIDM serves as the apex national institute for training, capacity building and research under NDMA's guidance.",
+      "3": "NIDM is the policy-making authority and NDMA executes on-ground disaster operations.",
+      "4": "Both NDMA and NIDM are private organizations functioning independently of the Government of India."
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

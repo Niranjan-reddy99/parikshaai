@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 73,
+    "question": "Which of the following statement/statements is/are valid in connection with inflation?\nI. Cost-push inflation cycle of milk is becoming more and more pronounced in India.\nII. The Bharat Atta initiative of the Government has played a considerable role in containing wheat inflation in India.\nIII. Retail Inflation has considerably increased in the beginning of 2024 owing to increasing commodity prices.\nIV. The Bharat Dal initiative has also been extended to include moong dal.\nSelect the correct answer using the codes given below:",
+    "options": {
+      "1": "II and IV",
+      "2": "I and III",
+      "3": "II, III and IV",
+      "4": "Only II"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 74,
+    "question": "Which of the following statement/statements is/are valid in connection with Enhanced Access and Service Excellence (EASE) Reforms ?\nI. EASE Reforms are governed by a board of directors, who are heads of premier Financial Institutions in India.\nII. EASE Next programme had just one (01) priority - the Common Reforms Agenda.\nIII. Delivering excellence in customer service with digital enablement is one of the four themes conceptualized as part of EASE 6.0.\nIV. EASE Reforms are intended for both Public Sector Banks (PSBs) as well as NBFCs.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "Only III",
+      "2": "I, II and III",
+      "3": "II and IV",
+      "4": "I and IV"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

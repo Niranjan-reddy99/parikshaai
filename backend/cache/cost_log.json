@@ -1,0 +1,3922 @@
+[
+  {
+    "timestamp": "2026-04-01T15:37:53",
+    "exam": "UPSC Prelims 2020",
+    "questions": 100,
+    "total_inr": 0.7226,
+    "steps": [
+      {
+        "step": "Targeted Vision p1",
+        "input_tokens": 822,
+        "output_tokens": 946,
+        "cost_usd": 0.00046060000000000003,
+        "cost_inr": 0.0386904,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p6",
+        "input_tokens": 822,
+        "output_tokens": 799,
+        "cost_usd": 0.0004018,
+        "cost_inr": 0.0337512,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p8",
+        "input_tokens": 822,
+        "output_tokens": 398,
+        "cost_usd": 0.0002414,
+        "cost_inr": 0.0202776,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p13",
+        "input_tokens": 822,
+        "output_tokens": 1632,
+        "cost_usd": 0.0007350000000000001,
+        "cost_inr": 0.06174000000000001,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p20",
+        "input_tokens": 822,
+        "output_tokens": 1054,
+        "cost_usd": 0.0005038000000000001,
+        "cost_inr": 0.04231920000000001,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p25",
+        "input_tokens": 822,
+        "output_tokens": 912,
+        "cost_usd": 0.000447,
+        "cost_inr": 0.037548000000000005,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p41",
+        "input_tokens": 822,
+        "output_tokens": 653,
+        "cost_usd": 0.0003434,
+        "cost_inr": 0.0288456,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p43",
+        "input_tokens": 822,
+        "output_tokens": 737,
+        "cost_usd": 0.000377,
+        "cost_inr": 0.031668,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1081,
+        "output_tokens": 857,
+        "cost_usd": 0.00045090000000000006,
+        "cost_inr": 0.0378756,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1059,
+        "output_tokens": 787,
+        "cost_usd": 0.0004207000000000001,
+        "cost_inr": 0.03533880000000001,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1074,
+        "output_tokens": 665,
+        "cost_usd": 0.0003734,
+        "cost_inr": 0.0313656,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 469,
+        "output_tokens": 339,
+        "cost_usd": 0.00018250000000000002,
+        "cost_inr": 0.015330000000000002,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1451,
+        "output_tokens": 1100,
+        "cost_usd": 0.0005851000000000001,
+        "cost_inr": 0.04914840000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1082,
+        "output_tokens": 1579,
+        "cost_usd": 0.0007398000000000001,
+        "cost_inr": 0.06214320000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1397,
+        "output_tokens": 1383,
+        "cost_usd": 0.0006929,
+        "cost_inr": 0.0582036,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1418,
+        "output_tokens": 1194,
+        "cost_usd": 0.0006194,
+        "cost_inr": 0.052029599999999995,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1105,
+        "output_tokens": 982,
+        "cost_usd": 0.0005033,
+        "cost_inr": 0.0422772,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1108,
+        "output_tokens": 1034,
+        "cost_usd": 0.0005244000000000001,
+        "cost_inr": 0.04404960000000001,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-01T15:38:54",
+    "exam": "UPSC Prelims 2021",
+    "questions": 94,
+    "total_inr": 0.9056,
+    "steps": [
+      {
+        "step": "Targeted Vision p1",
+        "input_tokens": 822,
+        "output_tokens": 16384,
+        "cost_usd": 0.0066358,
+        "cost_inr": 0.5574072,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 941,
+        "output_tokens": 789,
+        "cost_usd": 0.00040970000000000004,
+        "cost_inr": 0.0344148,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 877,
+        "output_tokens": 785,
+        "cost_usd": 0.00040170000000000006,
+        "cost_inr": 0.0337428,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 941,
+        "output_tokens": 803,
+        "cost_usd": 0.0004153,
+        "cost_inr": 0.0348852,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 189,
+        "output_tokens": 164,
+        "cost_usd": 8.450000000000001e-05,
+        "cost_inr": 0.007098000000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1263,
+        "output_tokens": 1570,
+        "cost_usd": 0.0007543000000000001,
+        "cost_inr": 0.0633612,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1032,
+        "output_tokens": 595,
+        "cost_usd": 0.00034120000000000005,
+        "cost_inr": 0.028660800000000004,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1087,
+        "output_tokens": 1030,
+        "cost_usd": 0.0005207,
+        "cost_inr": 0.0437388,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 961,
+        "output_tokens": 1386,
+        "cost_usd": 0.0006505,
+        "cost_inr": 0.054642,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 984,
+        "output_tokens": 1171,
+        "cost_usd": 0.0005668,
+        "cost_inr": 0.0476112,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-01T15:41:59",
+    "exam": "UPSC Prelims 2022",
+    "questions": 94,
+    "total_inr": 1.1647,
+    "steps": [
+      {
+        "step": "Targeted Vision p1",
+        "input_tokens": 822,
+        "output_tokens": 16384,
+        "cost_usd": 0.0066358,
+        "cost_inr": 0.5574072,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p10",
+        "input_tokens": 822,
+        "output_tokens": 743,
+        "cost_usd": 0.0003794,
+        "cost_inr": 0.0318696,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p12",
+        "input_tokens": 822,
+        "output_tokens": 737,
+        "cost_usd": 0.000377,
+        "cost_inr": 0.031668,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p13",
+        "input_tokens": 822,
+        "output_tokens": 795,
+        "cost_usd": 0.0004002,
+        "cost_inr": 0.0336168,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p22",
+        "input_tokens": 822,
+        "output_tokens": 782,
+        "cost_usd": 0.000395,
+        "cost_inr": 0.03318,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p27",
+        "input_tokens": 822,
+        "output_tokens": 0,
+        "cost_usd": 8.22e-05,
+        "cost_inr": 0.006904800000000001,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p27",
+        "input_tokens": 822,
+        "output_tokens": 0,
+        "cost_usd": 8.22e-05,
+        "cost_inr": 0.006904800000000001,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p35",
+        "input_tokens": 822,
+        "output_tokens": 627,
+        "cost_usd": 0.00033299999999999996,
+        "cost_inr": 0.027971999999999997,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p39",
+        "input_tokens": 822,
+        "output_tokens": 846,
+        "cost_usd": 0.0004206,
+        "cost_inr": 0.0353304,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1053,
+        "output_tokens": 734,
+        "cost_usd": 0.0003989,
+        "cost_inr": 0.0335076,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1280,
+        "output_tokens": 800,
+        "cost_usd": 0.00044800000000000005,
+        "cost_inr": 0.037632000000000006,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1060,
+        "output_tokens": 686,
+        "cost_usd": 0.00038040000000000003,
+        "cost_inr": 0.031953600000000006,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 240,
+        "output_tokens": 111,
+        "cost_usd": 6.840000000000001e-05,
+        "cost_inr": 0.005745600000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1320,
+        "output_tokens": 1153,
+        "cost_usd": 0.0005932,
+        "cost_inr": 0.0498288,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1278,
+        "output_tokens": 1190,
+        "cost_usd": 0.0006038,
+        "cost_inr": 0.050719200000000006,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1786,
+        "output_tokens": 981,
+        "cost_usd": 0.0005710000000000001,
+        "cost_inr": 0.04796400000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1303,
+        "output_tokens": 1670,
+        "cost_usd": 0.0007983,
+        "cost_inr": 0.06705720000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1456,
+        "output_tokens": 1228,
+        "cost_usd": 0.0006368000000000001,
+        "cost_inr": 0.05349120000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 682,
+        "output_tokens": 484,
+        "cost_usd": 0.0002618,
+        "cost_inr": 0.021991200000000002,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-01T15:42:58",
+    "exam": "UPSC Prelims 2023",
+    "questions": 94,
+    "total_inr": 0.7978,
+    "steps": [
+      {
+        "step": "Targeted Vision p1",
+        "input_tokens": 822,
+        "output_tokens": 16384,
+        "cost_usd": 0.0066358,
+        "cost_inr": 0.5574072,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 899,
+        "output_tokens": 828,
+        "cost_usd": 0.00042110000000000004,
+        "cost_inr": 0.035372400000000005,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 753,
+        "output_tokens": 808,
+        "cost_usd": 0.00039850000000000004,
+        "cost_inr": 0.033474000000000004,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1145,
+        "output_tokens": 816,
+        "cost_usd": 0.00044090000000000004,
+        "cost_inr": 0.0370356,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 204,
+        "output_tokens": 115,
+        "cost_usd": 6.640000000000001e-05,
+        "cost_inr": 0.005577600000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1011,
+        "output_tokens": 1471,
+        "cost_usd": 0.0006895000000000001,
+        "cost_inr": 0.05791800000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1000,
+        "output_tokens": 1452,
+        "cost_usd": 0.0006808000000000001,
+        "cost_inr": 0.05718720000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 299,
+        "output_tokens": 338,
+        "cost_usd": 0.0001651,
+        "cost_inr": 0.0138684,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-01T15:45:05",
+    "exam": "UPSC Prelims 2024",
+    "questions": 96,
+    "total_inr": 0.7159,
+    "steps": [
+      {
+        "step": "Targeted Vision p1",
+        "input_tokens": 822,
+        "output_tokens": 692,
+        "cost_usd": 0.000359,
+        "cost_inr": 0.030156,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p12",
+        "input_tokens": 822,
+        "output_tokens": 896,
+        "cost_usd": 0.00044060000000000003,
+        "cost_inr": 0.037010400000000006,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p16",
+        "input_tokens": 822,
+        "output_tokens": 1099,
+        "cost_usd": 0.0005218,
+        "cost_inr": 0.0438312,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p18",
+        "input_tokens": 822,
+        "output_tokens": 580,
+        "cost_usd": 0.0003142,
+        "cost_inr": 0.0263928,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p20",
+        "input_tokens": 822,
+        "output_tokens": 587,
+        "cost_usd": 0.000317,
+        "cost_inr": 0.026628,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p27",
+        "input_tokens": 822,
+        "output_tokens": 737,
+        "cost_usd": 0.000377,
+        "cost_inr": 0.031668,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p29",
+        "input_tokens": 822,
+        "output_tokens": 783,
+        "cost_usd": 0.0003954,
+        "cost_inr": 0.0332136,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p33",
+        "input_tokens": 822,
+        "output_tokens": 906,
+        "cost_usd": 0.0004446,
+        "cost_inr": 0.0373464,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p37",
+        "input_tokens": 822,
+        "output_tokens": 0,
+        "cost_usd": 8.22e-05,
+        "cost_inr": 0.006904800000000001,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p37",
+        "input_tokens": 822,
+        "output_tokens": 0,
+        "cost_usd": 8.22e-05,
+        "cost_inr": 0.006904800000000001,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p41",
+        "input_tokens": 822,
+        "output_tokens": 0,
+        "cost_usd": 8.22e-05,
+        "cost_inr": 0.006904800000000001,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p41",
+        "input_tokens": 822,
+        "output_tokens": 0,
+        "cost_usd": 8.22e-05,
+        "cost_inr": 0.006904800000000001,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1137,
+        "output_tokens": 786,
+        "cost_usd": 0.00042810000000000005,
+        "cost_inr": 0.035960400000000003,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 871,
+        "output_tokens": 803,
+        "cost_usd": 0.0004083,
+        "cost_inr": 0.0342972,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 891,
+        "output_tokens": 803,
+        "cost_usd": 0.0004103,
+        "cost_inr": 0.0344652,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 379,
+        "output_tokens": 87,
+        "cost_usd": 7.27e-05,
+        "cost_inr": 0.006106800000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1240,
+        "output_tokens": 1314,
+        "cost_usd": 0.0006496000000000001,
+        "cost_inr": 0.05456640000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1248,
+        "output_tokens": 1101,
+        "cost_usd": 0.0005652000000000001,
+        "cost_inr": 0.047476800000000006,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1042,
+        "output_tokens": 1598,
+        "cost_usd": 0.0007434000000000001,
+        "cost_inr": 0.062445600000000004,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1195,
+        "output_tokens": 1874,
+        "cost_usd": 0.0008691,
+        "cost_inr": 0.0730044,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1110,
+        "output_tokens": 1383,
+        "cost_usd": 0.0006642,
+        "cost_inr": 0.0557928,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 562,
+        "output_tokens": 392,
+        "cost_usd": 0.00021300000000000003,
+        "cost_inr": 0.017892,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-02T08:28:16",
+    "exam": "TSPSC Group 2 Paper 4 2024",
+    "questions": 150,
+    "total_inr": 0.773,
+    "steps": [
+      {
+        "step": "Tagging",
+        "input_tokens": 1512,
+        "output_tokens": 892,
+        "cost_usd": 0.000508,
+        "cost_inr": 0.042672,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1459,
+        "output_tokens": 836,
+        "cost_usd": 0.0004803,
+        "cost_inr": 0.040345200000000005,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1477,
+        "output_tokens": 829,
+        "cost_usd": 0.00047930000000000005,
+        "cost_inr": 0.040261200000000004,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1464,
+        "output_tokens": 835,
+        "cost_usd": 0.0004804000000000001,
+        "cost_inr": 0.0403536,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1436,
+        "output_tokens": 804,
+        "cost_usd": 0.00046520000000000003,
+        "cost_inr": 0.0390768,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1678,
+        "output_tokens": 1466,
+        "cost_usd": 0.0007542,
+        "cost_inr": 0.0633528,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1798,
+        "output_tokens": 1170,
+        "cost_usd": 0.0006478,
+        "cost_inr": 0.054415200000000004,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1752,
+        "output_tokens": 1381,
+        "cost_usd": 0.0007276000000000001,
+        "cost_inr": 0.06111840000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1638,
+        "output_tokens": 1123,
+        "cost_usd": 0.000613,
+        "cost_inr": 0.051492,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1886,
+        "output_tokens": 1364,
+        "cost_usd": 0.0007342000000000001,
+        "cost_inr": 0.06167280000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1649,
+        "output_tokens": 1145,
+        "cost_usd": 0.0006229,
+        "cost_inr": 0.0523236,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1552,
+        "output_tokens": 1349,
+        "cost_usd": 0.0006948,
+        "cost_inr": 0.0583632,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1835,
+        "output_tokens": 1183,
+        "cost_usd": 0.0006567000000000001,
+        "cost_inr": 0.055162800000000005,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1748,
+        "output_tokens": 1243,
+        "cost_usd": 0.0006720000000000001,
+        "cost_inr": 0.056448000000000005,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1766,
+        "output_tokens": 1223,
+        "cost_usd": 0.0006658,
+        "cost_inr": 0.0559272,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-02T00:00:00",
+    "exam": "APPSC Group II Mains Paper I 2025 [RETROACTIVE ESTIMATE]",
+    "questions": 150,
+    "total_inr": 25.0,
+    "steps": [
+      {
+        "step": "Vision extraction (48 pages x gemini-2.5-flash + thinking)",
+        "input_tokens": 144000,
+        "output_tokens": 96000,
+        "cost_usd": 0.2736,
+        "cost_inr": 22.98,
+        "cached": false
+      },
+      {
+        "step": "Tagging (5 batches)",
+        "input_tokens": 7500,
+        "output_tokens": 4000,
+        "cost_usd": 0.00235,
+        "cost_inr": 0.2,
+        "cached": false
+      },
+      {
+        "step": "Note: 3 failed retries before cache clear added ~₹2",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0238,
+        "cost_inr": 2.0,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-02T01:00:00",
+    "exam": "APPSC Group II Mains Paper II 2023 [RETROACTIVE ESTIMATE]",
+    "questions": 150,
+    "total_inr": 15.0,
+    "steps": [
+      {
+        "step": "Vision extraction (48 pages x gemini-2.5-flash + thinking)",
+        "input_tokens": 144000,
+        "output_tokens": 96000,
+        "cost_usd": 0.1488,
+        "cost_inr": 12.5,
+        "cached": false
+      },
+      {
+        "step": "Tagging (5 batches)",
+        "input_tokens": 7500,
+        "output_tokens": 4000,
+        "cost_usd": 0.00235,
+        "cost_inr": 0.2,
+        "cached": false
+      },
+      {
+        "step": "Additional retries",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0274,
+        "cost_inr": 2.3,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-02T13:06:10",
+    "exam": "APPSC GROUP 1 PRELIMS PAPER 1 2024",
+    "questions": 1,
+    "total_inr": 0.002,
+    "steps": [
+      {
+        "step": "Tagging",
+        "input_tokens": 113,
+        "output_tokens": 31,
+        "cost_usd": 2.37e-05,
+        "cost_inr": 0.0019908,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-02T13:21:23",
+    "exam": "APPSC GROUP 1 PRELIMS PAPER 1 2024",
+    "questions": 120,
+    "total_inr": 1.0852,
+    "steps": [
+      {
+        "step": "Vision p1",
+        "input_tokens": 621,
+        "output_tokens": 1,
+        "cost_usd": 4.6875e-05,
+        "cost_inr": 0.0039375,
+        "cached": false
+      },
+      {
+        "step": "Vision p2",
+        "input_tokens": 621,
+        "output_tokens": 955,
+        "cost_usd": 0.00033307499999999995,
+        "cost_inr": 0.027978299999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p3",
+        "input_tokens": 621,
+        "output_tokens": 1338,
+        "cost_usd": 0.000447975,
+        "cost_inr": 0.0376299,
+        "cached": false
+      },
+      {
+        "step": "Vision p4",
+        "input_tokens": 621,
+        "output_tokens": 523,
+        "cost_usd": 0.000203475,
+        "cost_inr": 0.0170919,
+        "cached": false
+      },
+      {
+        "step": "Vision p5",
+        "input_tokens": 621,
+        "output_tokens": 382,
+        "cost_usd": 0.000161175,
+        "cost_inr": 0.0135387,
+        "cached": false
+      },
+      {
+        "step": "Vision p6",
+        "input_tokens": 621,
+        "output_tokens": 608,
+        "cost_usd": 0.00022897500000000002,
+        "cost_inr": 0.0192339,
+        "cached": false
+      },
+      {
+        "step": "Vision p7",
+        "input_tokens": 621,
+        "output_tokens": 577,
+        "cost_usd": 0.000219675,
+        "cost_inr": 0.018452700000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision p8",
+        "input_tokens": 621,
+        "output_tokens": 654,
+        "cost_usd": 0.00024277499999999998,
+        "cost_inr": 0.020393099999999997,
+        "cached": false
+      },
+      {
+        "step": "Vision p9",
+        "input_tokens": 621,
+        "output_tokens": 376,
+        "cost_usd": 0.00015937499999999998,
+        "cost_inr": 0.013387499999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p10",
+        "input_tokens": 621,
+        "output_tokens": 383,
+        "cost_usd": 0.00016147499999999998,
+        "cost_inr": 0.013563899999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision p11",
+        "input_tokens": 621,
+        "output_tokens": 579,
+        "cost_usd": 0.000220275,
+        "cost_inr": 0.0185031,
+        "cached": false
+      },
+      {
+        "step": "Vision p12",
+        "input_tokens": 621,
+        "output_tokens": 476,
+        "cost_usd": 0.000189375,
+        "cost_inr": 0.0159075,
+        "cached": false
+      },
+      {
+        "step": "Vision p13",
+        "input_tokens": 621,
+        "output_tokens": 462,
+        "cost_usd": 0.00018517500000000002,
+        "cost_inr": 0.015554700000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p14",
+        "input_tokens": 621,
+        "output_tokens": 242,
+        "cost_usd": 0.00011917500000000001,
+        "cost_inr": 0.0100107,
+        "cached": false
+      },
+      {
+        "step": "Vision p15",
+        "input_tokens": 621,
+        "output_tokens": 277,
+        "cost_usd": 0.000129675,
+        "cost_inr": 0.0108927,
+        "cached": false
+      },
+      {
+        "step": "Vision p16",
+        "input_tokens": 621,
+        "output_tokens": 260,
+        "cost_usd": 0.00012457499999999998,
+        "cost_inr": 0.010464299999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p17",
+        "input_tokens": 621,
+        "output_tokens": 242,
+        "cost_usd": 0.00011917500000000001,
+        "cost_inr": 0.0100107,
+        "cached": false
+      },
+      {
+        "step": "Vision p18",
+        "input_tokens": 621,
+        "output_tokens": 262,
+        "cost_usd": 0.000125175,
+        "cost_inr": 0.0105147,
+        "cached": false
+      },
+      {
+        "step": "Vision p19",
+        "input_tokens": 621,
+        "output_tokens": 562,
+        "cost_usd": 0.000215175,
+        "cost_inr": 0.018074700000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision p20",
+        "input_tokens": 621,
+        "output_tokens": 280,
+        "cost_usd": 0.000130575,
+        "cost_inr": 0.010968299999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision p21",
+        "input_tokens": 621,
+        "output_tokens": 543,
+        "cost_usd": 0.00020947499999999998,
+        "cost_inr": 0.017595899999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p22",
+        "input_tokens": 621,
+        "output_tokens": 251,
+        "cost_usd": 0.000121875,
+        "cost_inr": 0.0102375,
+        "cached": false
+      },
+      {
+        "step": "Vision p23",
+        "input_tokens": 621,
+        "output_tokens": 272,
+        "cost_usd": 0.00012817499999999998,
+        "cost_inr": 0.010766699999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision p24",
+        "input_tokens": 621,
+        "output_tokens": 491,
+        "cost_usd": 0.000193875,
+        "cost_inr": 0.0162855,
+        "cached": false
+      },
+      {
+        "step": "Vision p25",
+        "input_tokens": 621,
+        "output_tokens": 449,
+        "cost_usd": 0.000181275,
+        "cost_inr": 0.0152271,
+        "cached": false
+      },
+      {
+        "step": "Vision p26",
+        "input_tokens": 621,
+        "output_tokens": 533,
+        "cost_usd": 0.00020647500000000002,
+        "cost_inr": 0.017343900000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision p27",
+        "input_tokens": 621,
+        "output_tokens": 273,
+        "cost_usd": 0.000128475,
+        "cost_inr": 0.0107919,
+        "cached": false
+      },
+      {
+        "step": "Vision p28",
+        "input_tokens": 621,
+        "output_tokens": 469,
+        "cost_usd": 0.000187275,
+        "cost_inr": 0.0157311,
+        "cached": false
+      },
+      {
+        "step": "Vision p29",
+        "input_tokens": 621,
+        "output_tokens": 568,
+        "cost_usd": 0.000216975,
+        "cost_inr": 0.0182259,
+        "cached": false
+      },
+      {
+        "step": "Vision p30",
+        "input_tokens": 621,
+        "output_tokens": 449,
+        "cost_usd": 0.000181275,
+        "cost_inr": 0.0152271,
+        "cached": false
+      },
+      {
+        "step": "Vision p31",
+        "input_tokens": 621,
+        "output_tokens": 436,
+        "cost_usd": 0.00017737500000000002,
+        "cost_inr": 0.014899500000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p32",
+        "input_tokens": 621,
+        "output_tokens": 504,
+        "cost_usd": 0.000197775,
+        "cost_inr": 0.0166131,
+        "cached": false
+      },
+      {
+        "step": "Vision p33",
+        "input_tokens": 621,
+        "output_tokens": 421,
+        "cost_usd": 0.000172875,
+        "cost_inr": 0.0145215,
+        "cached": false
+      },
+      {
+        "step": "Vision p34",
+        "input_tokens": 621,
+        "output_tokens": 463,
+        "cost_usd": 0.000185475,
+        "cost_inr": 0.015579899999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision p35",
+        "input_tokens": 621,
+        "output_tokens": 515,
+        "cost_usd": 0.00020107500000000002,
+        "cost_inr": 0.0168903,
+        "cached": false
+      },
+      {
+        "step": "Vision p37",
+        "input_tokens": 621,
+        "output_tokens": 594,
+        "cost_usd": 0.000224775,
+        "cost_inr": 0.0188811,
+        "cached": false
+      },
+      {
+        "step": "Vision p38",
+        "input_tokens": 621,
+        "output_tokens": 367,
+        "cost_usd": 0.000156675,
+        "cost_inr": 0.013160700000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p39",
+        "input_tokens": 621,
+        "output_tokens": 396,
+        "cost_usd": 0.000165375,
+        "cost_inr": 0.0138915,
+        "cached": false
+      },
+      {
+        "step": "Vision p40",
+        "input_tokens": 621,
+        "output_tokens": 449,
+        "cost_usd": 0.000181275,
+        "cost_inr": 0.0152271,
+        "cached": false
+      },
+      {
+        "step": "Vision p41",
+        "input_tokens": 621,
+        "output_tokens": 476,
+        "cost_usd": 0.000189375,
+        "cost_inr": 0.0159075,
+        "cached": false
+      },
+      {
+        "step": "Vision p42",
+        "input_tokens": 621,
+        "output_tokens": 237,
+        "cost_usd": 0.000117675,
+        "cost_inr": 0.0098847,
+        "cached": false
+      },
+      {
+        "step": "Vision p43",
+        "input_tokens": 621,
+        "output_tokens": 476,
+        "cost_usd": 0.000189375,
+        "cost_inr": 0.0159075,
+        "cached": false
+      },
+      {
+        "step": "Vision p44",
+        "input_tokens": 621,
+        "output_tokens": 237,
+        "cost_usd": 0.000117675,
+        "cost_inr": 0.0098847,
+        "cached": false
+      },
+      {
+        "step": "Vision p45",
+        "input_tokens": 621,
+        "output_tokens": 254,
+        "cost_usd": 0.000122775,
+        "cost_inr": 0.010313099999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision p46",
+        "input_tokens": 621,
+        "output_tokens": 282,
+        "cost_usd": 0.000131175,
+        "cost_inr": 0.011018700000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p47",
+        "input_tokens": 621,
+        "output_tokens": 496,
+        "cost_usd": 0.00019537500000000002,
+        "cost_inr": 0.016411500000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision p48",
+        "input_tokens": 621,
+        "output_tokens": 282,
+        "cost_usd": 0.000131175,
+        "cost_inr": 0.011018700000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p49",
+        "input_tokens": 621,
+        "output_tokens": 271,
+        "cost_usd": 0.00012787499999999998,
+        "cost_inr": 0.010741499999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p50",
+        "input_tokens": 621,
+        "output_tokens": 250,
+        "cost_usd": 0.00012157499999999999,
+        "cost_inr": 0.010212299999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision p51",
+        "input_tokens": 621,
+        "output_tokens": 233,
+        "cost_usd": 0.000116475,
+        "cost_inr": 0.0097839,
+        "cached": false
+      },
+      {
+        "step": "Vision p52",
+        "input_tokens": 621,
+        "output_tokens": 288,
+        "cost_usd": 0.000132975,
+        "cost_inr": 0.0111699,
+        "cached": false
+      },
+      {
+        "step": "Vision p53",
+        "input_tokens": 621,
+        "output_tokens": 274,
+        "cost_usd": 0.000128775,
+        "cost_inr": 0.0108171,
+        "cached": false
+      },
+      {
+        "step": "Vision p54",
+        "input_tokens": 621,
+        "output_tokens": 541,
+        "cost_usd": 0.00020887500000000002,
+        "cost_inr": 0.017545500000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision p55",
+        "input_tokens": 621,
+        "output_tokens": 509,
+        "cost_usd": 0.000199275,
+        "cost_inr": 0.0167391,
+        "cached": false
+      },
+      {
+        "step": "Vision p56",
+        "input_tokens": 621,
+        "output_tokens": 640,
+        "cost_usd": 0.000238575,
+        "cost_inr": 0.0200403,
+        "cached": false
+      },
+      {
+        "step": "Vision p57",
+        "input_tokens": 621,
+        "output_tokens": 496,
+        "cost_usd": 0.00019537500000000002,
+        "cost_inr": 0.016411500000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision p58",
+        "input_tokens": 621,
+        "output_tokens": 473,
+        "cost_usd": 0.00018847500000000001,
+        "cost_inr": 0.015831900000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision p59",
+        "input_tokens": 621,
+        "output_tokens": 561,
+        "cost_usd": 0.000214875,
+        "cost_inr": 0.0180495,
+        "cached": false
+      },
+      {
+        "step": "Vision p60",
+        "input_tokens": 621,
+        "output_tokens": 484,
+        "cost_usd": 0.000191775,
+        "cost_inr": 0.0161091,
+        "cached": false
+      },
+      {
+        "step": "Vision p61",
+        "input_tokens": 621,
+        "output_tokens": 632,
+        "cost_usd": 0.00023617499999999998,
+        "cost_inr": 0.019838699999999997,
+        "cached": false
+      },
+      {
+        "step": "Vision p62",
+        "input_tokens": 621,
+        "output_tokens": 424,
+        "cost_usd": 0.000173775,
+        "cost_inr": 0.0145971,
+        "cached": false
+      },
+      {
+        "step": "Vision p63",
+        "input_tokens": 621,
+        "output_tokens": 435,
+        "cost_usd": 0.000177075,
+        "cost_inr": 0.0148743,
+        "cached": false
+      },
+      {
+        "step": "Vision p64",
+        "input_tokens": 621,
+        "output_tokens": 1,
+        "cost_usd": 4.6875e-05,
+        "cost_inr": 0.0039375,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1314,
+        "output_tokens": 825,
+        "cost_usd": 0.00046140000000000005,
+        "cost_inr": 0.0387576,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1449,
+        "output_tokens": 846,
+        "cost_usd": 0.0004833,
+        "cost_inr": 0.0405972,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1329,
+        "output_tokens": 783,
+        "cost_usd": 0.00044610000000000006,
+        "cost_inr": 0.0374724,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1266,
+        "output_tokens": 819,
+        "cost_usd": 0.0004542,
+        "cost_inr": 0.0381528,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-02T14:06:20",
+    "exam": "APPSC GROUP 2 PRELIMS 2023",
+    "questions": 150,
+    "total_inr": 1.0885,
+    "steps": [
+      {
+        "step": "Vision p1",
+        "input_tokens": 621,
+        "output_tokens": 1,
+        "cost_usd": 4.6875e-05,
+        "cost_inr": 0.0039375,
+        "cached": false
+      },
+      {
+        "step": "Vision p2",
+        "input_tokens": 621,
+        "output_tokens": 921,
+        "cost_usd": 0.000322875,
+        "cost_inr": 0.027121499999999996,
+        "cached": false
+      },
+      {
+        "step": "Vision p3",
+        "input_tokens": 621,
+        "output_tokens": 1368,
+        "cost_usd": 0.000456975,
+        "cost_inr": 0.0383859,
+        "cached": false
+      },
+      {
+        "step": "Vision p4",
+        "input_tokens": 621,
+        "output_tokens": 550,
+        "cost_usd": 0.000211575,
+        "cost_inr": 0.0177723,
+        "cached": false
+      },
+      {
+        "step": "Vision p5",
+        "input_tokens": 621,
+        "output_tokens": 619,
+        "cost_usd": 0.000232275,
+        "cost_inr": 0.0195111,
+        "cached": false
+      },
+      {
+        "step": "Vision p6",
+        "input_tokens": 621,
+        "output_tokens": 615,
+        "cost_usd": 0.000231075,
+        "cost_inr": 0.0194103,
+        "cached": false
+      },
+      {
+        "step": "Vision p7",
+        "input_tokens": 621,
+        "output_tokens": 412,
+        "cost_usd": 0.000170175,
+        "cost_inr": 0.0142947,
+        "cached": false
+      },
+      {
+        "step": "Vision p8",
+        "input_tokens": 621,
+        "output_tokens": 432,
+        "cost_usd": 0.00017617499999999999,
+        "cost_inr": 0.014798699999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p9",
+        "input_tokens": 621,
+        "output_tokens": 514,
+        "cost_usd": 0.00020077500000000001,
+        "cost_inr": 0.0168651,
+        "cached": false
+      },
+      {
+        "step": "Vision p10",
+        "input_tokens": 621,
+        "output_tokens": 489,
+        "cost_usd": 0.000193275,
+        "cost_inr": 0.0162351,
+        "cached": false
+      },
+      {
+        "step": "Vision p11",
+        "input_tokens": 621,
+        "output_tokens": 529,
+        "cost_usd": 0.000205275,
+        "cost_inr": 0.017243099999999997,
+        "cached": false
+      },
+      {
+        "step": "Vision p12",
+        "input_tokens": 621,
+        "output_tokens": 434,
+        "cost_usd": 0.000176775,
+        "cost_inr": 0.0148491,
+        "cached": false
+      },
+      {
+        "step": "Vision p13",
+        "input_tokens": 621,
+        "output_tokens": 470,
+        "cost_usd": 0.000187575,
+        "cost_inr": 0.0157563,
+        "cached": false
+      },
+      {
+        "step": "Vision p14",
+        "input_tokens": 621,
+        "output_tokens": 547,
+        "cost_usd": 0.00021067499999999998,
+        "cost_inr": 0.0176967,
+        "cached": false
+      },
+      {
+        "step": "Vision p15",
+        "input_tokens": 621,
+        "output_tokens": 582,
+        "cost_usd": 0.00022117500000000002,
+        "cost_inr": 0.018578700000000004,
+        "cached": false
+      },
+      {
+        "step": "Vision p16",
+        "input_tokens": 621,
+        "output_tokens": 572,
+        "cost_usd": 0.000218175,
+        "cost_inr": 0.0183267,
+        "cached": false
+      },
+      {
+        "step": "Vision p17",
+        "input_tokens": 621,
+        "output_tokens": 540,
+        "cost_usd": 0.00020857500000000001,
+        "cost_inr": 0.017520300000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision p18",
+        "input_tokens": 621,
+        "output_tokens": 457,
+        "cost_usd": 0.000183675,
+        "cost_inr": 0.0154287,
+        "cached": false
+      },
+      {
+        "step": "Vision p19",
+        "input_tokens": 621,
+        "output_tokens": 491,
+        "cost_usd": 0.000193875,
+        "cost_inr": 0.0162855,
+        "cached": false
+      },
+      {
+        "step": "Vision p20",
+        "input_tokens": 621,
+        "output_tokens": 580,
+        "cost_usd": 0.000220575,
+        "cost_inr": 0.0185283,
+        "cached": false
+      },
+      {
+        "step": "Vision p21",
+        "input_tokens": 621,
+        "output_tokens": 546,
+        "cost_usd": 0.000210375,
+        "cost_inr": 0.0176715,
+        "cached": false
+      },
+      {
+        "step": "Vision p22",
+        "input_tokens": 621,
+        "output_tokens": 384,
+        "cost_usd": 0.000161775,
+        "cost_inr": 0.0135891,
+        "cached": false
+      },
+      {
+        "step": "Vision p23",
+        "input_tokens": 621,
+        "output_tokens": 440,
+        "cost_usd": 0.00017857500000000002,
+        "cost_inr": 0.015000300000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p24",
+        "input_tokens": 621,
+        "output_tokens": 561,
+        "cost_usd": 0.000214875,
+        "cost_inr": 0.0180495,
+        "cached": false
+      },
+      {
+        "step": "Vision p25",
+        "input_tokens": 621,
+        "output_tokens": 450,
+        "cost_usd": 0.000181575,
+        "cost_inr": 0.0152523,
+        "cached": false
+      },
+      {
+        "step": "Vision p26",
+        "input_tokens": 621,
+        "output_tokens": 416,
+        "cost_usd": 0.000171375,
+        "cost_inr": 0.0143955,
+        "cached": false
+      },
+      {
+        "step": "Vision p27",
+        "input_tokens": 621,
+        "output_tokens": 419,
+        "cost_usd": 0.000172275,
+        "cost_inr": 0.0144711,
+        "cached": false
+      },
+      {
+        "step": "Vision p28",
+        "input_tokens": 621,
+        "output_tokens": 422,
+        "cost_usd": 0.000173175,
+        "cost_inr": 0.0145467,
+        "cached": false
+      },
+      {
+        "step": "Vision p29",
+        "input_tokens": 621,
+        "output_tokens": 429,
+        "cost_usd": 0.00017527500000000002,
+        "cost_inr": 0.014723100000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p30",
+        "input_tokens": 621,
+        "output_tokens": 456,
+        "cost_usd": 0.000183375,
+        "cost_inr": 0.0154035,
+        "cached": false
+      },
+      {
+        "step": "Vision p31",
+        "input_tokens": 621,
+        "output_tokens": 368,
+        "cost_usd": 0.000156975,
+        "cost_inr": 0.0131859,
+        "cached": false
+      },
+      {
+        "step": "Vision p32",
+        "input_tokens": 621,
+        "output_tokens": 374,
+        "cost_usd": 0.000158775,
+        "cost_inr": 0.0133371,
+        "cached": false
+      },
+      {
+        "step": "Vision p33",
+        "input_tokens": 621,
+        "output_tokens": 389,
+        "cost_usd": 0.000163275,
+        "cost_inr": 0.0137151,
+        "cached": false
+      },
+      {
+        "step": "Vision p34",
+        "input_tokens": 621,
+        "output_tokens": 478,
+        "cost_usd": 0.000189975,
+        "cost_inr": 0.0159579,
+        "cached": false
+      },
+      {
+        "step": "Vision p35",
+        "input_tokens": 621,
+        "output_tokens": 518,
+        "cost_usd": 0.00020197500000000002,
+        "cost_inr": 0.016965900000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision p36",
+        "input_tokens": 621,
+        "output_tokens": 467,
+        "cost_usd": 0.000186675,
+        "cost_inr": 0.0156807,
+        "cached": false
+      },
+      {
+        "step": "Vision p37",
+        "input_tokens": 621,
+        "output_tokens": 339,
+        "cost_usd": 0.00014827499999999999,
+        "cost_inr": 0.012455099999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p38",
+        "input_tokens": 621,
+        "output_tokens": 370,
+        "cost_usd": 0.000157575,
+        "cost_inr": 0.0132363,
+        "cached": false
+      },
+      {
+        "step": "Vision p39",
+        "input_tokens": 621,
+        "output_tokens": 343,
+        "cost_usd": 0.000149475,
+        "cost_inr": 0.012555899999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p40",
+        "input_tokens": 621,
+        "output_tokens": 354,
+        "cost_usd": 0.000152775,
+        "cost_inr": 0.012833099999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p41",
+        "input_tokens": 621,
+        "output_tokens": 386,
+        "cost_usd": 0.000162375,
+        "cost_inr": 0.0136395,
+        "cached": false
+      },
+      {
+        "step": "Vision p42",
+        "input_tokens": 621,
+        "output_tokens": 521,
+        "cost_usd": 0.00020287499999999998,
+        "cost_inr": 0.017041499999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p43",
+        "input_tokens": 621,
+        "output_tokens": 457,
+        "cost_usd": 0.000183675,
+        "cost_inr": 0.0154287,
+        "cached": false
+      },
+      {
+        "step": "Vision p44",
+        "input_tokens": 621,
+        "output_tokens": 342,
+        "cost_usd": 0.000149175,
+        "cost_inr": 0.0125307,
+        "cached": false
+      },
+      {
+        "step": "Vision p45",
+        "input_tokens": 621,
+        "output_tokens": 606,
+        "cost_usd": 0.000228375,
+        "cost_inr": 0.0191835,
+        "cached": false
+      },
+      {
+        "step": "Vision p46",
+        "input_tokens": 621,
+        "output_tokens": 485,
+        "cost_usd": 0.00019207500000000002,
+        "cost_inr": 0.0161343,
+        "cached": false
+      },
+      {
+        "step": "Vision p47",
+        "input_tokens": 621,
+        "output_tokens": 407,
+        "cost_usd": 0.00016867500000000002,
+        "cost_inr": 0.014168700000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p48",
+        "input_tokens": 621,
+        "output_tokens": 567,
+        "cost_usd": 0.000216675,
+        "cost_inr": 0.0182007,
+        "cached": false
+      },
+      {
+        "step": "Vision p49",
+        "input_tokens": 621,
+        "output_tokens": 491,
+        "cost_usd": 0.000193875,
+        "cost_inr": 0.0162855,
+        "cached": false
+      },
+      {
+        "step": "Vision p50",
+        "input_tokens": 621,
+        "output_tokens": 267,
+        "cost_usd": 0.000126675,
+        "cost_inr": 0.0106407,
+        "cached": false
+      },
+      {
+        "step": "Vision p51",
+        "input_tokens": 621,
+        "output_tokens": 574,
+        "cost_usd": 0.000218775,
+        "cost_inr": 0.0183771,
+        "cached": false
+      },
+      {
+        "step": "Vision p52",
+        "input_tokens": 621,
+        "output_tokens": 496,
+        "cost_usd": 0.00019537500000000002,
+        "cost_inr": 0.016411500000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision p53",
+        "input_tokens": 621,
+        "output_tokens": 742,
+        "cost_usd": 0.00026917499999999997,
+        "cost_inr": 0.022610699999999997,
+        "cached": false
+      },
+      {
+        "step": "Vision p54",
+        "input_tokens": 621,
+        "output_tokens": 472,
+        "cost_usd": 0.000188175,
+        "cost_inr": 0.0158067,
+        "cached": false
+      },
+      {
+        "step": "Vision p55",
+        "input_tokens": 621,
+        "output_tokens": 413,
+        "cost_usd": 0.000170475,
+        "cost_inr": 0.0143199,
+        "cached": false
+      },
+      {
+        "step": "Vision p56",
+        "input_tokens": 621,
+        "output_tokens": 1,
+        "cost_usd": 4.6875e-05,
+        "cost_inr": 0.0039375,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 908,
+        "output_tokens": 844,
+        "cost_usd": 0.0004284,
+        "cost_inr": 0.0359856,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1175,
+        "output_tokens": 796,
+        "cost_usd": 0.0004359,
+        "cost_inr": 0.036615600000000005,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1273,
+        "output_tokens": 834,
+        "cost_usd": 0.00046090000000000004,
+        "cost_inr": 0.0387156,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1166,
+        "output_tokens": 782,
+        "cost_usd": 0.00042940000000000003,
+        "cost_inr": 0.0360696,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1639,
+        "output_tokens": 923,
+        "cost_usd": 0.0005331000000000001,
+        "cost_inr": 0.04478040000000001,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-02T14:19:54",
+    "exam": "APPSC EO GRADE 2 PAPER 1 2025",
+    "questions": 150,
+    "total_inr": 0.9573,
+    "steps": [
+      {
+        "step": "Vision p1",
+        "input_tokens": 621,
+        "output_tokens": 864,
+        "cost_usd": 0.00030577499999999994,
+        "cost_inr": 0.025685099999999995,
+        "cached": false
+      },
+      {
+        "step": "Vision p2",
+        "input_tokens": 621,
+        "output_tokens": 1623,
+        "cost_usd": 0.000533475,
+        "cost_inr": 0.0448119,
+        "cached": false
+      },
+      {
+        "step": "Vision p3",
+        "input_tokens": 621,
+        "output_tokens": 1235,
+        "cost_usd": 0.000417075,
+        "cost_inr": 0.0350343,
+        "cached": false
+      },
+      {
+        "step": "Vision p4",
+        "input_tokens": 621,
+        "output_tokens": 584,
+        "cost_usd": 0.000221775,
+        "cost_inr": 0.018629100000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision p5",
+        "input_tokens": 621,
+        "output_tokens": 647,
+        "cost_usd": 0.000240675,
+        "cost_inr": 0.0202167,
+        "cached": false
+      },
+      {
+        "step": "Vision p6",
+        "input_tokens": 621,
+        "output_tokens": 584,
+        "cost_usd": 0.000221775,
+        "cost_inr": 0.018629100000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision p7",
+        "input_tokens": 621,
+        "output_tokens": 686,
+        "cost_usd": 0.000252375,
+        "cost_inr": 0.0211995,
+        "cached": false
+      },
+      {
+        "step": "Vision p8",
+        "input_tokens": 621,
+        "output_tokens": 670,
+        "cost_usd": 0.000247575,
+        "cost_inr": 0.0207963,
+        "cached": false
+      },
+      {
+        "step": "Vision p9",
+        "input_tokens": 621,
+        "output_tokens": 583,
+        "cost_usd": 0.000221475,
+        "cost_inr": 0.0186039,
+        "cached": false
+      },
+      {
+        "step": "Vision p10",
+        "input_tokens": 621,
+        "output_tokens": 463,
+        "cost_usd": 0.000185475,
+        "cost_inr": 0.015579899999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision p11",
+        "input_tokens": 621,
+        "output_tokens": 558,
+        "cost_usd": 0.000213975,
+        "cost_inr": 0.0179739,
+        "cached": false
+      },
+      {
+        "step": "Vision p12",
+        "input_tokens": 621,
+        "output_tokens": 440,
+        "cost_usd": 0.00017857500000000002,
+        "cost_inr": 0.015000300000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p13",
+        "input_tokens": 621,
+        "output_tokens": 332,
+        "cost_usd": 0.000146175,
+        "cost_inr": 0.012278699999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p14",
+        "input_tokens": 621,
+        "output_tokens": 424,
+        "cost_usd": 0.000173775,
+        "cost_inr": 0.0145971,
+        "cached": false
+      },
+      {
+        "step": "Vision p15",
+        "input_tokens": 621,
+        "output_tokens": 306,
+        "cost_usd": 0.000138375,
+        "cost_inr": 0.011623499999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision p16",
+        "input_tokens": 621,
+        "output_tokens": 390,
+        "cost_usd": 0.000163575,
+        "cost_inr": 0.0137403,
+        "cached": false
+      },
+      {
+        "step": "Vision p17",
+        "input_tokens": 621,
+        "output_tokens": 331,
+        "cost_usd": 0.000145875,
+        "cost_inr": 0.0122535,
+        "cached": false
+      },
+      {
+        "step": "Vision p18",
+        "input_tokens": 621,
+        "output_tokens": 315,
+        "cost_usd": 0.000141075,
+        "cost_inr": 0.0118503,
+        "cached": false
+      },
+      {
+        "step": "Vision p19",
+        "input_tokens": 621,
+        "output_tokens": 483,
+        "cost_usd": 0.000191475,
+        "cost_inr": 0.0160839,
+        "cached": false
+      },
+      {
+        "step": "Vision p20",
+        "input_tokens": 621,
+        "output_tokens": 447,
+        "cost_usd": 0.00018067500000000001,
+        "cost_inr": 0.015176700000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p21",
+        "input_tokens": 621,
+        "output_tokens": 423,
+        "cost_usd": 0.000173475,
+        "cost_inr": 0.0145719,
+        "cached": false
+      },
+      {
+        "step": "Vision p22",
+        "input_tokens": 621,
+        "output_tokens": 253,
+        "cost_usd": 0.000122475,
+        "cost_inr": 0.0102879,
+        "cached": false
+      },
+      {
+        "step": "Vision p23",
+        "input_tokens": 621,
+        "output_tokens": 375,
+        "cost_usd": 0.000159075,
+        "cost_inr": 0.0133623,
+        "cached": false
+      },
+      {
+        "step": "Vision p24",
+        "input_tokens": 621,
+        "output_tokens": 303,
+        "cost_usd": 0.000137475,
+        "cost_inr": 0.0115479,
+        "cached": false
+      },
+      {
+        "step": "Vision p25",
+        "input_tokens": 621,
+        "output_tokens": 384,
+        "cost_usd": 0.000161775,
+        "cost_inr": 0.0135891,
+        "cached": false
+      },
+      {
+        "step": "Vision p26",
+        "input_tokens": 621,
+        "output_tokens": 282,
+        "cost_usd": 0.000131175,
+        "cost_inr": 0.011018700000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision p27",
+        "input_tokens": 621,
+        "output_tokens": 886,
+        "cost_usd": 0.00031237499999999994,
+        "cost_inr": 0.026239499999999995,
+        "cached": false
+      },
+      {
+        "step": "Vision p28",
+        "input_tokens": 621,
+        "output_tokens": 107,
+        "cost_usd": 7.8675e-05,
+        "cost_inr": 0.0066087,
+        "cached": false
+      },
+      {
+        "step": "Vision p29",
+        "input_tokens": 621,
+        "output_tokens": 390,
+        "cost_usd": 0.000163575,
+        "cost_inr": 0.0137403,
+        "cached": false
+      },
+      {
+        "step": "Vision p30",
+        "input_tokens": 621,
+        "output_tokens": 653,
+        "cost_usd": 0.00024247500000000003,
+        "cost_inr": 0.0203679,
+        "cached": false
+      },
+      {
+        "step": "Vision p31",
+        "input_tokens": 621,
+        "output_tokens": 527,
+        "cost_usd": 0.000204675,
+        "cost_inr": 0.0171927,
+        "cached": false
+      },
+      {
+        "step": "Vision p32",
+        "input_tokens": 621,
+        "output_tokens": 360,
+        "cost_usd": 0.000154575,
+        "cost_inr": 0.0129843,
+        "cached": false
+      },
+      {
+        "step": "Vision p33",
+        "input_tokens": 621,
+        "output_tokens": 402,
+        "cost_usd": 0.000167175,
+        "cost_inr": 0.014042700000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision p34",
+        "input_tokens": 621,
+        "output_tokens": 550,
+        "cost_usd": 0.000211575,
+        "cost_inr": 0.0177723,
+        "cached": false
+      },
+      {
+        "step": "Vision p35",
+        "input_tokens": 621,
+        "output_tokens": 374,
+        "cost_usd": 0.000158775,
+        "cost_inr": 0.0133371,
+        "cached": false
+      },
+      {
+        "step": "Vision p36",
+        "input_tokens": 621,
+        "output_tokens": 303,
+        "cost_usd": 0.000137475,
+        "cost_inr": 0.0115479,
+        "cached": false
+      },
+      {
+        "step": "Vision p37",
+        "input_tokens": 621,
+        "output_tokens": 426,
+        "cost_usd": 0.000174375,
+        "cost_inr": 0.014647499999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision p38",
+        "input_tokens": 621,
+        "output_tokens": 551,
+        "cost_usd": 0.000211875,
+        "cost_inr": 0.017797499999999997,
+        "cached": false
+      },
+      {
+        "step": "Vision p39",
+        "input_tokens": 621,
+        "output_tokens": 714,
+        "cost_usd": 0.000260775,
+        "cost_inr": 0.021905099999999997,
+        "cached": false
+      },
+      {
+        "step": "Vision p40",
+        "input_tokens": 621,
+        "output_tokens": 640,
+        "cost_usd": 0.000238575,
+        "cost_inr": 0.0200403,
+        "cached": false
+      },
+      {
+        "step": "Vision p41",
+        "input_tokens": 621,
+        "output_tokens": 588,
+        "cost_usd": 0.00022297499999999999,
+        "cost_inr": 0.018729899999999997,
+        "cached": false
+      },
+      {
+        "step": "Vision p42",
+        "input_tokens": 621,
+        "output_tokens": 689,
+        "cost_usd": 0.000253275,
+        "cost_inr": 0.0212751,
+        "cached": false
+      },
+      {
+        "step": "Vision p43",
+        "input_tokens": 621,
+        "output_tokens": 471,
+        "cost_usd": 0.000187875,
+        "cost_inr": 0.0157815,
+        "cached": false
+      },
+      {
+        "step": "Vision p44",
+        "input_tokens": 621,
+        "output_tokens": 481,
+        "cost_usd": 0.000190875,
+        "cost_inr": 0.0160335,
+        "cached": false
+      },
+      {
+        "step": "Vision p45",
+        "input_tokens": 621,
+        "output_tokens": 507,
+        "cost_usd": 0.000198675,
+        "cost_inr": 0.0166887,
+        "cached": false
+      },
+      {
+        "step": "Vision p46",
+        "input_tokens": 621,
+        "output_tokens": 1,
+        "cost_usd": 4.6875e-05,
+        "cost_inr": 0.0039375,
+        "cached": false
+      },
+      {
+        "step": "Vision p47",
+        "input_tokens": 621,
+        "output_tokens": 1,
+        "cost_usd": 4.6875e-05,
+        "cost_inr": 0.0039375,
+        "cached": false
+      },
+      {
+        "step": "Vision p48",
+        "input_tokens": 621,
+        "output_tokens": 1,
+        "cost_usd": 4.6875e-05,
+        "cost_inr": 0.0039375,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 744,
+        "output_tokens": 820,
+        "cost_usd": 0.0004024,
+        "cost_inr": 0.0338016,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 642,
+        "output_tokens": 784,
+        "cost_usd": 0.0003778,
+        "cost_inr": 0.031735200000000005,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1054,
+        "output_tokens": 875,
+        "cost_usd": 0.00045540000000000006,
+        "cost_inr": 0.038253600000000006,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1065,
+        "output_tokens": 870,
+        "cost_usd": 0.0004545,
+        "cost_inr": 0.038178,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 653,
+        "output_tokens": 809,
+        "cost_usd": 0.0003889000000000001,
+        "cost_inr": 0.032667600000000005,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-06T07:23:19",
+    "exam": "TSPSC GROUP 3 PAPER 1 2023",
+    "questions": 159,
+    "total_inr": 1.5853,
+    "steps": [
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 567,
+        "cost_usd": 0.0002737,
+        "cost_inr": 0.0229908,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 301,
+        "cost_usd": 0.0001673,
+        "cost_inr": 0.0140532,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 325,
+        "cost_usd": 0.0001769,
+        "cost_inr": 0.014859599999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 374,
+        "cost_usd": 0.0001965,
+        "cost_inr": 0.016506,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 371,
+        "cost_usd": 0.00019530000000000003,
+        "cost_inr": 0.0164052,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 345,
+        "cost_usd": 0.0001849,
+        "cost_inr": 0.0155316,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 273,
+        "cost_usd": 0.0001561,
+        "cost_inr": 0.0131124,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 293,
+        "cost_usd": 0.00016410000000000003,
+        "cost_inr": 0.013784400000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 260,
+        "cost_usd": 0.00015089999999999998,
+        "cost_inr": 0.012675599999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 223,
+        "cost_usd": 0.0001361,
+        "cost_inr": 0.0114324,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 298,
+        "cost_usd": 0.0001661,
+        "cost_inr": 0.0139524,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 308,
+        "cost_usd": 0.00017010000000000001,
+        "cost_inr": 0.014288400000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 274,
+        "cost_usd": 0.0001565,
+        "cost_inr": 0.013146000000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 280,
+        "cost_usd": 0.0001589,
+        "cost_inr": 0.013347600000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 220,
+        "cost_usd": 0.00013490000000000003,
+        "cost_inr": 0.011331600000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 334,
+        "cost_usd": 0.0001805,
+        "cost_inr": 0.015162,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 355,
+        "cost_usd": 0.0001889,
+        "cost_inr": 0.015867600000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 421,
+        "cost_usd": 0.0002153,
+        "cost_inr": 0.0180852,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 282,
+        "cost_usd": 0.00015970000000000003,
+        "cost_inr": 0.013414800000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 252,
+        "cost_usd": 0.0001477,
+        "cost_inr": 0.0124068,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 312,
+        "cost_usd": 0.0001717,
+        "cost_inr": 0.0144228,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 315,
+        "cost_usd": 0.0001729,
+        "cost_inr": 0.0145236,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 274,
+        "cost_usd": 0.0001565,
+        "cost_inr": 0.013146000000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 282,
+        "cost_usd": 0.00015970000000000003,
+        "cost_inr": 0.013414800000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 344,
+        "cost_usd": 0.0001845,
+        "cost_inr": 0.015498000000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 271,
+        "cost_usd": 0.00015529999999999998,
+        "cost_inr": 0.013045199999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 259,
+        "cost_usd": 0.00015050000000000003,
+        "cost_inr": 0.012642000000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 294,
+        "cost_usd": 0.0001645,
+        "cost_inr": 0.013817999999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 326,
+        "cost_usd": 0.0001773,
+        "cost_inr": 0.0148932,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 340,
+        "cost_usd": 0.00018290000000000003,
+        "cost_inr": 0.015363600000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 323,
+        "cost_usd": 0.0001761,
+        "cost_inr": 0.0147924,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 213,
+        "cost_usd": 0.0001321,
+        "cost_inr": 0.011096400000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 312,
+        "cost_usd": 0.0001717,
+        "cost_inr": 0.0144228,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 365,
+        "cost_usd": 0.0001929,
+        "cost_inr": 0.0162036,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 544,
+        "cost_usd": 0.0002645,
+        "cost_inr": 0.022217999999999998,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 254,
+        "cost_usd": 0.0001485,
+        "cost_inr": 0.012474,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 120,
+        "cost_usd": 9.49e-05,
+        "cost_inr": 0.0079716,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 343,
+        "cost_usd": 0.0001841,
+        "cost_inr": 0.0154644,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 422,
+        "cost_usd": 0.0002157,
+        "cost_inr": 0.0181188,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 250,
+        "cost_usd": 0.0001469,
+        "cost_inr": 0.0123396,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 199,
+        "cost_usd": 0.0001265,
+        "cost_inr": 0.010626000000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 179,
+        "cost_usd": 0.0001185,
+        "cost_inr": 0.009954,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 817,
+        "cost_usd": 0.00037370000000000003,
+        "cost_inr": 0.0313908,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 861,
+        "cost_usd": 0.0003913,
+        "cost_inr": 0.0328692,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 408,
+        "cost_usd": 0.0002101,
+        "cost_inr": 0.0176484,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 928,
+        "cost_usd": 0.0004181,
+        "cost_inr": 0.0351204,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 16,
+        "cost_usd": 5.33e-05,
+        "cost_inr": 0.0044772,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 795,
+        "cost_usd": 0.00036490000000000003,
+        "cost_inr": 0.0306516,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p17",
+        "input_tokens": 867,
+        "output_tokens": 724,
+        "cost_usd": 0.00037630000000000004,
+        "cost_inr": 0.031609200000000004,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p18",
+        "input_tokens": 867,
+        "output_tokens": 689,
+        "cost_usd": 0.0003623,
+        "cost_inr": 0.0304332,
+        "cached": false
+      },
+      {
+        "step": "Targeted Vision p19",
+        "input_tokens": 855,
+        "output_tokens": 361,
+        "cost_usd": 0.0002299,
+        "cost_inr": 0.0193116,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1301,
+        "output_tokens": 810,
+        "cost_usd": 0.00045410000000000003,
+        "cost_inr": 0.0381444,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1212,
+        "output_tokens": 828,
+        "cost_usd": 0.00045240000000000005,
+        "cost_inr": 0.0380016,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1299,
+        "output_tokens": 848,
+        "cost_usd": 0.0004691,
+        "cost_inr": 0.0394044,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1499,
+        "output_tokens": 956,
+        "cost_usd": 0.0005323000000000001,
+        "cost_inr": 0.04471320000000001,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1278,
+        "output_tokens": 854,
+        "cost_usd": 0.0004694000000000001,
+        "cost_inr": 0.03942960000000001,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 389,
+        "output_tokens": 255,
+        "cost_usd": 0.0001409,
+        "cost_inr": 0.011835600000000002,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1383,
+        "output_tokens": 1086,
+        "cost_usd": 0.0005727,
+        "cost_inr": 0.0481068,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1411,
+        "output_tokens": 1034,
+        "cost_usd": 0.0005547,
+        "cost_inr": 0.0465948,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1496,
+        "output_tokens": 1345,
+        "cost_usd": 0.0006876,
+        "cost_inr": 0.0577584,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1486,
+        "output_tokens": 2614,
+        "cost_usd": 0.0011942,
+        "cost_inr": 0.10031280000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1260,
+        "output_tokens": 1210,
+        "cost_usd": 0.00061,
+        "cost_inr": 0.05124,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1326,
+        "output_tokens": 1111,
+        "cost_usd": 0.000577,
+        "cost_inr": 0.048468000000000004,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1617,
+        "output_tokens": 1205,
+        "cost_usd": 0.0006437,
+        "cost_inr": 0.054070799999999995,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1399,
+        "output_tokens": 1239,
+        "cost_usd": 0.0006355,
+        "cost_inr": 0.053382,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1574,
+        "output_tokens": 1019,
+        "cost_usd": 0.000565,
+        "cost_inr": 0.047459999999999995,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 947,
+        "output_tokens": 778,
+        "cost_usd": 0.00040590000000000005,
+        "cost_inr": 0.034095600000000004,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-06T08:26:15",
+    "exam": "TSPSC GROUP 3 PAPER 2 2023",
+    "questions": 156,
+    "total_inr": 1.5224,
+    "steps": [
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 567,
+        "cost_usd": 0.0002737,
+        "cost_inr": 0.0229908,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 314,
+        "cost_usd": 0.0001725,
+        "cost_inr": 0.01449,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 273,
+        "cost_usd": 0.0001561,
+        "cost_inr": 0.0131124,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 340,
+        "cost_usd": 0.00018290000000000003,
+        "cost_inr": 0.015363600000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 339,
+        "cost_usd": 0.00018250000000000002,
+        "cost_inr": 0.015330000000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 289,
+        "cost_usd": 0.0001625,
+        "cost_inr": 0.013649999999999999,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 339,
+        "cost_usd": 0.00018250000000000002,
+        "cost_inr": 0.015330000000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 254,
+        "cost_usd": 0.0001485,
+        "cost_inr": 0.012474,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 398,
+        "cost_usd": 0.00020610000000000002,
+        "cost_inr": 0.017312400000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 411,
+        "cost_usd": 0.0002113,
+        "cost_inr": 0.0177492,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 334,
+        "cost_usd": 0.0001805,
+        "cost_inr": 0.015162,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 363,
+        "cost_usd": 0.0001921,
+        "cost_inr": 0.016136400000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 353,
+        "cost_usd": 0.00018810000000000002,
+        "cost_inr": 0.015800400000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 345,
+        "cost_usd": 0.0001849,
+        "cost_inr": 0.0155316,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 322,
+        "cost_usd": 0.00017570000000000002,
+        "cost_inr": 0.0147588,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 323,
+        "cost_usd": 0.0001761,
+        "cost_inr": 0.0147924,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 244,
+        "cost_usd": 0.0001445,
+        "cost_inr": 0.012138,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 280,
+        "cost_usd": 0.0001589,
+        "cost_inr": 0.013347600000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 340,
+        "cost_usd": 0.00018290000000000003,
+        "cost_inr": 0.015363600000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 333,
+        "cost_usd": 0.00018010000000000001,
+        "cost_inr": 0.015128400000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 301,
+        "cost_usd": 0.0001673,
+        "cost_inr": 0.0140532,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 268,
+        "cost_usd": 0.0001541,
+        "cost_inr": 0.0129444,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 302,
+        "cost_usd": 0.0001677,
+        "cost_inr": 0.0140868,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 358,
+        "cost_usd": 0.00019009999999999999,
+        "cost_inr": 0.015968399999999997,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 298,
+        "cost_usd": 0.0001661,
+        "cost_inr": 0.0139524,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 385,
+        "cost_usd": 0.0002009,
+        "cost_inr": 0.0168756,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 310,
+        "cost_usd": 0.0001709,
+        "cost_inr": 0.014355600000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 340,
+        "cost_usd": 0.00018290000000000003,
+        "cost_inr": 0.015363600000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 324,
+        "cost_usd": 0.0001765,
+        "cost_inr": 0.014826,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 319,
+        "cost_usd": 0.0001745,
+        "cost_inr": 0.014658000000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 381,
+        "cost_usd": 0.00019930000000000002,
+        "cost_inr": 0.0167412,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 258,
+        "cost_usd": 0.00015010000000000002,
+        "cost_inr": 0.012608400000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 331,
+        "cost_usd": 0.00017930000000000002,
+        "cost_inr": 0.015061200000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 293,
+        "cost_usd": 0.00016410000000000003,
+        "cost_inr": 0.013784400000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 328,
+        "cost_usd": 0.00017810000000000002,
+        "cost_inr": 0.014960400000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 299,
+        "cost_usd": 0.0001665,
+        "cost_inr": 0.013986,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 344,
+        "cost_usd": 0.0001845,
+        "cost_inr": 0.015498000000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 351,
+        "cost_usd": 0.00018730000000000003,
+        "cost_inr": 0.015733200000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 310,
+        "cost_usd": 0.0001709,
+        "cost_inr": 0.014355600000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 328,
+        "cost_usd": 0.00017810000000000002,
+        "cost_inr": 0.014960400000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 239,
+        "cost_usd": 0.0001425,
+        "cost_inr": 0.01197,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 264,
+        "cost_usd": 0.00015250000000000002,
+        "cost_inr": 0.012810000000000002,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 323,
+        "cost_usd": 0.0001761,
+        "cost_inr": 0.0147924,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 281,
+        "cost_usd": 0.00015930000000000002,
+        "cost_inr": 0.013381200000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 248,
+        "cost_usd": 0.00014610000000000003,
+        "cost_inr": 0.012272400000000003,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 40,
+        "cost_usd": 6.290000000000001e-05,
+        "cost_inr": 0.005283600000000001,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 8,
+        "cost_usd": 5.01e-05,
+        "cost_inr": 0.0042084,
+        "cached": false
+      },
+      {
+        "step": "Vision OCR",
+        "input_tokens": 469,
+        "output_tokens": 823,
+        "cost_usd": 0.0003761,
+        "cost_inr": 0.0315924,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1358,
+        "output_tokens": 825,
+        "cost_usd": 0.00046580000000000005,
+        "cost_inr": 0.0391272,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1256,
+        "output_tokens": 812,
+        "cost_usd": 0.0004504,
+        "cost_inr": 0.0378336,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1272,
+        "output_tokens": 841,
+        "cost_usd": 0.0004636,
+        "cost_inr": 0.0389424,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1262,
+        "output_tokens": 834,
+        "cost_usd": 0.0004598,
+        "cost_inr": 0.0386232,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1269,
+        "output_tokens": 817,
+        "cost_usd": 0.0004537,
+        "cost_inr": 0.0381108,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 278,
+        "output_tokens": 188,
+        "cost_usd": 0.000103,
+        "cost_inr": 0.008652,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1525,
+        "output_tokens": 2551,
+        "cost_usd": 0.0011729000000000002,
+        "cost_inr": 0.09852360000000002,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1371,
+        "output_tokens": 1244,
+        "cost_usd": 0.0006347000000000001,
+        "cost_inr": 0.05331480000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1373,
+        "output_tokens": 1105,
+        "cost_usd": 0.0005793,
+        "cost_inr": 0.0486612,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1460,
+        "output_tokens": 1432,
+        "cost_usd": 0.0007187999999999999,
+        "cost_inr": 0.060379199999999994,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1644,
+        "output_tokens": 1304,
+        "cost_usd": 0.000686,
+        "cost_inr": 0.057623999999999995,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1299,
+        "output_tokens": 1751,
+        "cost_usd": 0.0008303,
+        "cost_inr": 0.0697452,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1494,
+        "output_tokens": 1119,
+        "cost_usd": 0.0005970000000000001,
+        "cost_inr": 0.050148000000000005,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1234,
+        "output_tokens": 1330,
+        "cost_usd": 0.0006554,
+        "cost_inr": 0.0550536,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1247,
+        "output_tokens": 912,
+        "cost_usd": 0.0004895,
+        "cost_inr": 0.041118,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1640,
+        "output_tokens": 1171,
+        "cost_usd": 0.0006324,
+        "cost_inr": 0.0531216,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 787,
+        "output_tokens": 587,
+        "cost_usd": 0.0003135,
+        "cost_inr": 0.026333999999999996,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-06T08:43:30",
+    "exam": "TSPSC GROUP 3 PAPER 2 2023",
+    "questions": 150,
+    "total_inr": 0.7527,
+    "steps": [
+      {
+        "step": "Tagging",
+        "input_tokens": 1394,
+        "output_tokens": 848,
+        "cost_usd": 0.00047860000000000003,
+        "cost_inr": 0.0402024,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1345,
+        "output_tokens": 809,
+        "cost_usd": 0.0004581000000000001,
+        "cost_inr": 0.038480400000000005,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1340,
+        "output_tokens": 874,
+        "cost_usd": 0.00048360000000000005,
+        "cost_inr": 0.0406224,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1304,
+        "output_tokens": 820,
+        "cost_usd": 0.0004584,
+        "cost_inr": 0.0385056,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1416,
+        "output_tokens": 819,
+        "cost_usd": 0.0004692,
+        "cost_inr": 0.039412800000000005,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1480,
+        "output_tokens": 1151,
+        "cost_usd": 0.0006084,
+        "cost_inr": 0.0511056,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1703,
+        "output_tokens": 1244,
+        "cost_usd": 0.0006679000000000001,
+        "cost_inr": 0.05610360000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1486,
+        "output_tokens": 1200,
+        "cost_usd": 0.0006286,
+        "cost_inr": 0.0528024,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1732,
+        "output_tokens": 1347,
+        "cost_usd": 0.0007120000000000001,
+        "cost_inr": 0.05980800000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1405,
+        "output_tokens": 1166,
+        "cost_usd": 0.0006069000000000001,
+        "cost_inr": 0.05097960000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1646,
+        "output_tokens": 1540,
+        "cost_usd": 0.0007806,
+        "cost_inr": 0.0655704,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1514,
+        "output_tokens": 1256,
+        "cost_usd": 0.0006538,
+        "cost_inr": 0.054919199999999994,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1408,
+        "output_tokens": 1369,
+        "cost_usd": 0.0006884,
+        "cost_inr": 0.057825600000000005,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1395,
+        "output_tokens": 1049,
+        "cost_usd": 0.0005591,
+        "cost_inr": 0.046964399999999996,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1670,
+        "output_tokens": 1349,
+        "cost_usd": 0.0007066,
+        "cost_inr": 0.0593544,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-06T08:46:27",
+    "exam": "TSPSC GROUP 3 PAPER 3 2023",
+    "questions": 150,
+    "total_inr": 0.7881,
+    "steps": [
+      {
+        "step": "Tagging",
+        "input_tokens": 1653,
+        "output_tokens": 787,
+        "cost_usd": 0.00048010000000000007,
+        "cost_inr": 0.04032840000000001,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1586,
+        "output_tokens": 857,
+        "cost_usd": 0.0005014,
+        "cost_inr": 0.042117600000000005,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1570,
+        "output_tokens": 771,
+        "cost_usd": 0.00046540000000000004,
+        "cost_inr": 0.039093600000000006,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1433,
+        "output_tokens": 854,
+        "cost_usd": 0.0004849000000000001,
+        "cost_inr": 0.04073160000000001,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1352,
+        "output_tokens": 834,
+        "cost_usd": 0.0004688,
+        "cost_inr": 0.0393792,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1913,
+        "output_tokens": 1358,
+        "cost_usd": 0.0007345000000000001,
+        "cost_inr": 0.06169800000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1888,
+        "output_tokens": 1255,
+        "cost_usd": 0.0006908000000000001,
+        "cost_inr": 0.05802720000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1793,
+        "output_tokens": 1169,
+        "cost_usd": 0.0006469,
+        "cost_inr": 0.054339599999999995,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1784,
+        "output_tokens": 1315,
+        "cost_usd": 0.0007044,
+        "cost_inr": 0.0591696,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1735,
+        "output_tokens": 1220,
+        "cost_usd": 0.0006615,
+        "cost_inr": 0.055566,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1442,
+        "output_tokens": 1283,
+        "cost_usd": 0.0006574,
+        "cost_inr": 0.0552216,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 2015,
+        "output_tokens": 1420,
+        "cost_usd": 0.0007695,
+        "cost_inr": 0.064638,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1654,
+        "output_tokens": 1249,
+        "cost_usd": 0.000665,
+        "cost_inr": 0.05586,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1833,
+        "output_tokens": 1450,
+        "cost_usd": 0.0007633,
+        "cost_inr": 0.0641172,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1693,
+        "output_tokens": 1298,
+        "cost_usd": 0.0006885,
+        "cost_inr": 0.057833999999999997,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-06T09:14:59",
+    "exam": "GROUP 2 PAPER 2 2024",
+    "questions": 150,
+    "total_inr": 0.7775,
+    "steps": [
+      {
+        "step": "Tagging",
+        "input_tokens": 1587,
+        "output_tokens": 857,
+        "cost_usd": 0.0005015,
+        "cost_inr": 0.042126,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1389,
+        "output_tokens": 805,
+        "cost_usd": 0.00046090000000000004,
+        "cost_inr": 0.0387156,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1418,
+        "output_tokens": 885,
+        "cost_usd": 0.0004958,
+        "cost_inr": 0.0416472,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1388,
+        "output_tokens": 841,
+        "cost_usd": 0.00047519999999999995,
+        "cost_inr": 0.039916799999999995,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1219,
+        "output_tokens": 837,
+        "cost_usd": 0.0004567,
+        "cost_inr": 0.0383628,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1964,
+        "output_tokens": 1371,
+        "cost_usd": 0.0007448,
+        "cost_inr": 0.0625632,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1615,
+        "output_tokens": 1257,
+        "cost_usd": 0.0006643,
+        "cost_inr": 0.0558012,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1794,
+        "output_tokens": 1250,
+        "cost_usd": 0.0006794,
+        "cost_inr": 0.057069600000000005,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1567,
+        "output_tokens": 1510,
+        "cost_usd": 0.0007607,
+        "cost_inr": 0.0638988,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1411,
+        "output_tokens": 1162,
+        "cost_usd": 0.0006059,
+        "cost_inr": 0.050895600000000006,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1426,
+        "output_tokens": 1174,
+        "cost_usd": 0.0006122,
+        "cost_inr": 0.0514248,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1759,
+        "output_tokens": 1443,
+        "cost_usd": 0.0007531,
+        "cost_inr": 0.06326040000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1791,
+        "output_tokens": 1405,
+        "cost_usd": 0.0007411,
+        "cost_inr": 0.0622524,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1721,
+        "output_tokens": 1355,
+        "cost_usd": 0.0007141000000000001,
+        "cost_inr": 0.05998440000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1590,
+        "output_tokens": 1079,
+        "cost_usd": 0.0005906000000000002,
+        "cost_inr": 0.04961040000000001,
+        "cached": false
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-04-06T09:47:24",
+    "exam": "TSPSC GROUP 2 PAPER 3 2024",
+    "questions": 147,
+    "total_inr": 0.7972,
+    "steps": [
+      {
+        "step": "Tagging",
+        "input_tokens": 1486,
+        "output_tokens": 795,
+        "cost_usd": 0.00046660000000000007,
+        "cost_inr": 0.039194400000000004,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1544,
+        "output_tokens": 827,
+        "cost_usd": 0.00048520000000000003,
+        "cost_inr": 0.0407568,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1595,
+        "output_tokens": 801,
+        "cost_usd": 0.0004799,
+        "cost_inr": 0.0403116,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1571,
+        "output_tokens": 816,
+        "cost_usd": 0.0004835,
+        "cost_inr": 0.040614,
+        "cached": false
+      },
+      {
+        "step": "Tagging",
+        "input_tokens": 1293,
+        "output_tokens": 734,
+        "cost_usd": 0.00042290000000000003,
+        "cost_inr": 0.0355236,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1825,
+        "output_tokens": 1241,
+        "cost_usd": 0.0006789000000000001,
+        "cost_inr": 0.057027600000000005,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1848,
+        "output_tokens": 1263,
+        "cost_usd": 0.0006900000000000001,
+        "cost_inr": 0.057960000000000005,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1951,
+        "output_tokens": 1761,
+        "cost_usd": 0.0008995,
+        "cost_inr": 0.075558,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1998,
+        "output_tokens": 1541,
+        "cost_usd": 0.0008162,
+        "cost_inr": 0.0685608,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1746,
+        "output_tokens": 1542,
+        "cost_usd": 0.0007914,
+        "cost_inr": 0.0664776,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1801,
+        "output_tokens": 1166,
+        "cost_usd": 0.0006465,
+        "cost_inr": 0.05430600000000001,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1704,
+        "output_tokens": 1184,
+        "cost_usd": 0.000644,
+        "cost_inr": 0.054096000000000005,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 2037,
+        "output_tokens": 1303,
+        "cost_usd": 0.0007249,
+        "cost_inr": 0.0608916,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1752,
+        "output_tokens": 1308,
+        "cost_usd": 0.0006984000000000001,
+        "cost_inr": 0.058665600000000005,
+        "cached": false
+      },
+      {
+        "step": "Explanations",
+        "input_tokens": 1277,
+        "output_tokens": 1086,
+        "cost_usd": 0.0005621,
+        "cost_inr": 0.0472164,
+        "cached": false
+      }
+    ]
+  }
+]

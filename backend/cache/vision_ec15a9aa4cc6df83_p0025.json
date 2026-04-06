@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 77,
+    "question": "The Dowry Prohibition Act, 1961 enacted by the Government of India came into force from :",
+    "options": {
+      "1": "20th May, 1961",
+      "2": "1st June, 1961",
+      "3": "20th June, 1961",
+      "4": "1st July, 1961"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 78,
+    "question": "Consider the following statements :\nI. In the 15th Lok Sabha the percentage of elected women members in Lok Sabha had crossed 10% of its total strength for the first time.\nII. The 17th Lok Sabha has a higher percentage of representation of elected women members than before and it is the highest ever since the independence of India.\nIII. The women members elected to the Legislative Assembly of Andhra Pradesh in General Elections 2019 was 11.74% of its total strength.\nIV. The Women's Reservation Bill, 2023 got the assent of the President on 28th September, 2023.\nWhich among the above given statements are correct ?",
+    "options": {
+      "1": "I, II and III only",
+      "2": "I, III and IV only",
+      "3": "I, II and IV only",
+      "4": "II, III and IV only"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

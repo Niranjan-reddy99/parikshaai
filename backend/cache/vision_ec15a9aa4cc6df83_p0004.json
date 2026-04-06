@@ -1,0 +1,54 @@
+[
+  {
+    "q_num": 5,
+    "question": "Romaka Siddhanta written by Varahamihira deals with :",
+    "options": {
+      "1": "Chemistry",
+      "2": "Mathematics",
+      "3": "Astronomy",
+      "4": "Medicine"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 6,
+    "question": "Which one of the following books was not written by Harshavardhana ?",
+    "options": {
+      "1": "Priyadarshika",
+      "2": "Ratnavali",
+      "3": "Nagananda",
+      "4": "Kadambari"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 7,
+    "question": "Which of the following statements is incorrect with reference to Permanent Settlement ?",
+    "options": {
+      "1": "It was introduced by Lord Cornwallis in Bengal, Bihar and Orissa in 1795.",
+      "2": "It declared Zamindars as the owners of the land and they were given hereditary rights.",
+      "3": "It was planned by John Shore.",
+      "4": "The amount to be paid by the landlords was fixed."
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 8,
+    "question": "Match List I with List II and select the correct answer using the codes given below the lists :\nList I\nList II\n(Delhi Sultans)\n(Reforms)\na. Muhammad bin I. Branding of Horses\nTughlaq\nb. Alauddin Khalji II. Token Currency\nc. Iltutmish\nIII. Development of\nIrrigation\nd. Firuz Shah\nIV. Introducing Silver\nTughlaq\nTankas\nCodes :\na b c d\n(1) I II III IV\n(2) II I IV III\n(3) IV III II I\n(4) III IV I II",
+    "options": {
+      "1": "I II III IV",
+      "2": "II I IV III",
+      "3": "IV III II I",
+      "4": "III IV I II"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

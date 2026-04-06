@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 25,
+    "question": "Consider the following statements on the contributions of Pandit Ishwar Chandra Vidyasagar:\nI. His great contribution was for the upliftment of women in India.\nII. He organized a powerful movement for the enactment of Widow Remarriage Act.\nIII. To propagate his social ideas, he published Sambad Kaumudi, a Bengali weekly newspaper.\nWhich of the above statements are correct ?",
+    "options": {
+      "1": "I and II",
+      "2": "I and III",
+      "3": "II and III",
+      "4": "I, II and III"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 26,
+    "question": "Which of the following statements is incorrect on William Bentinck's reforms ?",
+    "options": {
+      "1": "Introduction of a new land revenue system in the North-Western Province",
+      "2": "Abolition of 'Sati'",
+      "3": "Eradication of female infanticide",
+      "4": "Establishment of universities for the first time"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 27,
+    "question": "Consider the following events :\nI. Swadeshi Movement\nII. Surat Split\nIII. Lucknow Pact\nIV. Home Rule Movement\nWhich of the above main events took place during the extremist phase ?",
+    "options": {
+      "1": "I, II and III",
+      "2": "I and II only",
+      "3": "II, III and IV",
+      "4": "I, II, III and IV"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

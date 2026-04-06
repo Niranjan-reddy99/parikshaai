@@ -1,0 +1,54 @@
+[
+  {
+    "q_num": 139,
+    "question": "Which article empowers the individual to move to supreme court directly for violation of any fundamental right ?",
+    "options": {
+      "1": "Article 15",
+      "2": "Article 19",
+      "3": "Article 32",
+      "4": "Article 36"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 140,
+    "question": "Which Parliamentary Committee is known as the “Ombudsmen” ?",
+    "options": {
+      "1": "Public Account Committee",
+      "2": "Petitions Committee",
+      "3": "Committee on Subordinate Legislation",
+      "4": "Estimates Committee"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 141,
+    "question": "What is the NABARD’S primary role ?",
+    "options": {
+      "1": "To provide term loans to State Cooperative Banks",
+      "2": "To assist state governments for share capital contribution",
+      "3": "To act as refinance institution",
+      "4": "None of the above"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 142,
+    "question": "Where has the SBI inaugurated the country's first overseas banking unit (OBU) ?",
+    "options": {
+      "1": "Bengaluru",
+      "2": "Hyderabad",
+      "3": "Chennai",
+      "4": "Mumbai"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

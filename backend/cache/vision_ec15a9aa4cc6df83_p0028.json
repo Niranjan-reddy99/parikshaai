@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 83,
+    "question": "Which of the following Constitutional Amendments provided rights for making provisions in favour of the SCs and STs for relaxation of qualifying marks in any examination (or) lowering the standards of evaluation and for reservation in the matter of promotions to the public services of the Centre and the State ?",
+    "options": {
+      "1": "80th Constitutional Amendment",
+      "2": "82nd Constitutional Amendment",
+      "3": "89th Constitutional Amendment",
+      "4": "93rd Constitutional Amendment"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 84,
+    "question": "Identify the country with which the Union Cabinet of India has approved signing of Memorandum of Understanding (MoU) for co-operation in disability sector that benefits the persons with disabilities (PwDs) ?",
+    "options": {
+      "1": "South Africa",
+      "2": "Germany",
+      "3": "Japan",
+      "4": "Brazil"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 85,
+    "question": "A consensual and informal relationship practised in accordance to matrilineal laws of Kerala that prevailed among Namboothiris and Nairs is known as :",
+    "options": {
+      "1": "Sambandham",
+      "2": "Pakulam Pathiravum",
+      "3": "Pranchiyettan",
+      "4": "Udakapoorvam"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

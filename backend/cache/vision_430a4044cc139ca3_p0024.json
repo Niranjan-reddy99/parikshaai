@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 44,
+    "question": "In the context of the enactment of Budget, which of the following statement/statements is/are valid?\nI. The Appropriation Bill carries an automatic repeal clause.\nII. The provision 'Vote on Account' has become ineffectual after the re-scheduling of the budget cycle from the last day of February to the first day of February.\nIII. Amendments to either reject or reduce a tax can not be moved in case of the Finance Bill.\nIV. The expenditure charged on the Consolidated Fund of India can only be discussed.",
+    "options": {
+      "1": "I and IV",
+      "2": "I and III",
+      "3": "Only II",
+      "4": "Only IV"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 45,
+    "question": "In connection with the veto power of the Indian President, which one of the following statement/statements is/are valid ?\nI. The Indian President possesses 'Suspensive Veto' in the case of Money Bills but not in the case of Finance Bills.\nII. The Indian President can exercise 'Absolute Veto' with respect to the Government Bills at all times.\nIII. The Indian President enjoys 'Pocket Veto' indefinitely whereas the American President possesses 'Qualified Veto'.\nIV. The objective of the veto power in being conferred upon the Indian President is to ensure a system of checks and balances between the office of the President and that of the power of the Parliament.",
+    "options": {
+      "1": "Only III",
+      "2": "I, II and IV",
+      "3": "III and IV",
+      "4": "Only II"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

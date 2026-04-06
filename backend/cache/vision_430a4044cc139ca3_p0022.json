@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 41,
+    "question": "Consider the following statements with regard to India's Foreign Policy:\nI. India's Act East Policy was originally conceived as an economic initiative but had later extended into political, strategic and cultural dimensions.\nII. The 'Connect Central Asia Policy' has been taken forward with the institutionalization of the 'India-Central Asia Summit' mechanism.\nIII. Under the 'Security and Growth for All in the Region' (SAGAR) Policy, the DRDO initiated the Marine and Allied Interdisciplinary Training and Research Initiative (MAITRI) for the purpose of establishing long-term collaboration with countries in the East Asian region.\nIV. India's Think West Policy is an outreach to the Western Industrialized nations for strengthening of relations in areas of education and defence.\nWhich of the above statements are valid?",
+    "options": {
+      "1": "I and II",
+      "2": "I, III and IV",
+      "3": "II and III",
+      "4": "III and IV"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

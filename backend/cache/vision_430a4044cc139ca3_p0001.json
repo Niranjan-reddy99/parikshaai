@@ -1,0 +1,93 @@
+[
+  {
+    "q_num": 5,
+    "question": "Each question is followed by 4 answer choices. Of these, you have to select one correct answer and mark it on the OMR Answer Sheet by darkening the appropriate circle for the question. If more than one circle is darkened, the answer will not be valued at all. Use Blue or Black Ball Point pen to make heavy black marks to fill the circle completely. Make no other stain marks. Use of whitener is prohibited. If used, it will lead to invalidation.\ne.g.: If the answer for Question No. 1 is Answer choice (2), it should be marked as follows :\nదార్: 1 వ సమాధానం 1 కి సమాధానం (2) అయినప్పుడు దానిని ఈ క్రింది విధంగా గుర్తించవలెను :",
+    "options": {
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4"
+    },
+    "correct": "2",
+    "has_image": true,
+    "needs_review": false
+  },
+  {
+    "q_num": 6,
+    "question": "Use Blue or Black Ball Point Pen only, failing which your OMR Answer Sheet will be invalidated. Gel pens/pencils are not allowed. It is not required to darken the second copy separately.",
+    "options": {
+      "1": null,
+      "2": null,
+      "3": null,
+      "4": null
+    },
+    "correct": null,
+    "has_image": false,
+    "needs_review": true
+  },
+  {
+    "q_num": 7,
+    "question": "Please get the signature of the Invigilator affixed in the space provided in the OMR Answer Sheet. An OMR Answer Sheet without the signature of the Invigilator is liable for invalidation.",
+    "options": {
+      "1": null,
+      "2": null,
+      "3": null,
+      "4": null
+    },
+    "correct": null,
+    "has_image": false,
+    "needs_review": true
+  },
+  {
+    "q_num": 8,
+    "question": "DO NOT fold, tear, wrinkle, tie, staple, do any rough work or make any stray marks on the OMR Answer Sheet, otherwise your OMR Answer Sheet will be invalidated.",
+    "options": {
+      "1": null,
+      "2": null,
+      "3": null,
+      "4": null
+    },
+    "correct": null,
+    "has_image": false,
+    "needs_review": true
+  },
+  {
+    "q_num": 9,
+    "question": "Using the Whitener/Blade/Eraser/Chalk Powder or any kind of tampering to change the answers on OMR Answer Sheet will lead to invalidation.",
+    "options": {
+      "1": null,
+      "2": null,
+      "3": null,
+      "4": null
+    },
+    "correct": null,
+    "has_image": false,
+    "needs_review": true
+  },
+  {
+    "q_num": 10,
+    "question": "Do not mark answer choices on the Test Booklet. Violation of this will be viewed seriously.",
+    "options": {
+      "1": null,
+      "2": null,
+      "3": null,
+      "4": null
+    },
+    "correct": null,
+    "has_image": false,
+    "needs_review": true
+  },
+  {
+    "q_num": 11,
+    "question": "Before leaving the examination hall, the candidate should hand over the original OMR Answer Sheet (top sheet) to the Invigilator and carry the bottom sheet (duplicate) for his/her record.",
+    "options": {
+      "1": null,
+      "2": null,
+      "3": null,
+      "4": null
+    },
+    "correct": null,
+    "has_image": false,
+    "needs_review": true
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 4,
+    "question": "Match the following :\nList-I\n(Mahajanapada)\nA. Avanti\nB. Kosala\nC. Vatsa\nD. Anga\nList-II\n(Capital)\nI. Ujjain\nII. Shravasti\nIII. Kaushambi\nIV. Champa\nChoose the correct answer using the codes given below :",
+    "options": {
+      "1": "I II III IV",
+      "2": "II I IV III",
+      "3": "IV III II I",
+      "4": "III IV I II"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 5,
+    "question": "Consider the following art and architectural forms :\nI. Rock-cut elephant at Dhauli in Orissa\nII. Yakshi figure from Didarganj near Patna\nIII. Great Stupa at Sanchi in Madhya Pradesh\nIV. 80-pillared hall at Komrahar near Patna\nWhich of the above art and architectural forms belong to the Mauryan period ?",
+    "options": {
+      "1": "II, III and IV",
+      "2": "II and III only",
+      "3": "I, II, III and IV",
+      "4": "I, II and III"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

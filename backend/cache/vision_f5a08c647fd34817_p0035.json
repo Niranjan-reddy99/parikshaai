@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 109,
+    "question": "If + denotes -, × denotes +, - denotes ×, + denotes ÷, then 28 × 12 + 4 ÷ 6 - 4 = ?",
+    "options": {
+      "1": "4",
+      "2": "1",
+      "3": "6",
+      "4": "7"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 110,
+    "question": "The table represents the expenditure of a company (in thousand rupees) per annum over the given four years ? What is the average amount of salary per year which the company has to pay during these four years ?",
+    "options": {
+      "1": "Rs. 2,75,000",
+      "2": "Rs. 2,80,000",
+      "3": "Rs. 2,85,000",
+      "4": "Rs. 2,90,000"
+    },
+    "correct": "1",
+    "has_image": true,
+    "needs_review": false
+  }
+]

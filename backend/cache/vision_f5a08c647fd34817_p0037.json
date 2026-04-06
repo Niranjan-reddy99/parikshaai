@@ -1,0 +1,54 @@
+[
+  {
+    "q_num": 114,
+    "question": "If the median and mean of a data are respectively 30.5 and 26.2 then the mode is",
+    "options": {
+      "1": "31.2",
+      "2": "35.1",
+      "3": "40.4",
+      "4": "39.1"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 115,
+    "question": "Eight boxes are kept one above the other. The red box is kept between the white and pink boxes. The indigo box is kept between black and green boxes. The green box is kept immediately above the white box which is box number four from below. Seven boxes are kept above the yellow box. Where is the blue box kept ?",
+    "options": {
+      "1": "Below the indigo box",
+      "2": "Between the black and yellow boxes",
+      "3": "Below the black box",
+      "4": "Above the black box"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 116,
+    "question": "P, Q, X, Y and Z have different heights. Q is taller than X but shorter than P. X is taller than Y. Z is taller than Y. More than two people are taller than Z. How many people are taller than Y ?",
+    "options": {
+      "1": "4",
+      "2": "3",
+      "3": "2",
+      "4": "1"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 117,
+    "question": "What is the variance of the following data ?",
+    "options": {
+      "1": "13",
+      "2": "19",
+      "3": "16",
+      "4": "15"
+    },
+    "correct": "2",
+    "has_image": true,
+    "needs_review": false
+  }
+]

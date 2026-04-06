@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 95,
+    "question": "The Second Five Year Plan was based on a modified Soviet Model. What was that model ?",
+    "options": {
+      "1": "Wage Goods Model",
+      "2": "Gadgil Model",
+      "3": "Mahalanobis Model",
+      "4": "CELP Planning Model"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 96,
+    "question": "Which city in AP is being developed as Global AI hub ?",
+    "options": {
+      "1": "Kurnool",
+      "2": "Amaravati",
+      "3": "Vijayawada",
+      "4": "Visakhapatnam"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 97,
+    "question": "How many Sutralu (Guiding Principles) were proposed to help achieve the goals of Swarna Andhra Vision 2047 ?",
+    "options": {
+      "1": "Only 5",
+      "2": "Only 9",
+      "3": "Only 10",
+      "4": "Only 7"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

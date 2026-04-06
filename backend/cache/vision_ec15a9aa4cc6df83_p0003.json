@@ -1,0 +1,54 @@
+[
+  {
+    "q_num": 1,
+    "question": "'Anda, harmika and chhatri' are integral parts of which one of the following Buddhist monuments?",
+    "options": {
+      "1": "Chaityas",
+      "2": "Viharas",
+      "3": "Stupas",
+      "4": "Basadis"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 2,
+    "question": "Which among the following pillar inscriptions of Ashoka states that the land revenue rate of Lumbini was reduced to one-eighth?",
+    "options": {
+      "1": "Maski pillar inscription",
+      "2": "Rummindei pillar inscription",
+      "3": "Kalsi pillar inscription",
+      "4": "Vaishali pillar inscription"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 3,
+    "question": "Consider the following statements:\na. Humayun brought famous painters Mir Sayyid Ali and Abdus Samad from Iran to Delhi.\nb. Jahangir's reign is considered as the 'Golden period of the Mughal painting'.\nc. During the reign of Jahangir, European painting was introduced at the Mughal court by the Danish merchants.\nWhich of the statements given above is/are incorrect?",
+    "options": {
+      "1": "Statements a and b",
+      "2": "Statements b and c",
+      "3": "Statement a only",
+      "4": "Statement c only"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 4,
+    "question": "Which Mauryan officer was the incharge of Weights and Measures?",
+    "options": {
+      "1": "Sulkadhyaksha",
+      "2": "Samsthadhyaksha",
+      "3": "Pautavadhyaksha",
+      "4": "Panyadhyaksha"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

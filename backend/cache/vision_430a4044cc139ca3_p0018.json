@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 36,
+    "question": "Consider the following statements with reference to the Election Commission of India:\nI. The Constitution of India has debarred the retiring Election Commissioners from any further appointment by the government.\nII. In 'Anoop Baranwal Case' (2023), the Supreme Court has directed the Government to treat the Regional Commissioners on par with the Election Commissioners (other than the Chief Election Commissioner), as far as removal from office is concerned.\nIII. Since its inception, the Election Commission had functioned as a multi-member body.\nIV. The power of superintendence, direction and control of elections to the office of Vice-President of India is vested in the Election Commission.\nWhich of the above statement/statements is/are valid ?",
+    "options": {
+      "1": "II and III",
+      "2": "Only IV",
+      "3": "Only II",
+      "4": "I, II and IV"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 36,
+    "question": "ప్రశ్న 36. భారత ఎన్నికల కమిషన్కు సంబంధించి క్రింది ప్రకటనలను పరిశీలించండి:\nI. భారత రాజ్యాంగం పదవీ విరమణ చేస్తున్న ఎన్నికల కమిషనర్లను ప్రభుత్వంచేత తదుపరి నియామకం చేయకుండా నిరోధించింది.\nII. 'అనూప్ బరన్వాల్ కేస్' (2023), పదవీ నుంచి తొలగించే విషయంలో ప్రధాన ఎన్నికల కమిషనర్ (ప్రధాన ఎన్నికల కమిషనర్) కాకుండా ఎన్నికల కమిషనర్లను సమానంగా పరిగణించాలని సుప్రీంకోర్టు ప్రభుత్వాన్ని ఆదేశించింది.\nIII. ప్రారంభమైనప్పటి నుండి, ఎన్నికల సంఘం బహుళ సభ్య సంఘంగా పనిచేసింది.\nIV. భారత ఉపరాష్ట్రపతి పదవికి ఎన్నికల పర్యవేక్షణ, దిశానిర్దేశం మరియు నియంత్రణ అధికారం ఎన్నికల కమిషనక్కు ఉంది.\nపై ప్రకటన / ప్రకటనలలో ఏది/ఏవి చెల్లుబాటు అవుతాయి ?",
+    "options": {
+      "1": "II మరియు III",
+      "2": "IV మాత్రమే",
+      "3": "II మాత్రమే",
+      "4": "I, II మరియు IV"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

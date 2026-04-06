@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 28,
+    "question": "Consider the following events :\nI. Visit of Simon Commission to India\nII. Purna Swaraj resolution at Lahore session\nIII. Launch of Dandi March\nWhich of the above main events took place during the tenure of Lord Irwin ?",
+    "options": {
+      "1": "I and II",
+      "2": "I and III",
+      "3": "II and III",
+      "4": "I, II and III"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 29,
+    "question": "Consider the following Revolutionaries :\nI. Bhagat Singh\nII. Sachindra Nath Sanyal\nIII. Jogesh Chandra Chatterjee\nIV. Ram Prasad Bismil\nV. Chandra Shekhar Azad\nWho among the above founded 'Hindustan Republican Association' in 1924 ?",
+    "options": {
+      "1": "I, II and III",
+      "2": "II, III and IV",
+      "3": "II, III, IV and V",
+      "4": "I, II, III and IV"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 30,
+    "question": "Which of the following is wrongly matched regarding 'Praja Mandals' ?",
+    "options": {
+      "1": "Vijay Singh Pathik : Rajasthan",
+      "2": "Balwant Rai Mehta : Madhya Pradesh",
+      "3": "Sewa Singh Thikriwala : Punjab",
+      "4": "Sarangadhar Das : Orissa"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

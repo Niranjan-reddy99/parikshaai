@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 92,
+    "question": "Report published by UNDP which compares countries based on educational levels of people, health status and per capita income, is\n(1) Human Population Report\n(2) Human Education Report\n(3) Human Quality Report\n(4) Human Development Report",
+    "options": {
+      "1": "Human Population Report",
+      "2": "Human Education Report",
+      "3": "Human Quality Report",
+      "4": "Human Development Report"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 93,
+    "question": "Gross Domestic Product is defined as\n(1) It is the value of goods and services produced during a year\n(2) It is the value of all final goods and services produced within a country during a particular year\n(3) The sum of the incomes that all individuals in the economy earned in a given year\n(4) It is the sum of the expenditure by firms on new plant and equipment",
+    "options": {
+      "1": "It is the value of goods and services produced during a year",
+      "2": "It is the value of all final goods and services produced within a country during a particular year",
+      "3": "The sum of the incomes that all individuals in the economy earned in a given year",
+      "4": "It is the sum of the expenditure by firms on new plant and equipment"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 94,
+    "question": "In India, who will issue currency notes on behalf of the Central Government ?\n(1) RBI\n(2) SEBI\n(3) Commercial Bank\n(4) NABARD",
+    "options": {
+      "1": "RBI",
+      "2": "SEBI",
+      "3": "Commercial Bank",
+      "4": "NABARD"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

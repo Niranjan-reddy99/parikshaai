@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 78,
+    "question": "In the context of India's fight against poverty, consider the following statements :\nI. Unlike the Global Multidimensional Poverty Index (MPI), the National Multidimensional Poverty Index (MPI) developed by NITI Aayog does not make use of 'Alkhire-Foster' (AF) methodology.\nII. The urban population witnessed a larger decline in poverty as compared to the rural population.\nIII. Pradhan Mantri Garib Kalyan Package (PMGP) includes the coverage of food grain entitlements.\nIV. The Multidimensional Poverty Index (MPI) is computed by adding the incidence of multidimensional poverty and the intensity of poverty.\nWhich of the above statement/statements is/are valid ?",
+    "options": {
+      "1": "I and IV",
+      "2": "Only II",
+      "3": "I and III",
+      "4": "None are valid"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 79,
+    "question": "In connection with the Urban Infrastructure Development Fund (UIDF), which of the following statement/statements is/are valid ?\nI. The fund will be established through reserved bonds taken from the G-Sec market.\nII. The fund is to be exclusively availed by private agencies to create urban infrastructure in Tier 2 and Tier 3 cities.\nIII. Eligible activities for UIDF shall be connected to the Missions and Programmes of the Ministry of Housing & Urban Affairs (MoHUA).\nIV. The fund will be collectively managed by a cluster of Municipal Cooperative Banks.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "Only III",
+      "2": "I, II and IV",
+      "3": "II, III and IV",
+      "4": "II and III"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

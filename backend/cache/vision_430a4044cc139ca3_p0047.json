@@ -1,0 +1,16 @@
+[
+  {
+    "q_num": 85,
+    "question": "Which of the following statements are valid regarding Human Development ?",
+    "options": {
+      "1": "Two countries with the same level of Gross National Income (GNI) per capita, but ending with different human development outcomes is indicative of the importance of growth over development.",
+      "2": "A country's score on the Inequality-Adjusted Human Development Index (IHDI) is not the same as its Human Development Index (HDI) even when there is no inequality among people.",
+      "3": "In Gender Development Index (GDI), values below 1 indicate higher development for women than men.",
+      "4": "Planetary Pressures-adjusted Human Development Index (PHDI) focuses on intergenerational inequality just the same way, as the Inequality-adjusted Human Development Index (IHDI) focuses on intragenerational inequality.",
+      "5": "According to the Human Development Report 2021 - 22, a new uncertainty complex is emerging, which comprises of three new concerns - planetary changes, sweeping social transformations and polarized societies."
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

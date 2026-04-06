@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 69,
+    "question": "The strategic objective of Asset Monetization Programme may be explained as :",
+    "options": {
+      "1": "An initiative to unlock the value of investments in private sector assets by utilizing public sector capital.",
+      "2": "Involving an indefinite period license/lease of an asset, owned by the government or a public authority, to a private sector entity.",
+      "3": "Facilitating an opportunity for public asset owners to use new financial structures by utilizing capital from private sector investors.",
+      "4": "Offering an alternative mechanism to the PPP model."
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 70,
+    "question": "In connection with SEBI, which of the following statement/statements is/are valid ?",
+    "options": {
+      "1": "SEBI exempted regulations for Infrastructure Investment Trusts (InvITs) and Municipal Bonds in order to facilitate more efficient infrastructure financing through the capital markets.",
+      "2": "SEBI introduced the framework in which listed large corporates will mandatorily meet 25% of their financing requirements through the issuance of debt securities.",
+      "3": "SEBI increased the minimum ticket size of corporate bond investment in order to encourage investor responsibility.",
+      "4": "SEBI along with the RBI introduced the Retail Direct Scheme."
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 106,
+    "question": "In certain code IMTITJU is written as TMIIUJT. How is TEMPREMP written in that code ?",
+    "options": {
+      "1": "METERPM",
+      "2": "METRPME",
+      "3": "ETRMMEP",
+      "4": "MTERPME"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 107,
+    "question": "If blue is written as green, green is written as red, red is written as yellow, yellow is written as black and black is written as white then what is the color of turmeric ?",
+    "options": {
+      "1": "Yellow",
+      "2": "White",
+      "3": "Black",
+      "4": "Red"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 108,
+    "question": "Identify the game which is different from others :\nCricket, Baseball, Football, Billiards, Badminton",
+    "options": {
+      "1": "Baseball",
+      "2": "Football",
+      "3": "Billiards",
+      "4": "Cricket"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

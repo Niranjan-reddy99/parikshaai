@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 131,
+    "question": "In the month of January, the students of Chaitanya Bharathi Public School visited M/s Swaminathan Farm, where they saw rabbits and pigeons. One student started counting. If the heads are counted, there are 340 heads and if legs are counted there are 1060 legs. He also observed that 3 pigeons (out of the total pigeons present there) were dead. Then how many live pigeons are there on that farm?",
+    "options": {
+      "1": "177",
+      "2": "167",
+      "3": "157",
+      "4": "147"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 132,
+    "question": "The sum of the present ages of Ramu and his son Jagadeesh is 60 years. Six years ago, Ramu's age was five times the age of Jagadeesh. After 6 years, Jagadeesh's age will be :",
+    "options": {
+      "1": "12 years",
+      "2": "14 years",
+      "3": "16 years",
+      "4": "20 years"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 133,
+    "question": "If 2X4X6X8X10X12X14X16X18=18579XYZ0, what is the value of X + Y + Z ?",
+    "options": {
+      "1": "12",
+      "2": "13",
+      "3": "14",
+      "4": "15"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

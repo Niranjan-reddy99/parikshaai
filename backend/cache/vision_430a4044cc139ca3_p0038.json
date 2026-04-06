@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 71,
+    "question": "Consider the following Assertion (A) and Reason (R) and choose the correct code :\nAssertion (A) :\n'India Stack' has enabled an online, paperless and cashless digital access to various public and private services. This has reduced the cost of conducting e-KYC.\nReason (R) :\nIndia Stack consists of two inter connected layers, and of these, the 'Payment Layer' has reduced the cost of conducting e-KYC.\nCode :",
+    "options": {
+      "1": "Both (A) and (R) are true and (R) explains (A).",
+      "2": "Both (A) and (R) are true, but (R) does not explain (A).",
+      "3": "(A) is true, but (R) is false.",
+      "4": "(A) is false, but (R) is true."
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 72,
+    "question": "Pick the correct sequence out of the following sequences with regard to the present prevailing inflation trends (in percentages) in India :",
+    "options": {
+      "1": "Food Inflation > Headline Inflation > Core Inflation",
+      "2": "Headline Inflation > Food Inflation > Core Inflation",
+      "3": "(Food Inflation = Headline Inflation) < Core Inflation",
+      "4": "Core Inflation > Food Inflation > Headline Inflation"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

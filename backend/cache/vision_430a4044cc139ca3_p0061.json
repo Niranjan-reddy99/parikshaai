@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 115,
+    "question": "Trans-Siberian Railway runs between the stations in Russia from :",
+    "options": {
+      "1": "Moscow to Vladivostok",
+      "2": "Moscow to Khabarovsk",
+      "3": "St. Petersburg to Vladivostok",
+      "4": "St. Petersburg to Khabarovsk"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 116,
+    "question": "Consider the following states of India :\nI. Punjab\nII. Odisha\nIII. Haryana\nIV. Tamil Nadu\nWhich of the above states have relatively high level of groundwater utilization ?",
+    "options": {
+      "1": "I, II and III",
+      "2": "I, II and IV",
+      "3": "I, III and IV",
+      "4": "I, II, III and IV"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 117,
+    "question": "Identify the incorrect statement on Wheat crop cultivation in India :",
+    "options": {
+      "1": "It is the second most important cereal crop.",
+      "2": "It is a Rabi crop that requires a cool growing season.",
+      "3": "It is chiefly grown in the Ganga-Satluj plains.",
+      "4": "Black soil region of the Deccan is not suitable for wheat cultivation."
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

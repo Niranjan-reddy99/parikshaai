@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 32,
+    "question": "In the context of distinctions existing between a Public Bill and a Private Bill, select the statement/statements that is/are valid:\nI. A Private Bill which has been introduced by a Member of Parliament sitting in the opposition and which has been approved by the House will have to be referred to the law department for consultation.\nII. A Public Bill is always introduced in the Parliament by the Minister or a member of the government party.\nIII. A Private Bill will not reflect the policy of the government but upon its approval by the House, a Private Bill would have reflected the policy of the government.\nIV. Public Bills and Private Bills, regardless of the differences between them, are governed by the same general procedure, and are required to be passed through the same stages in the House.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "II and III",
+      "2": "I, III and IV",
+      "3": "Only I",
+      "4": "Only IV"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

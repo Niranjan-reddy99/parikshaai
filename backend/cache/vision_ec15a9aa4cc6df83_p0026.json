@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 79,
+    "question": "Under the pressure of groups interested in linguistic regionalism, the President of the Constituent Assembly of India has appointed the Linguistic Provinces Commission to report on creation of provinces of Andhra, Karnataka, Kerala and Maharashtra. In which year was this Commission appointed and who was it chaired by ?",
+    "options": {
+      "1": "1948, Justice Fazal Ali",
+      "2": "1949, Pattabhi Sitaramayya",
+      "3": "1950, Sardar Vallabhbhai Patel",
+      "4": "1948, Justice S.K. Dhar"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 80,
+    "question": "Consider the following statements about the Assam Movement :\nI. The Assam Movement led by All Assam Students' Union (AASU) was started in the year 1983.\nII. The objective of the Assam Movement is to identify the migrant people, protect and provide constitutional, legislative and administrative safeguards to the Bangladeshi Migrants in Assam.\nIII. The Assam Movement was officially ended on 15th August, 1989 after coming to an understanding with the Government of India which found official expression in the Memorandum of Understanding popularly known as the Assam Accord.\nWhich of the above given statements is/are correct ?",
+    "options": {
+      "1": "I and II only",
+      "2": "II and III only",
+      "3": "III only",
+      "4": "None of the above"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

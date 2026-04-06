@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 61,
+    "question": "In recent times, many leading agencies have reaffirmed high growth for the Indian Economy. Which of the following statement/statements can be the best reason/reasons for India's projected high growth?\nI. Strong Private Final Consumption Expenditure (PFCE)\nII. Government's shift of focus from large capital expenditure towards private investment\nIII. Increase in domestic air passenger traffic along with a reduction in the volume of Fast-Moving Consumer Goods (FMCG)\nIV. Fading of the El Nino oscillation and better Rabi crop prospects\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "I and IV",
+      "2": "II and III",
+      "3": "I, III and IV",
+      "4": "Only IV"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 62,
+    "question": "With regard to the progress of Digital Payments in India, which of the following statement/statements is/are valid?\nI. Promotion of Digital Payments has been transferred from the Ministry of Electronics and Information Technology (MeitY) to the Department of Financial Services.\nII. e-RUPI is an institution-based voucher management system instead of being person and purpose specific.\nIII. Hello! UPI is an AI voice-enabled payment feature built by a consortium of private sponsored startups recognised by the NPCI.\nIV. 'UPI LITE X' addresses challenges of remote areas by enabling offline UPI payments.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "I, III and IV",
+      "2": "II and IV",
+      "3": "Only III",
+      "4": "I and IV"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

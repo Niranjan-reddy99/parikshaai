@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 1,
+    "question": "Consider the following statements on the late Harappan cultures:\nI. The late Harappan cultures are primarily Chalcolithic in which tools of stone and copper are used.\nII. They do not show metal objects requiring complicated casting.\nIII. The Chalcolithic people in the later Harappan phase lived in villages.\nIV. In the late Harappan phase at Bhagwanpura in Haryana, burnt bricks were not found.\nWhich of the above statements are correct ?",
+    "options": {
+      "1": "I, II and III",
+      "2": "I, II and III",
+      "3": "II, III and IV",
+      "4": "I, II, III and IV"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 2,
+    "question": "Consider the following types of pottery :\nI. Black and Red Ware\nII. Black Slipped Ware\nIII. Painted Grey Ware\nIV. Red Ware\nV. Northern Black Polished Ware\nWhich of the above types of pottery were associated with the Later Vedic people ?",
+    "options": {
+      "1": "II, III and IV only",
+      "2": "II, III and V only",
+      "3": "I, II, III and IV",
+      "4": "I, II, III, IV and V"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 3,
+    "question": "Identify the incorrect statement on the contributions of Jainism :",
+    "options": {
+      "1": "The early Jainas adopted Prakrit to preach their doctrines.",
+      "2": "Their religious literature was written in Ardhamagadhi.",
+      "3": "The early Jainas discarded Sanskrit language.",
+      "4": "They never used Apabhramsa for the earliest important works of Jainism."
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

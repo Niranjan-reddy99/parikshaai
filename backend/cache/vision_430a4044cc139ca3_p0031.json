@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 57,
+    "question": "Consider the following Assertion (A) and Reason (R) and choose the correct code :\nAssertion (A) :\nIn connection with their own resource collection, the Panchayats at the village level are better placed than the Panchayats at the Intermediate and the District levels.\nReason (R) :\nThe Gram Panchayats have their own tax domain whereas the other two tiers have to depend only on tolls, fees and non-tax revenue for internal resource generation.\nCode :",
+    "options": {
+      "1": "Both (A) and (R) are true, and (R) explains (A).",
+      "2": "Both (A) and (R) are true, but (R) does not explain (A).",
+      "3": "(A) is true, but (R) is false.",
+      "4": "(A) is false, but (R) is true."
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 58,
+    "question": "In connection with the lapsing of Bills, which of the following statement/statements is/are valid ?\nI. If the Lok Sabha has passed the Bill, but if the Bill has still not been discussed in the Rajya Sabha, then such a Bill does not lapse.\nII. A Bill returned by the President for reconsideration of the Houses will not lapse. However, the Lok Sabha should not have been dissolved by the time the Bill is returned.\nIII. A Bill that is passed by both the Houses but pending for President's assent will not lapse.\nIV. A Bill that is pending in the Rajya Sabha but which has not been passed by the Lok Sabha will also lapse.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "Only III",
+      "2": "I, III and IV",
+      "3": "II and IV",
+      "4": "None"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 107,
+    "question": "Which among the following is incorrectly paired?",
+    "options": {
+      "1": "Jagannana Chedodu : It provides a financial assistance of ₹ 10,000 per annum to Rajakas and Nayee Brahmins for better livelihood.",
+      "2": "Jagannana Thodu : It facilitates a working capital loan up to ₹ 10,000 to the eligible poor, small and petty vendors with an intention to make them financially independent.",
+      "3": "Jagannana Jeeva Kranthi Scheme : It aims to empower and provide social stability to women belonging to BC, SC and ST categories. The beneficiaries will receive sheep and goat units under this scheme.",
+      "4": "YSR Navodayam Scheme : It aims to provide self-employment opportunities to the youth of Andhra Pradesh by creating job opportunities in the transport sector."
+    },
+    "correct": 4,
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 108,
+    "question": "The Centre of Excellence for Vegetables and Spices under the Indo-Israel Agriculture Project was proposed to be set up in:",
+    "options": {
+      "1": "Annamayya District",
+      "2": "Alluri Sitharama Raju District",
+      "3": "Palnadu District",
+      "4": "Guntur District"
+    },
+    "correct": 3,
+    "has_image": false,
+    "needs_review": false
+  }
+]

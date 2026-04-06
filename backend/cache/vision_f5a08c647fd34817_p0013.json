@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 48,
+    "question": "What does the Precautionary Principle mean in environmental protection ?",
+    "options": {
+      "1": "We should act to protect the environment only after full scientific proof of damage",
+      "2": "We should take preventive action to protect the environment even if we are not completely sure of the harm",
+      "3": "Industries can pollute if it helps the economy grow",
+      "4": "Environmental protection is needed only when people complain"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 49,
+    "question": "The Sustainable Development Goals (SDGs) set by the UN wants to",
+    "options": {
+      "1": "Trade around the world only",
+      "2": "Get rid of poverty, take care of the environment and make sure everyone has peace and plenty",
+      "3": "Boost industry growth without caring about the environment",
+      "4": "Only help wealthy countries"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 50,
+    "question": "The Paris Climate Agreement (2015) mainly aims to",
+    "options": {
+      "1": "Stop all industrial activities worldwide",
+      "2": "Limit global temperature rise to well below 2°C above pre-industrial levels",
+      "3": "Promote trade among developed nations",
+      "4": "Increase fossil fuel production for energy security"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

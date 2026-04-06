@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 111,
+    "question": "Study the following table and answer the following question. What is the ratio of the total number of male students to that of the female students who opted for biology in schools A and B together ?",
+    "options": {
+      "1": "38:31",
+      "2": "21:38",
+      "3": "31:28",
+      "4": "31:38"
+    },
+    "correct": "4",
+    "has_image": true,
+    "needs_review": false
+  },
+  {
+    "q_num": 112,
+    "question": "If January 8, 2004 was a Thursday, then what day of the week is January 11, 2005 ?",
+    "options": {
+      "1": "Sunday",
+      "2": "Monday",
+      "3": "Tuesday",
+      "4": "Wednesday"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 113,
+    "question": "A class has 50 students with average weight of 45 kgs. Out of these there are 30 girls with average weight of 42.5 kgs. What is the average weight of boys ?",
+    "options": {
+      "1": "38.75",
+      "2": "48.75",
+      "3": "58.75",
+      "4": "68.75"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

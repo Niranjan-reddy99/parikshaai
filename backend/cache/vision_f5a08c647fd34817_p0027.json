@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 83,
+    "question": "Which State has highest average price ?",
+    "options": {
+      "1": "Maharashtra",
+      "2": "Orissa",
+      "3": "Karnataka",
+      "4": "Andhra Pradesh"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

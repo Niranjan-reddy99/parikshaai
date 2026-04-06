@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 81,
+    "question": "Consider the following Assertion (A) and Reason (R) and choose the correct code :\nAssertion (A) :\nThe National Product measures all goods and services that arise out of economic activity, whereas National Income is the sum of all incomes as a result of the economic activity. These two are synonymous.\nReason (R) :\nThe Production of goods and services is the outcome of the use of capital and labour, along with the raw materials, and this automatically generates income.\nCode :",
+    "options": {
+      "1": "Both (A) and (R) are true and (R) explains (A).",
+      "2": "Both (A) and (R) are true, but (R) does not explain (A).",
+      "3": "(A) is true, but (R) is false.",
+      "4": "(A) is false, but (R) is true."
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

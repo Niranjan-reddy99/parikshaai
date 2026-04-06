@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 37,
+    "question": "In the context of Centre - State Relations, which of the following statement/statements are valid ?\nI. Punchhi Commission had recommended that the procedure that is followed for the removal of President should also be applicable for the impeachment of Governors as well.\nII. The law that is made by the Parliament with respect to any matter in the State List in relation to the State in which President's rule is imposed, cannot be re-enacted by the State Legislature after the President's rule is ended.\nIII. The Sarkaria Commission was not the first to recommend the establishment of an Inter-State Council.\nIV. Only the Lok Sabha can pass a resolution declaring that it is necessary in the national interest that the Parliament should make laws with respect to Goods and Services Tax.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "Only III",
+      "2": "I and III",
+      "3": "II, III and IV",
+      "4": "I, III and IV"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

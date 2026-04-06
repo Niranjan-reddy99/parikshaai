@@ -1,0 +1,67 @@
+[
+  {
+    "q_num": 11,
+    "question": "Which team won the title of 2025 Women's Premier League ?",
+    "options": {
+      "1": "Delhi Capitals",
+      "2": "Royal Challengers Bangalore",
+      "3": "Rajasthan Royals",
+      "4": "Mumbai Indians"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 12,
+    "question": "Recently Government of India declared ________ as Ayurveda Day.",
+    "options": {
+      "1": "June 23",
+      "2": "July 23",
+      "3": "August 23",
+      "4": "September 23"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 13,
+    "question": "The World Economic forum 2025 met in Davos to discuss global co-operation in which area ?",
+    "options": {
+      "1": "Space exploration",
+      "2": "Public health",
+      "3": "Sports diplomacy",
+      "4": "AI governance and climate change"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 14,
+    "question": "Which two countries recently declared support for Venezuela amid US pressure on President Maduro ?",
+    "options": {
+      "1": "India and Japan",
+      "2": "U. K. and France",
+      "3": "Brazil and South Korea",
+      "4": "China and Russia"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 15,
+    "question": "To put drug abuse in check, Government of Andhra Pradesh has set a special task force named",
+    "options": {
+      "1": "Anti Drug Force (ADF)",
+      "2": "EAGLE",
+      "3": "OCTOPUS",
+      "4": "SANKALP"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

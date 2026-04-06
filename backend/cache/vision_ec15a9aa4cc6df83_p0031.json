@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 91,
+    "question": "Consider the following statements regarding the 9th Asian Winter Games :\nI. The 9th Asian Winter Games 2025 are set to be held at Beijing, China.\nII. The official slogan of the 9th Asian Winter Games 2025 is 'Dream of Winter, Love Among Asia'.\nIII. The names of the two tiger mascots of the 9th Asian Winter Games 2025 are Yingying and Nini.\nIV. On January 11th, 2024 the emblem of the 9th Asian Winter Games 2025 'Breakthrough' was officially announced.\nWhich of the given above statements are correct ?",
+    "options": {
+      "1": "I and II only",
+      "2": "II and III only",
+      "3": "I and IV only",
+      "4": "II and IV only"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 92,
+    "question": "Which country was certified as Malaria-free by the World Health Organization (WHO) in 2024 ?",
+    "options": {
+      "1": "Morocco",
+      "2": "Cabo Verde",
+      "3": "United Arab Emirates",
+      "4": "Mauritius"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

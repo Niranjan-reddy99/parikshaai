@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 128,
+    "question": "The speeds of Rohit and Lalith are 30 km/h and 40 km/h. Initially, Lalith is at place X and Rohit is at place Y. The distance between X and Y is 650 kms. Rohit started his journey 3 hours earlier than Lalith to meet him. If they both meet each other at a place Z somewhere between X and Y and the distance between Y and Z is P, then what is the value of P + 2 ?",
+    "options": {
+      "1": "330",
+      "2": "125",
+      "3": "220",
+      "4": "165"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 129,
+    "question": "If in a certain code language 'CONSERVE' is written as 'BDNPMORTDFQSUWDF', then how will 'NUMEROUS' be written in that code ?",
+    "options": {
+      "1": "MOTVLNEFQSNPVTRT",
+      "2": "MOTVLNEFFQSQPVTRT",
+      "3": "MOTVLNDFQSNPVTRT",
+      "4": "MOTVLKDFFQSNPVTRT"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 130,
+    "question": "R and S are friends. R lives in USA and S lives in India. One day R asked S that 'if the time now in India is T hours, then what is the time now in India' and S replied that 'India is 9 hours 30 minutes ahead of USA'. Then what time will it be 18 hours from now in India, if in the USA it is 4:15 AM ?",
+    "options": {
+      "1": "1:45 in the afternoon",
+      "2": "7:45 in the evening",
+      "3": "1:45 the next morning",
+      "4": "7:45 the next morning"
+    },
+    "correct": null,
+    "has_image": false,
+    "needs_review": true
+  }
+]

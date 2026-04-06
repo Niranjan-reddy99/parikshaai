@@ -1,0 +1,67 @@
+[
+  {
+    "q_num": 28,
+    "question": "Which of the following is equal to One Byte ?",
+    "options": {
+      "1": "String of four bits",
+      "2": "String of eight bits",
+      "3": "String of twelve bits",
+      "4": "String of sixteen bits"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 29,
+    "question": "Out of the following who has devised the logical operators AND, OR and NOT ?",
+    "options": {
+      "1": "George Boole",
+      "2": "Charles Babbage",
+      "3": "Hermen Hollerith",
+      "4": "Vannever Bush"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 30,
+    "question": "If we completely remove the decomposers from an ecosystem, their functioning will be adversely affected because",
+    "options": {
+      "1": "Herbivores will not receive solar energy",
+      "2": "Energy flow will be blocked",
+      "3": "The rate of decomposition will be very high",
+      "4": "Mineral movement will be blocked"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 31,
+    "question": "Which of the following channels of sea separates India and Srilanka ?",
+    "options": {
+      "1": "Palk strait",
+      "2": "Bering strait",
+      "3": "Gulf strait",
+      "4": "Malacca strait"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 32,
+    "question": "Which Himalayan part is lying between the Kali and Teesta River ?",
+    "options": {
+      "1": "Assam Himalayas",
+      "2": "Punjab Himalayas",
+      "3": "Nepal Himalayas",
+      "4": "Kashmir Himalayas"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

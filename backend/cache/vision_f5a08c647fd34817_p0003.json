@@ -1,0 +1,67 @@
+[
+  {
+    "q_num": 1,
+    "question": "Which city is set to establish India's 1st Quantum Computing Valley by January 2026 ?",
+    "options": {
+      "1": "Bangalore",
+      "2": "Amaravati",
+      "3": "New Delhi",
+      "4": "Mumbai"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 2,
+    "question": "Which of the following State recently decided to implement e-voting through an Android based mobile application ?",
+    "options": {
+      "1": "Tamil Nadu",
+      "2": "Kerala",
+      "3": "Andhra Pradesh",
+      "4": "Bihar"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 3,
+    "question": "Khichan and Menar wetlands, recently seen in news are located in which State ?",
+    "options": {
+      "1": "Tamil Nadu",
+      "2": "Maharashtra",
+      "3": "Rajasthan",
+      "4": "Himachal Pradesh"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 4,
+    "question": "The World's tallest rail arch bridge i.e., Chenab Rail Bridge recently inaugurated by P. M. Narendra Modi is in which State ?",
+    "options": {
+      "1": "Jammu and Kashmir",
+      "2": "Himachal Pradesh",
+      "3": "Ladakh",
+      "4": "Punjab"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 5,
+    "question": "Recently an MoU for the Tapti Basin Mega Recharge Project was signed by which of the following States ?",
+    "options": {
+      "1": "Rajasthan and Gujarat",
+      "2": "Maharashtra and Gujarat",
+      "3": "Madhya Pradesh and Maharashtra",
+      "4": "Maharashtra and Karnataka"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

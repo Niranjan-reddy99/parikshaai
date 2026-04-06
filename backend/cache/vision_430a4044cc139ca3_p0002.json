@@ -1,0 +1,67 @@
+[
+  {
+    "q_num": 12,
+    "question": "Calculators, Mathematical/Log Tables, Mobile Phones, Bluetooth instruments or any other Electronic Devices will not be allowed into the Examination Hall.",
+    "options": {
+      "1": "Calculators, Mathematical/Log Tables, Mobile Phones, Bluetooth instruments or any other Electronic Devices will not be allowed into the Examination Hall.",
+      "2": "Calculators, Mathematical/Log Tables, Mobile Phones, Bluetooth instruments or any other Electronic Devices will not be allowed into the Examination Hall.",
+      "3": "Calculators, Mathematical/Log Tables, Mobile Phones, Bluetooth instruments or any other Electronic Devices will not be allowed into the Examination Hall.",
+      "4": "Calculators, Mathematical/Log Tables, Mobile Phones, Bluetooth instruments or any other Electronic Devices will not be allowed into the Examination Hall."
+    },
+    "correct": 1,
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 13,
+    "question": "Candidates should stay in the Examination Hall till expiry of Full Time i.e. 2 Hours. No candidate shall be allowed to leave the Hall in the middle of the examination under any circumstances.",
+    "options": {
+      "1": "Candidates should stay in the Examination Hall till expiry of Full Time i.e. 2 Hours. No candidate shall be allowed to leave the Hall in the middle of the examination under any circumstances.",
+      "2": "Candidates should stay in the Examination Hall till expiry of Full Time i.e. 2 Hours. No candidate shall be allowed to leave the Hall in the middle of the examination under any circumstances.",
+      "3": "Candidates should stay in the Examination Hall till expiry of Full Time i.e. 2 Hours. No candidate shall be allowed to leave the Hall in the middle of the examination under any circumstances.",
+      "4": "Candidates should stay in the Examination Hall till expiry of Full Time i.e. 2 Hours. No candidate shall be allowed to leave the Hall in the middle of the examination under any circumstances."
+    },
+    "correct": 1,
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 14,
+    "question": "If any candidate attempts to use any means to cheat/copy etc., he/she is liable for prosecution and debarment.",
+    "options": {
+      "1": "If any candidate attempts to use any means to cheat/copy etc., he/she is liable for prosecution and debarment.",
+      "2": "If any candidate attempts to use any means to cheat/copy etc., he/she is liable for prosecution and debarment.",
+      "3": "If any candidate attempts to use any means to cheat/copy etc., he/she is liable for prosecution and debarment.",
+      "4": "If any candidate attempts to use any means to cheat/copy etc., he/she is liable for prosecution and debarment."
+    },
+    "correct": 1,
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 15,
+    "question": "Rough work may be done on the last page of the Question Booklet only. It should not be done anywhere else.",
+    "options": {
+      "1": "Rough work may be done on the last page of the Question Booklet only. It should not be done anywhere else.",
+      "2": "Rough work may be done on the last page of the Question Booklet only. It should not be done anywhere else.",
+      "3": "Rough work may be done on the last page of the Question Booklet only. It should not be done anywhere else.",
+      "4": "Rough work may be done on the last page of the Question Booklet only. It should not be done anywhere else."
+    },
+    "correct": 1,
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 16,
+    "question": "As per G.O. Ms. No. 235, Finance (HR-I, Plg & Policy) Dept., Date 06/12/2016, each wrong answer will be penalized with 1/3rd of the marks prescribed for the question and that would be deducted from their total marks.",
+    "options": {
+      "1": "As per G.O. Ms. No. 235, Finance (HR-I, Plg & Policy) Dept., Date 06/12/2016, each wrong answer will be penalized with 1/3rd of the marks prescribed for the question and that would be deducted from their total marks.",
+      "2": "As per G.O. Ms. No. 235, Finance (HR-I, Plg & Policy) Dept., Date 06/12/2016, each wrong answer will be penalized with 1/3rd of the marks prescribed for the question and that would be deducted from their total marks.",
+      "3": "As per G.O. Ms. No. 235, Finance (HR-I, Plg & Policy) Dept., Date 06/12/2016, each wrong answer will be penalized with 1/3rd of the marks prescribed for the question and that would be deducted from their total marks.",
+      "4": "As per G.O. Ms. No. 235, Finance (HR-I, Plg & Policy) Dept., Date 06/12/2016, each wrong answer will be penalized with 1/3rd of the marks prescribed for the question and that would be deducted from their total marks."
+    },
+    "correct": 1,
+    "has_image": false,
+    "needs_review": false
+  }
+]

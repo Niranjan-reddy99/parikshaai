@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 134,
+    "question": "What is the shortest distance between Stall-3 and Stall-6 ?",
+    "options": {
+      "1": "6√87 m",
+      "2": "4√89 m",
+      "3": "4√77 m",
+      "4": "8√24 m"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 135,
+    "question": "What is the direction of Stall-1 with respect to Stall-2 and the shortest distance between them ?",
+    "options": {
+      "1": "North-East, 7√10 m",
+      "2": "North-West, 7√10 m",
+      "3": "North, 35 m",
+      "4": "North, 39 m"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

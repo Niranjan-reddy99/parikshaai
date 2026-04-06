@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 59,
+    "question": "Which of the following statement/statements is/are incorrect regarding the Law Commission of India?\nI. It is a non-constitutional quasi judicial body.\nII. One of its functions is to communicate its opinion to the President on subjects relating to legal administration.\nIII. Its reports are not submitted to the Parliament.\nIV. It has no suo motu decision power to undertake research by itself.\nSelect the answer using the codes given below:",
+    "options": {
+      "1": "II and III",
+      "2": "Only III",
+      "3": "All",
+      "4": "I, II and IV"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 60,
+    "question": "Which of the following statement/statements is/are valid with respect to the Preamble of the Indian Constitution?\nI. The term 'democratic' as used in the Preamble is a mix of British Fabian Socialism and American Populism.\nII. The term 'Republic' in the Preamble indicates that India has an elected head, called the Prime Minister.\nIII. The 'Liberty' expressed in the Preamble is neither absolute nor qualified.\nIV. The term 'Fraternity' as used by the Preamble, originally denoted the dignity of the individual only.\nSelect the correct answer using the codes given below:",
+    "options": {
+      "1": "Only I",
+      "2": "II and III",
+      "3": "Only IV",
+      "4": "None"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 77,
+    "question": "Which of the following statement/statements qualifies/qualify as valid in connection with the banking mechanism in India ?\nI. Increasing the Cash Reserve Ratio (CRR) will result in increasing credit creation.\nII. Cash Reserve Ratio (CRR) applies only to the new deposit base while the Incremental Cash Reserve Ratio (ICRR) specifically targets the new borrower lending base.\nIII. \"Tenor Premium\" is an important component in the calculation of the Marginal Cost of Funds based Lending Rate (MCLR).\nIV. Marginal Standing Facility (MSF) is used as a long-term policy rate and is generally lower than the Bank Rate.",
+    "options": {
+      "1": "I and IV",
+      "2": "Only III",
+      "3": "Only IV",
+      "4": "I, III and IV"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

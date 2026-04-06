@@ -1,0 +1,54 @@
+[
+  {
+    "q_num": 147,
+    "question": "A key objective of the Talliki Vandanam Scheme is to reduce the burden of schooling cost, thus improving",
+    "options": {
+      "1": "The Gross Domestic Product (GDP)",
+      "2": "The Gross Enrollment Ratio (GER)",
+      "3": "Admission rate in Government Schools",
+      "4": "Increase of literacy rate in students"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 148,
+    "question": "Nation wide mobile number portability has been operational form",
+    "options": {
+      "1": "July 9th 2015",
+      "2": "July 7th 2015",
+      "3": "July 5th 2015",
+      "4": "July 3rd 2015"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 149,
+    "question": "Rashtriya Avishkar Abhiyan launched on 9th July 2015 by",
+    "options": {
+      "1": "Sri Narendra Modi",
+      "2": "Sri Pranab Mukherjee",
+      "3": "Sri APJ Abdul Kalam",
+      "4": "Sri Raghuram Rajan"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 150,
+    "question": "Sampada is a facility for e-registration of property documents launched by which State ?",
+    "options": {
+      "1": "Gujarat",
+      "2": "West Bengal",
+      "3": "Madhya Pradesh",
+      "4": "New Delhi"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

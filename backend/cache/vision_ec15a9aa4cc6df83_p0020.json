@@ -1,0 +1,54 @@
+[
+  {
+    "q_num": 61,
+    "question": "To eradicate child marriages, a unique data-driven approach like ALIVA is adopted by:",
+    "options": {
+      "1": "Rajgarh district of Madhya Pradesh",
+      "2": "Wardha district of Maharashtra",
+      "3": "Nayagarh district of Odisha",
+      "4": "Warangal district of Telangana"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 62,
+    "question": "A circular structure used by Zoroastrians for\nexcarnation or the disposal of human dead\nbodies through exposure to the natural\nelements and scavenger animals such as\nvultures is called:",
+    "options": {
+      "1": "Dakhma",
+      "2": "Aparigraha",
+      "3": "Sallèkhana",
+      "4": "Shenshai"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 63,
+    "question": "'Diku Andi' means:",
+    "options": {
+      "1": "Marriage by exchange in Koya and\nSavara tribes",
+      "2": "Marriage by capture in Naga tribes",
+      "3": "Marriage by probation in Kuki tribe",
+      "4": "Marriage by negotiation in Ho tribes"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 64,
+    "question": "The online portal developed by the\nGovernment of India for effective enforcement\nof the Child and Adolescent Labour\n(Prohibition and Regulation) Act, 1986, (which\nwas amended in 2016), is:",
+    "options": {
+      "1": "SPARC",
+      "2": "SRIJAN",
+      "3": "YUKTI",
+      "4": "PENCIL"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

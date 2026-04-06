@@ -1,0 +1,54 @@
+[
+  {
+    "q_num": 33,
+    "question": "Which river of the following is South based tributary of the River Ganga ?",
+    "options": {
+      "1": "Ghagharra",
+      "2": "Gandak",
+      "3": "Kosi",
+      "4": "Betwa"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 34,
+    "question": "What is the objective of 'National River Conservation Plan' ?",
+    "options": {
+      "1": "To improve the water quality of the river",
+      "2": "To improve the length of the river",
+      "3": "To improve the greenness of the river",
+      "4": "To improve the flow condition of the river"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 35,
+    "question": "Which of the following is not a major control of the climate ?",
+    "options": {
+      "1": "Latitude",
+      "2": "Altitude",
+      "3": "Distance from sea",
+      "4": "Distance from river"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 36,
+    "question": "During which year Wildlife Protection Act was implemented in India ?",
+    "options": {
+      "1": "1982",
+      "2": "1972",
+      "3": "1992",
+      "4": "1962"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 82,
+    "question": "Which of the following statement/statements is/are valid regarding the prevailing scenarios and issues in connection with the World Trade Organisation (WTO)?\nI. The 'Peace Clause' under the Bali Agreement reiterates that developing nations must not exceed the 10% ceiling limit for Public Stockholding schemes initiatives.\nII. The 'Green Box' prohibits the use of direct payments to producers which are not linked to production decisions.\nIII. The 'Reduction Commitments' are expressed in terms of a \"Total Aggregate Measurement of Support\" which includes all product-specific support and non-product-specific support in one single figure.\nIV. Any support that would normally be placed in the 'Amber Box', is not to be placed in the 'Blue Box' even if the support mandates farmers to limit production.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "III and IV",
+      "2": "I, II and IV",
+      "3": "Only III",
+      "4": "I and II"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

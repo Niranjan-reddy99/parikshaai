@@ -1,0 +1,67 @@
+[
+  {
+    "q_num": 40,
+    "question": "Which of the following mountains are young fold mountains ?",
+    "options": {
+      "1": "The Appalachians",
+      "2": "The Aravalis",
+      "3": "The Alps",
+      "4": "The Urals"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 41,
+    "question": "Prairies are the temperate grasslands present in :",
+    "options": {
+      "1": "The United States and Mexico",
+      "2": "The United States only",
+      "3": "The United States and Canada",
+      "4": "Canada and Alaska"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 42,
+    "question": "The part of the Himalayas between Sutluj and Kali rivers is called :",
+    "options": {
+      "1": "Punjab Himalayas",
+      "2": "Kashmir Himalayas",
+      "3": "Himachal Himalayas",
+      "4": "Kumaon Himalayas"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 43,
+    "question": "The Eastern Ghats stretch from :",
+    "options": {
+      "1": "The Mahanadi valley to Seshachalam hills",
+      "2": "Mahendragiri to Seshachalam hills",
+      "3": "Mahendragiri to the Nilgiris",
+      "4": "The Mahanadi valley to the Nilgiris"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 44,
+    "question": "Which of the following river forms the Dhuandhar waterfalls ?",
+    "options": {
+      "1": "The Mahanadi",
+      "2": "The Narmada",
+      "3": "The Indus",
+      "4": "The Brahmaputra"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

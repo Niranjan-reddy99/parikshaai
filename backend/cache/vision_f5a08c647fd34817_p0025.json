@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 76,
+    "question": "During the process of renovation, the family actually incurs interior design expenditure of Rs. 52,200. The interior design expenditure incurred by the family is what percent increased of total estimated cost in it ?",
+    "options": {
+      "1": "3.6",
+      "2": "2.7",
+      "3": "1.5",
+      "4": "0.8"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 77,
+    "question": "What is the difference between the amount estimated by the family in elevation and wood polishing ?",
+    "options": {
+      "1": "Rs. 6,800",
+      "2": "Rs. 5,600",
+      "3": "Rs. 3,800",
+      "4": "Rs. 3,600"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

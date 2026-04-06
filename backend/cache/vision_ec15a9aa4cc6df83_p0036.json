@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 105,
+    "question": "In which state was the law guaranteeing 75% reservation for their local residents in the private sector struck down by the High Court stating the law is unconstitutional ?",
+    "options": {
+      "1": "Karnataka",
+      "2": "Haryana",
+      "3": "Jharkhand",
+      "4": "Andhra Pradesh"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 106,
+    "question": "Consider the following statements :\nI. The Global River Cities Alliance (GRCA) led by National Mission for Clean Ganga under the Ministry of Jal Shakti was launched at COP28 in New Delhi.\nII. The Global River Cities Alliance (GRCA) is a unique alliance covering 275+ global river cities in 11 countries.\nIII. The Global River Cities Alliance (GRCA) is the first of its kind in the world.\nWhich of the above given statements is/are correct ?",
+    "options": {
+      "1": "I and II only",
+      "2": "I only",
+      "3": "I and III only",
+      "4": "II and III only"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

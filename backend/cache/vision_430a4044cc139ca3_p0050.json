@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 88,
+    "question": "Which of the following statement/statements is/are incorrect regarding the Andhra Pradesh Industrial Policy 2023-27?\nI. To achieve a minimum contribution of 25% by industry in the State GDP\nII. To provide end-to-end facilitation in 2 weeks\nIII. To envisage ten (10) priorities of accomplishment\nIV. To focus on becoming a 'Plug and Play' State for investments\nV. Ensuring land allotment by APIIC within a period of 2 weeks upon receipt of application\nSelect the answer using the codes given below:",
+    "options": {
+      "1": "II, III and V",
+      "2": "I, II, III and V",
+      "3": "Only V",
+      "4": "III and IV"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

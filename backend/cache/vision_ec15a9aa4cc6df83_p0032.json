@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 93,
+    "question": "Who among the following eminent personalities have been conferred with the Padma Shri Award 2024 for their contributions and achievements in the field of Arts ?",
+    "options": {
+      "1": "I, II and IV only",
+      "2": "I, III and IV only",
+      "3": "II, IV and V only",
+      "4": "All of the above"
+    },
+    "correct": 1,
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 94,
+    "question": "According to INTERPOL, which State police had registered one of the first cases in India of human trafficking committed to force victims to commit cyber fraud ?",
+    "options": {
+      "1": "Maharashtra",
+      "2": "Uttar Pradesh",
+      "3": "Telangana",
+      "4": "Bihar"
+    },
+    "correct": 3,
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 95,
+    "question": "Match the following List I with List II with regard to Arjuna Awards 2023:",
+    "options": {
+      "1": "III IV V I II",
+      "2": "II V IV I III",
+      "3": "II IV V III I",
+      "4": "II IV V I III"
+    },
+    "correct": 4,
+    "has_image": false,
+    "needs_review": false
+  }
+]

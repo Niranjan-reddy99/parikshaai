@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 33,
+    "question": "Which of the following State Bill/Bills will have to be mandatorily reserved for the President's consideration?\nI. A Bill that proposes to give effect to certain Directive Principles of State Policy.\nII. A Bill requiring prior Presidential sanction but which was however not obtained under Article 304.\nIII. A Bill that attracts the provisions of Article 288.\nIV. A Bill seeking to operate a provision that belongs to one of the Concurrent List entries, but which is however repugnant to any Union law.\nSelect the correct answer using the codes given below :\n(1) I and IV\n(2) I, II and IV\n(3) Only III\n(4) I and III",
+    "options": {
+      "1": "I and IV",
+      "2": "I, II and IV",
+      "3": "Only III",
+      "4": "I and III"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

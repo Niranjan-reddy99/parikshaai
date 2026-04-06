@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 63,
+    "question": "Tourism in India has turned out to be a key service sub-sector. Which of the following statements are valid regarding the Tourism sector in India ?\nI. NIDHI is a technology-driven system meant for providing services to Hospitality and Travel industry.\nII. The Government has resolved to make India a one trillion USD tourism economy by 2047 with 100 million international investors.\nIII. The Hotel Occupancy Rate has been rapidly increasing alongside a consistent rise in the average daily rate and revenue per available room.\nIV. India's Services Purchasing Managers' Index (PMI) has been in the expanding zone.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "All",
+      "2": "I, II and IV",
+      "3": "II, III and IV",
+      "4": "I and IV"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 64,
+    "question": "The Interim Union Budget (FY25) has proposed initiatives to boost India's Green Energy Sector. Which of the following proposals are connected with developing India's Green Energy ?\nI. Viability Gap Funding (VGF) for utilizing solar energy projects\nII. To set up coal gasification and liquefaction capacity of 100MT by 2030\nIII. Optional blending of Compressed Bio Gas (CBG) in Compressed Natural Gas (CNG) for transport and Piped Natural Gas (PNG) for domestic purposes\nIV. Provision of financial assistance for procurement of biomass aggregation machinery\nV. Setting up of a payment security system for expanding the bio-manufacturing system in the country\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "I, II, III and V",
+      "2": "II and IV",
+      "3": "I, III and V",
+      "4": "IV and V"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

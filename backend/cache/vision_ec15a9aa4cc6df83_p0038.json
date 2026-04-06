@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 109,
+    "question": "Consider the following statements :\nI. Vijayawada Railway Station was awarded the 'Green Railway Station' certification with the highest rating of Platinum by Leadership in Energy and Environmental Design (LEED), USA.\nII. Vijayawada Railway Station is the first in the South-Central Railway (SCR) Zone to have bagged the Platinum ring.\nWhich among the above given statements is/are correct ?",
+    "options": {
+      "1": "I only",
+      "2": "II only",
+      "3": "I and II",
+      "4": "None of the above"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 110,
+    "question": "Which among the following countries got membership into BRICS bloc with effect from 1st January, 2024 ?\nI. Egypt\nII. Argentina\nIII. Indonesia\nIV. Ethiopia\nV. Saudi Arabia",
+    "options": {
+      "1": "I, II and III",
+      "2": "II, III and V",
+      "3": "I, III and V",
+      "4": "I, IV and V"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

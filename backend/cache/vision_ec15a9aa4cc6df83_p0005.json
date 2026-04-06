@@ -1,0 +1,54 @@
+[
+  {
+    "q_num": 9,
+    "question": "Among Ashtapradhans of Shivaji, the Sar-i-Naubat was associated with which of the following tasks ?",
+    "options": {
+      "1": "Finance Minister",
+      "2": "Military Commander",
+      "3": "Foreign Secretary",
+      "4": "Revenue Minister"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 10,
+    "question": "Match List I with List II and select the correct answer using the codes given below the lists :\nList I\n(Leaders)\nList II\n(Revolt Centres)\na. Kunwar Singh\nI. Kanpur\nb. Hazrat Mahal\nII. Delhi\nc. Nana Saheb\nIII. Arrah, Bihar\nd. Bakht Khan\nIV. Lucknow\nCodes :",
+    "options": {
+      "1": "a-I, b-II, c-III, d-IV",
+      "2": "a-II, b-I, c-IV, d-III",
+      "3": "a-III, b-IV, c-I, d-II",
+      "4": "a-IV, b-III, c-II, d-I"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 11,
+    "question": "The All India Trade Union Congress (AITUC) was formed in Bombay in 1920. Who presided over its first session ?",
+    "options": {
+      "1": "N.M. Joshi",
+      "2": "Lala Lajpat Rai",
+      "3": "C.R. Das",
+      "4": "Subhas Chandra Bose"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 12,
+    "question": "Which Act introduced the Communal Electorate System ?",
+    "options": {
+      "1": "Morley-Minto Reforms",
+      "2": "Montague-Chelmsford Reforms",
+      "3": "Rowlatt Act, 1919",
+      "4": "Government of India Act, 1935"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 113,
+    "question": "Identify the incorrect statements among the following :\r\nI. Man Singh is the second Indian to win a gold medal at the Asian Marathon Championships.\r\nII. Hardik Singh was named as Men's FIH Player of the Year at the International Hockey Federation Hockey Star Awards 2023.\r\nIII. Indian women's hockey captain Sushila Chanu won the FIH 'Best Goalkeeper of the Year Award' at the International Hockey Federation Hockey Star Awards 2023.\r\nIV. Shubman Gill has been selected as 'Emerging Player of the Year' at International Cricket Council (ICC) Awards 2023.",
+    "options": {
+      "1": "I and III only",
+      "2": "II and III only",
+      "3": "III and IV only",
+      "4": "I and IV only"
+    },
+    "correct": 3,
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 114,
+    "question": "In which part of Andhra Pradesh is India's first largest private gold mine located ?",
+    "options": {
+      "1": "Krishnagiri Mandal of Kurnool District",
+      "2": "Aspari Mandal of Kurnool District",
+      "3": "Tuggali Mandal of Kurnool District",
+      "4": "Rudravaram Mandal of Kurnool District"
+    },
+    "correct": 3,
+    "has_image": false,
+    "needs_review": false
+  }
+]

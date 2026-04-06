@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 56,
+    "question": "What is the main difference between Environmental Impact Assessment (EIA) and Life-Cycle Assessment (LCA) ?",
+    "options": {
+      "1": "EIA focuses only on product design, while LCA focuses on project location",
+      "2": "EIA and LCA both focus only on air pollution levels",
+      "3": "EIA evaluates environmental impacts before a project starts, while LCA assesses impacts throughout the entire life of a product or process",
+      "4": "EIA is used for agricultural projects only, while LCA is used for industrial projects only"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 57,
+    "question": "How do Green Chemistry and Cleaner Production Technologies support the goals of EIA and LCA ?",
+    "options": {
+      "1": "By promoting the use of hazardous chemicals for faster production",
+      "2": "By ignoring product life-cycle impacts and focusing only on profit",
+      "3": "By encouraging disposal of industrial waste into nearby water bodies",
+      "4": "By reducing waste generation, minimizing pollution and ensuring sustainability throughout a product's life cycle"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

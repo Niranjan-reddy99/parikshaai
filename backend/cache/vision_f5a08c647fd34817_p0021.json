@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 66,
+    "question": "Which of the following States of India was badly affected by Titli Cyclone in 2018 ?",
+    "options": {
+      "1": "Andhra Pradesh",
+      "2": "Gujarat",
+      "3": "Tamilnadu",
+      "4": "Kerala"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 67,
+    "question": "Which of the following combinations correctly lists major causes of floods in India ?",
+    "options": {
+      "1": "Heavy rainfall, poor drainage, deforestation and dam failure",
+      "2": "High temperature, low humidity and groundwater recharge",
+      "3": "Glacier melting, windstorms and desertification",
+      "4": "River sedimentation and ocean acidification"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

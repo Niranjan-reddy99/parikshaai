@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 121,
+    "question": "Study the following arrangement carefully :\nDE*9E$P#6+U0$H1A2D&#AS2ΩA3DS9ALM#\nWhat should be in the place of question mark (?) in the following sequence based on the above arrangement ?\nDE* 9$P 60$ A#A ?",
+    "options": {
+      "1": "A9A",
+      "2": "AAL",
+      "3": "AS9",
+      "4": "ALA"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 122,
+    "question": "Rajesh codes the alphabets as numbers such as a=1, b=2, c=3 and so on. Then what is the value that Rajesh gets by adding all the letters (according to the code given to that letter) in the word\n'pneumonoultramicroscopicsilicovolcanoconiosis' ?",
+    "options": {
+      "1": "524",
+      "2": "536",
+      "3": "548",
+      "4": "560"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

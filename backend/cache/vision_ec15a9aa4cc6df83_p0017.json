@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 52,
+    "question": "Match the following :\nList I\n(Functional classification of town)\na. Mining town\nb. Industrial town\nc. Administrative town\nd. Garrison Cantonment town\nList II\n(Example)\nI. Jamshedpur\nII. Ankleshwar\nIII. Udhampur\nIV. Gandhinagar\nCodes :\na b c d\n(1) I II III IV\n(2) II I IV III\n(3) IV III II I\n(4) III IV I II",
+    "options": {
+      "1": "I II III IV",
+      "2": "II I IV III",
+      "3": "IV III II I",
+      "4": "III IV I II"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 53,
+    "question": "Which of the following oilseed crops is grown as 'rabi' crop only ?",
+    "options": {
+      "1": "Groundnut",
+      "2": "Mustard",
+      "3": "Sunflower",
+      "4": "Sesame"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 54,
+    "question": "In which region in India was tea plantation started in the first half of the 19th century ?",
+    "options": {
+      "1": "Brahmaputra valley",
+      "2": "Darjeeling region",
+      "3": "The Nilgiris",
+      "4": "Cardamom hills"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

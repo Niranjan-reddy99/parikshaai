@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&display=swap');
+
+:root {
+  --c-bg:           #0c0e0f;
+  --c-surface:      #181b1d;
+  --c-surface2:     #1f2224;
+  --c-surface3:     #272b2d;
+  --c-border:       rgba(255,255,255,0.055);
+  --c-border-l:     rgba(255,255,255,0.09);
+  --c-border-h:     rgba(255,255,255,0.14);
+  --c-accent-dim:   rgba(45,212,191,0.10);
+  --c-warn-dim:     rgba(251,191,36,0.12);
+  --c-danger-dim:   rgba(248,113,113,0.12);
+  --c-blue-dim:     rgba(96,165,250,0.12);
+  --c-text:         #f0ede8;
+  --c-text-sec:     #9a9690;
+  --c-text-tert:    #5c5956;
+  --c-heading-em:   #e8c87a;
+}
+
+:root.light {
+  --c-bg:           #f4f2ed;
+  --c-surface:      #ffffff;
+  --c-surface2:     #f7f5f0;
+  --c-surface3:     #e8e5df;
+  --c-border:       rgba(0,0,0,0.07);
+  --c-border-l:     rgba(0,0,0,0.12);
+  --c-border-h:     rgba(0,0,0,0.18);
+  --c-accent-dim:   rgba(13,148,136,0.10);
+  --c-warn-dim:     rgba(217,119,6,0.12);
+  --c-danger-dim:   rgba(220,38,38,0.12);
+  --c-blue-dim:     rgba(37,99,235,0.12);
+  --c-text:         #1c1917;
+  --c-text-sec:     #57534e;
+  --c-text-tert:    #a8a29e;
+  --c-heading-em:   #9e6a1a;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { scrollbar-width: thin; scrollbar-color: var(--c-surface3) transparent; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: var(--c-surface3); border-radius: 4px; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}

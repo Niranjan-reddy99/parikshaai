@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 17,
+    "question": "Consider the following Mughal structures :\nI. Tomb of Salim Chishti\nII. Buland Darwaza\nIII. Tomb of Humayun\nIV. Jami Masjid\nWhich of the above buildings were constructed during the reign of Akbar ?",
+    "options": {
+      "1": "II and III only",
+      "2": "II, III and IV",
+      "3": "I, II and III",
+      "4": "I, II, III and IV"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 18,
+    "question": "Match the following :\nList-I\n(Name of the Ruler)\nA. Husain Ali Khan\nB. Murshid Quli Khan\nC. Chin Qilich Khan\nD. Safdar Jung\nList-II\n(Position of the Ruler)\nI. One of the Saiyid brothers\nII. The ruler of Bengal\nIII. The Nizam of Hyderabad\nIV. The Nawab of Awadh\nChoose the correct answer using the codes given below :",
+    "options": {
+      "1": "I II III IV",
+      "2": "II I IV III",
+      "3": "II I III IV",
+      "4": "IV III II I"
+    },
+    "correct": "1",
+    "has_image": false,
+    "needs_review": false
+  }
+]

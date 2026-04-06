@@ -1,0 +1,54 @@
+[
+  {
+    "q_num": 143,
+    "question": "To prevent scams in Indian Capital Market, the government has assigned regulatory powers to ?",
+    "options": {
+      "1": "RBI",
+      "2": "SBI",
+      "3": "ICICI",
+      "4": "SEBI"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 144,
+    "question": "The place where bankers meet and settle their mutual claims and accounts is known as",
+    "options": {
+      "1": "Treasury",
+      "2": "Clearing House",
+      "3": "Collection Centre",
+      "4": "Dumping Ground"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 145,
+    "question": "Operation blackboard aims at",
+    "options": {
+      "1": "Promoting adult literacy",
+      "2": "Providing education to urban slum dwellers",
+      "3": "Opening of new schools, especially for female children",
+      "4": "Providing primary education in an educationally backward area"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 146,
+    "question": "Integrated Rural Development Program envisages",
+    "options": {
+      "1": "Self-employment programme for the rural poor",
+      "2": "To take over the functions of the erstwhile agricultural credit",
+      "3": "To help scheduled castes and tribes with adequate credit facility",
+      "4": "Assistance to poor rural families to come up above the poverty line"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

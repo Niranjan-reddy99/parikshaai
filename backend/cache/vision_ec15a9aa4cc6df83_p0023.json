@@ -1,0 +1,54 @@
+[
+  {
+    "q_num": 70,
+    "question": "The Shuddhi Movement to bring back the people who transformed their religion to Islam and Christianity from Hinduism was started by:",
+    "options": {
+      "1": "Brahmo Samaj",
+      "2": "Satyashodhak Samaj",
+      "3": "Ramakrishna Mission",
+      "4": "Arya Samaj"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 71,
+    "question": "India's first high-tech sports training centre for Divyangjan, 'The Atal Bihari Vajpayee Training Centre for Disability Sports' inaugurated on 2nd October, 2023 is located at :",
+    "options": {
+      "1": "Rajkot, Gujarat",
+      "2": "Gwalior, Madhya Pradesh",
+      "3": "Ahmedabad, Gujarat",
+      "4": "Prayagraj, Uttar Pradesh"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 72,
+    "question": "Under whose Chairmanship was a high-level committee on socio-economic, health and educational status of tribal communities of India set up by the Prime Minister's Office in 2013 ?",
+    "options": {
+      "1": "Dr. Joseph Bara",
+      "2": "Dr. Kamal K. Misra",
+      "3": "Dr. Hrusikesh Panda",
+      "4": "Prof. Virginus Xaxa"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 73,
+    "question": "Who stated that 'I measure the progress of a community by the degree of progress which women have achieved' ?",
+    "options": {
+      "1": "Dr. Vina Mazumdar",
+      "2": "Pandita Ramabai",
+      "3": "Mahatma Gandhi",
+      "4": "Dr. B.R. Ambedkar"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

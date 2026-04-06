@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 149,
+    "question": "Statement : Two industrialists, Shyam and Manoj, have industries right next to each other. They have been working hard for their industries' development and both of them manufacture the same product. Both spend equal amount of time, use the same materials and are equally hardworking. During the sales period, Shyam had better product sale in comparison to Manoj's product.\nConclusion I :\nThe quality of material used by Manoj was not good.\nConclusion II :\nPower cuts ruined the quality of Manoj's product.",
+    "options": {
+      "1": "Only conclusion I follows",
+      "2": "Only conclusion II follows",
+      "3": "Both conclusions I and II follow",
+      "4": "Neither conclusion I nor II follows"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 150,
+    "question": "Statement : The civic authority has decided that all the factories located inside the city limits be shifted outside to reduce the level of environmental pollution in the city.\nAssumption I :\nThe pollution level in the city in future may reduce after these factories are shifted outside the city limits.\nAssumption II :\nEnough usable land is available outside the city limit for these factories.\nAssumption III :\nMany of these factories may shift to some other smaller towns to remain profitable.",
+    "options": {
+      "1": "Only I is implicit",
+      "2": "Only I and II are implicit",
+      "3": "Only II is implicit",
+      "4": "Only II and III are implicit"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

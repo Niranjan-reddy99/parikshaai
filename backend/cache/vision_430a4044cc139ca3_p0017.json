@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 35,
+    "question": "In connection with the Goods and Services Tax (GST) Council, which of the following statement/statements is/are valid?\nI. The GST Council was established as a Statutory body, but it was later turned into a Constitutional federal body by an amendment of the Constitution.\nII. The proceedings of the GST Council will be invalidated in the eventuality of any defect in the appointment of a person as a member of the Council.\nIII. In the event of any dispute between more than two states over GST issues, the GST Council has to refer the matter to be adjudicated by the Public Accounts Committee of the Parliament.\nIV. The GST Council is required to make recommendations to the Centre and the States on the threshold limit of turnover below which goods and services may be exempted from GST.",
+    "options": {
+      "1": "II and III",
+      "2": "I and IV",
+      "3": "Only IV",
+      "4": "Only II"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  }
+]

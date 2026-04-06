@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 86,
+    "question": "Recently the Delhi High Court has upheld the constitutional validity of a provision of the Hindu Marriage Act which 'prohibits marriage between people who are related to each other through ancestors from their parent's side unless their customs allow them to do so'. The said provision was mentioned in which Section of the Hindu Marriage Act ?",
+    "options": {
+      "1": "Section 4(a)",
+      "2": "Section 5(v)",
+      "3": "Section 12(1)(a)",
+      "4": "Section 13(ii)"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 87,
+    "question": "A Centrally sponsored scheme that aims to achieve the objectives of child protection, happy childhood and development under the Sustainable Development Goals (SDGs) is :",
+    "options": {
+      "1": "Mission Laalana",
+      "2": "Mission Bala Vihar",
+      "3": "Mission Balsamrudhi",
+      "4": "Mission Vatsalya"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 88,
+    "question": "Which of the following was the custom practised during the ancient period that allows married women to cohabit with a designated male for the sole purpose of procreating a child if her husband was impotent or had died ?",
+    "options": {
+      "1": "Apasthamba",
+      "2": "Sikata Nivari",
+      "3": "Pratigya",
+      "4": "Niyoga"
+    },
+    "correct": "4",
+    "has_image": false,
+    "needs_review": false
+  }
+]

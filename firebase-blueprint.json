@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "Question": {
+      "title": "Question",
+      "description": "A single exam question with options and metadata.",
+      "type": "object",
+      "properties": {
+        "question": { "type": "string", "description": "The text of the question." },
+        "options": {
+          "type": "object",
+          "properties": {
+            "A": { "type": "string" },
+            "B": { "type": "string" },
+            "C": { "type": "string" },
+            "D": { "type": "string" }
+          },
+          "required": ["A", "B", "C", "D"]
+        },
+        "answer": { "type": "string", "description": "The correct option (A, B, C, or D)." },
+        "subject": { "type": "string", "enum": ["Polity", "History", "Economy", "Geography", "Environment", "Science", "Current Affairs"] },
+        "topic": { "type": "string" },
+        "subtopic": { "type": "string" },
+        "difficulty": { "type": "string", "enum": ["Easy", "Medium", "Hard"] },
+        "concept": { "type": "string" },
+        "type": { "type": "string", "enum": ["Static", "Current Affairs"] },
+        "year": { "type": "integer" },
+        "exam": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["question", "options", "subject", "year", "exam"]
+    },
+    "Exam": {
+      "title": "Exam",
+      "description": "Metadata about an exam paper.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "year": { "type": "integer" },
+        "totalQuestions": { "type": "integer" },
+        "processedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "year"]
+    }
+  },
+  "firestore": {
+    "/questions/{questionId}": {
+      "schema": "Question",
+      "description": "Collection of all processed questions."
+    },
+    "/exams/{examId}": {
+      "schema": "Exam",
+      "description": "Collection of processed exam papers."
+    }
+  }
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "q_num": 89,
+    "question": "Which of the following statements are valid in connection with Andhra Pradesh Green Hydrogen and Green Ammonia Policy (2023)?\nI. The objective is to target Green Energy production up to the capacity of 1 MPTA (Million Tonnes Per Annum) or Green Ammonia production up to the capacity of 2.0 MTPA in the next five years.\nII. New and Renewable Energy Development Corporation of A.P. Ltd (NREDGAP) shall act as a Nodal Agency under this policy.\nIII. All the Ports in the State have infrastructure for storing liquid nitrogen which can then be utilized for storing Green Hydrogen for exporting to other countries.\nIV. The Policy prohibits the production of Green Hydrogen/Green Ammonia by using Renewable Energy and/or Biomass from 'Third-Party/Power exchange'.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "II and III",
+      "2": "I and IV",
+      "3": "I, II and III",
+      "4": "III and IV"
+    },
+    "correct": 1,
+    "has_image": false,
+    "needs_review": false
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "q_num": 55,
+    "question": "The equal status of the Rajya Sabha with the Lok Sabha can be described by which of the following statement/statements?\nI. Introduction and passage of Money Bills.\nII. Consideration of the CAG's report.\nIII. Initiating the removal of the Vice-President.\nIV. Approval of proclamation of all the three types of emergencies by the President.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "I, III and IV",
+      "2": "II and IV",
+      "3": "All",
+      "4": "Only II"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 56,
+    "question": "Which of the following source/sources of revenue qualifies/qualify for being given to the Panchayats ?\nI. The tax proceeds that are assigned to the States from the Centre may be again re-distributed to the Panchayats as recommended by the Central Finance Commission.\nII. Loans from the State Government.\nIII. Under Article 243-1 of the Constitution of India, the State Government is empowered to devolve its own funds to the Panchayats even in the absence of the State Finance Commission's recommendations.\nIV. Internal Resource Generation is facilitated only in the case of Panchayats situated in Scheduled Areas as per the Fifth Schedule.\nSelect the correct answer using the codes given below :",
+    "options": {
+      "1": "I, II and III",
+      "2": "II and IV",
+      "3": "Only II",
+      "4": "None"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]

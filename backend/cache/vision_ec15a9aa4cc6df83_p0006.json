@@ -1,0 +1,41 @@
+[
+  {
+    "q_num": 13,
+    "question": "Consider the following pairs regarding Carnatic wars :\nWars\nAssociated Treaty\nI. First Carnatic War : Treaty of Aix-la-Chapelle\nII. Second Carnatic War : Treaty of Yandabo\nIII. Third Carnatic War : Treaty of Paris\nWhich of the pairs given above are correctly matched ?",
+    "options": {
+      "1": "I and II",
+      "2": "II and III",
+      "3": "I and III",
+      "4": "None of the above"
+    },
+    "correct": "3",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 14,
+    "question": "The Vaikom Satyagraha which started in Kerala was associated with :",
+    "options": {
+      "1": "Eradication of Child Labour",
+      "2": "Temple Entry Movement",
+      "3": "Women's Liberation",
+      "4": "Vaishnavite Movement"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  },
+  {
+    "q_num": 15,
+    "question": "What was the code name of the Indian armed forces operation to liberate Goa, Daman and Diu from Portuguese rule ?",
+    "options": {
+      "1": "Operation Kiran",
+      "2": "Operation Vijay",
+      "3": "Operation Rajiv",
+      "4": "Operation Pawan"
+    },
+    "correct": "2",
+    "has_image": false,
+    "needs_review": false
+  }
+]
