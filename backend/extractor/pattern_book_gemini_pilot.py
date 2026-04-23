@@ -5,6 +5,7 @@ from io import BytesIO
 import json
 import os
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -17,13 +18,16 @@ from .pattern_book_classifier import classify_pattern_book_pdf, _render_page_png
 
 load_dotenv()
 
-_CLIENT = genai.Client(
-    vertexai=True,
-    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-    location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
-)
-
 _VISION_MODEL = os.getenv("PATTERN_BOOK_GEMINI_VISION_MODEL", "publishers/google/models/gemini-2.5-flash")
+
+
+@lru_cache(maxsize=1)
+def _get_client():
+    return genai.Client(
+        vertexai=True,
+        project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+        location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
+    )
 
 _PROMPT_TEMPLATE = """You are extracting multiple-choice questions from a scanned SSC pattern-book question page.
 
@@ -109,7 +113,7 @@ def validate_gemini_mcq_object(item: dict[str, Any]) -> tuple[bool, list[str], d
 
 def _call_gemini_for_question_page(page_image: Image.Image, *, heading: str | None) -> list[dict[str, Any]]:
     prompt = _PROMPT_TEMPLATE.format(heading=heading or "Unknown")
-    resp = _CLIENT.models.generate_content(
+    resp = _get_client().models.generate_content(
         model=_VISION_MODEL,
         contents=[prompt, page_image],
         config=types.GenerateContentConfig(
