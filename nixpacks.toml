@@ -1,0 +1,8 @@
+[providers]
+python = "3.13"
+
+[phases.setup]
+aptPkgs = ["tesseract-ocr"]
+
+[phases.install]
+cmds = ["cd backend && pip install --no-cache-dir -r requirements.txt"]

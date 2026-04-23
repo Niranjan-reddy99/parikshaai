@@ -5,8 +5,6 @@ import { type QuestionMeta, type View } from '../types/index';
 import {
   cleanBucketLabel,
   normalizeLooseLabel,
-  canonicalSubjectFamily,
-  canonicalConceptFamily,
 } from '../lib/topicTaxonomy';
 
 interface FeedViewProps {
@@ -51,12 +49,11 @@ export function FeedView({ questions, setView, startPractice, startTopicPractice
     const subjectMap: Record<string, SubjectNode> = {};
 
     for (const q of questions) {
-      const rawSubject = cleanBucketLabel(q.subject, 'General Knowledge');
+      // `/questions/meta` is already canonicalized by the backend. Re-mapping it
+      // again in the client causes feed counts to diverge from `/topic-questions`.
+      const subject = normalizeLooseLabel(cleanBucketLabel(q.subject, 'General Awareness'));
       const topic = normalizeLooseLabel(cleanBucketLabel(q.topic, 'General'));
-      const rawSubtopic = cleanBucketLabel(q.subtopic, topic);
-      const family = canonicalConceptFamily(rawSubject, topic, rawSubtopic);
-      const subject = canonicalSubjectFamily(rawSubject, topic, rawSubtopic);
-      const subtopic = normalizeLooseLabel(rawSubtopic);
+      const subtopic = normalizeLooseLabel(cleanBucketLabel(q.subtopic, topic));
 
       if (!subjectMap[subject]) {
         subjectMap[subject] = {
@@ -79,9 +76,9 @@ export function FeedView({ questions, setView, startPractice, startTopicPractice
         subjectNode.latestExam = q.exam;
       }
 
-      if (!subjectNode.topics[family]) {
-        subjectNode.topics[family] = {
-          topic: family,
+      if (!subjectNode.topics[topic]) {
+        subjectNode.topics[topic] = {
+          topic,
           count: 0,
           years: new Set(),
           latestExam: q.exam,
@@ -90,7 +87,7 @@ export function FeedView({ questions, setView, startPractice, startTopicPractice
         };
       }
 
-      const topicNode = subjectNode.topics[family];
+      const topicNode = subjectNode.topics[topic];
       topicNode.count++;
       topicNode.years.add(q.year);
       if (q.year > topicNode.latestYear) {
