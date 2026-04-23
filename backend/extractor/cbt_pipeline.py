@@ -39,6 +39,7 @@ from ai_models import EXTRACTION_MODEL, get_genai_client
 from dotenv import load_dotenv
 from google.genai import types
 from extraction_cleanup import clean_and_dedupe_questions
+from extractor.universal_extractor import _recover_inline_match_payload
 
 load_dotenv()
 
@@ -648,13 +649,17 @@ Wrong options are shown in RED with a ✗ mark.
 YOUR TASK: Extract ONLY the ENGLISH version of each unique question.
 For each question return:
   "q"    - question number (from "Question Number : N")
-  "text" - FULL English question text. For "Match the following" questions,
-           include all column headers and items you can read. If the table is
-           an image you cannot read, write "Match the following: [table image]"
+  "text" - FULL English question text.
+  "question_type" - "mcq" or "match"
+  For normal MCQs also return:
   "a"    - English option 1 text
   "b"    - English option 2 text
   "c"    - English option 3 text
   "d"    - English option 4 text
+  For "Match the following" table questions return instead:
+  "match_left"  - ordered English items from the left column/list
+  "match_right" - ordered English items from the right column/list
+  "a","b","c","d" should still contain the answer-code options printed below the table
   "ans"  - option number that is GREEN with ✓ (1, 2, 3, or 4). null if unclear.
 
 STRICT RULES:
@@ -664,9 +669,12 @@ STRICT RULES:
 - Do NOT repeat the same question number twice
 - "text" must be English only, complete sentence, no Telugu characters
 - Options must be English only
+- If the question is a table-based "Match the following", you MUST read the table and return the left and right column items in arrays.
+- Do NOT flatten the table into one paragraph if you can read the rows.
+- Do NOT return placeholders like "[table image]" unless the table is genuinely unreadable.
 
 Return ONLY a valid JSON array. No markdown backticks, no explanation:
-[{"q":1,"text":"...","a":"...","b":"...","c":"...","d":"...","ans":2}, ...]
+[{"q":1,"text":"...","question_type":"mcq","a":"...","b":"...","c":"...","d":"...","ans":2}, {"q":4,"text":"Match the following athletes with their respective sports:","question_type":"match","match_left":["Sharath Kamal","Nikhat Zareen","Lakshya Sen","Seema Punia"],"match_right":["Discus throw","Badminton","Table tennis","Boxing"],"a":"1-B, 2-C, 3-D, 4-A","b":"1-C, 2-D, 3-B, 4-A","c":"1-A, 2-B, 3-C, 4-D","d":"1-C, 2-B, 3-D, 4-A","ans":2}]
 
 If no English questions on this page: []
 """
@@ -681,7 +689,44 @@ def _page_ans_cache_key(pdf_hash: str, page_idx: int) -> Path:
 
 def _page_tcsion_cache_key(pdf_hash: str, page_idx: int) -> Path:
     """Separate cache namespace for TCSiON full-extraction (text+answer together)."""
-    return CACHE_DIR / f"tcsion_v10_{pdf_hash}_p{page_idx:04d}.json"
+    return CACHE_DIR / f"tcsion_v11_{pdf_hash}_p{page_idx:04d}.json"
+
+
+def _normalize_tcsion_match_question(item: dict, q_text: str) -> tuple[str, str]:
+    match_left = [str(x).strip() for x in (item.get("match_left") or []) if str(x).strip()]
+    match_right = [str(x).strip() for x in (item.get("match_right") or []) if str(x).strip()]
+    question_type = str(item.get("question_type") or "").strip().lower()
+
+    if question_type == "match" and len(match_left) >= 2 and len(match_right) >= 2:
+        intro = q_text or "Match the following:"
+        payload = json.dumps({"col1": match_left, "col2": match_right}, ensure_ascii=False)
+        return intro + "\n\n__MATCH__:" + payload, "Match"
+
+    inline_rows = re.findall(
+        r'(?mi)^\s*(?:\d+|[A-D])\.\s*(.+?)\s{2,}(?:\d+|[A-D])\.\s*(.+?)\s*$',
+        q_text,
+    )
+    if question_type == "match" and len(inline_rows) >= 2:
+        left = [left.strip() for left, _ in inline_rows if left.strip()]
+        right = [right.strip() for _, right in inline_rows if right.strip()]
+        if len(left) >= 2 and len(right) >= 2:
+            intro_lines = []
+            for line in q_text.splitlines():
+                if re.match(r'(?i)^\s*(?:\d+|[A-D])\.\s*.+?\s{2,}(?:\d+|[A-D])\.\s*.+$', line.strip()):
+                    break
+                if line.strip():
+                    intro_lines.append(line.strip())
+            intro = "\n".join(intro_lines).strip() or "Match the following:"
+            payload = json.dumps({"col1": left, "col2": right}, ensure_ascii=False)
+            return intro + "\n\n__MATCH__:" + payload, "Match"
+
+    recovered = _recover_inline_match_payload(q_text)
+    if recovered:
+        intro, col1, col2 = recovered
+        payload = json.dumps({"col1": col1, "col2": col2}, ensure_ascii=False)
+        return intro + "\n\n__MATCH__:" + payload, "Match"
+
+    return q_text, "Match" if question_type == "match" else ""
 
 
 def _extract_tcsion_page(
@@ -751,13 +796,14 @@ def _extract_tcsion_page(
                 opt_b  = (item.get("b") or "").strip()
                 opt_c  = (item.get("c") or "").strip()
                 opt_d  = (item.get("d") or "").strip()
+                normalized_q_text, normalized_q_type = _normalize_tcsion_match_question(item, q_text)
 
-                if not q_text or len(q_text) < 5:
+                if not normalized_q_text or len(normalized_q_text) < 5:
                     continue  # skip empty/noise
 
                 questions.append({
                     "question_number": q_num,
-                    "question_text":   q_text,
+                    "question_text":   normalized_q_text,
                     "option_a":        opt_a,
                     "option_b":        opt_b,
                     "option_c":        opt_c,
@@ -765,6 +811,7 @@ def _extract_tcsion_page(
                     "correct_answer":  correct_letter,
                     "exam_section":    "General Studies",
                     "passage":         "",
+                    "question_type":   normalized_q_type or ("Match" if "__MATCH__:" in normalized_q_text else "MCQ"),
                     "needs_review":    (correct_letter is None) or not (opt_a and opt_b and opt_c and opt_d),
                 })
 

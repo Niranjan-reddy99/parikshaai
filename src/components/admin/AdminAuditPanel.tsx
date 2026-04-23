@@ -76,26 +76,43 @@ export function AdminAuditPanel({
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     const run = async () => {
       setQueueLoading(true);
       setQueueError(null);
+      const timeout = window.setTimeout(() => controller.abort(), 15000);
       try {
         const params = new URLSearchParams({ exam_name: examName, exam_year: String(year) });
-        const res = await fetch(`${API_BASE}/admin/repair-queue?${params.toString()}`, { headers: adminHeaders() });
-        if (!res.ok) throw new Error(`Failed to load repair queue (${res.status})`);
+        const res = await fetch(`${API_BASE}/admin/repair-queue?${params.toString()}`, {
+          headers: adminHeaders(),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          const detail = await res.text().catch(() => '');
+          throw new Error(detail || `Failed to load repair queue (${res.status})`);
+        }
         const data = await res.json();
         if (cancelled) return;
         setQueue(data.items || []);
         const foundPaper = (data.papers || []).find((p: RepairQueuePaper) => p.exam_name === examName && p.exam_year === year) || null;
         setPaper(foundPaper);
       } catch (e: any) {
-        if (!cancelled) setQueueError(e?.message || 'Failed to load repair queue');
+        if (!cancelled) {
+          const message = e?.name === 'AbortError'
+            ? 'Repair queue is taking too long to load. The backend may still be on an older deploy or temporarily stuck.'
+            : (e?.message || 'Failed to load repair queue');
+          setQueueError(message);
+        }
       } finally {
+        window.clearTimeout(timeout);
         if (!cancelled) setQueueLoading(false);
       }
     };
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [examName, year]);
 
   const groupedByIssue = useMemo(() => {
