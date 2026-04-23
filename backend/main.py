@@ -59,6 +59,7 @@ from extractor.pattern_book_raw_blocks import build_phase_c_readiness_audit
 from extraction_cleanup import clean_extracted_question
 from canonical_taxonomy import apply_canonical_taxonomy, derive_canonical_taxonomy
 from papers import (
+    ensure_paper_for_existing_exam,
     ensure_paper_for_upload,
     get_latest_paper_for_exam,
     link_job_to_paper,
@@ -1983,7 +1984,15 @@ async def admin_upload_pdf(
         print(f"  🧠 Smart Router detected format: {detected_format} | route={route_format}")
 
         if missing_reupload_mode:
-            paper = get_latest_paper_for_exam(exam_name, exam_year, sb=supabase)
+            paper = ensure_paper_for_existing_exam(
+                exam_name,
+                exam_year,
+                source_filename=file.filename,
+                source_file_hash=file_hash,
+                source_pdf_path=tmp_path,
+                extractor_type=route_format,
+                sb=supabase,
+            )
             if not paper:
                 raise HTTPException(500, "Could not find the existing paper to repair missing questions.")
         else:

@@ -746,7 +746,7 @@ def extract_text(pdf_path: str, tracker: "CostTracker | None" = None, skip_bilin
         if _key_lines >= 3:
             print(f"  🚫 Page {i+1}: skipped (answer key table)")
             continue
-        pages.append(text)
+        pages.append((i, text))
 
     doc.close()
     print(f"  ✅ Extracted {len(pages)} pages")

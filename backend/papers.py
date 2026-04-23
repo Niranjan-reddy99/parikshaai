@@ -160,6 +160,63 @@ def ensure_paper_for_upload(
     return paper
 
 
+def ensure_paper_for_existing_exam(
+    exam_name: str,
+    exam_year: int,
+    *,
+    source_filename: Optional[str] = None,
+    source_file_hash: Optional[str] = None,
+    source_pdf_path: Optional[str] = None,
+    extractor_type: Optional[str] = None,
+    sb=None,
+) -> Optional[dict[str, Any]]:
+    """
+    Legacy repair helper.
+
+    Older exams may have question rows but no `papers` record because they were
+    ingested before the paper layer existed. Gap-repair uploads should attach to
+    a stable paper record instead of failing with a 500 in that case.
+    """
+    sb = sb or _get_supabase()
+    latest = get_latest_paper_for_exam(exam_name, exam_year, sb=sb)
+    if latest:
+        return latest
+
+    normalized_name = normalize_exam_name(exam_name)
+    question_probe = (
+        sb.table("questions")
+        .select("id", count="exact")
+        .eq("exam_name", normalized_name)
+        .eq("exam_year", int(exam_year))
+        .limit(1)
+        .execute()
+    )
+    if not (question_probe.data or []) and not (question_probe.count or 0):
+        return None
+
+    paper = ensure_paper_for_upload(
+        normalized_name,
+        exam_year,
+        source_filename=source_filename,
+        source_file_hash=source_file_hash,
+        source_pdf_path=source_pdf_path,
+        extractor_type=extractor_type or "legacy-repair",
+        supersede_latest=False,
+        sb=sb,
+    )
+
+    # Backfill all legacy rows for this exam-year onto the recovered paper.
+    (
+        sb.table("questions")
+        .update({"paper_id": paper["id"]})
+        .eq("exam_name", normalized_name)
+        .eq("exam_year", int(exam_year))
+        .execute()
+    )
+    refresh_paper_publish_state(paper["id"], sb=sb)
+    return paper
+
+
 def link_job_to_paper(paper_id: str, job_id: str, *, sb=None) -> None:
     sb = sb or _get_supabase()
     (
