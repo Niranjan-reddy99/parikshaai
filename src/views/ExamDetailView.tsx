@@ -28,13 +28,14 @@ interface ExamDetailViewProps {
   setDeleteExamTarget: (v: { fullName: string; year: number } | null) => void;
   doAddBlankQuestion?: (examName: string, year: number, forcedNum?: number) => void;
   doDeleteQuestion?: (id: string) => void;
+  setEditQuestion?: (question: Question | null) => void;
 }
 
 export function ExamDetailView({
   selectedCommission, selectedExamType, selectedExamName, selectedYear, setSelectedYear,
   commissionMap, examYearQs, examLoading, weightage, questions,
   startPractice, startMockExam, browseWithFilters, setView,
-  isAdmin, setRenameModal, setRenameValue, setDeleteExamTarget, doAddBlankQuestion, doDeleteQuestion
+  isAdmin, setRenameModal, setRenameValue, setDeleteExamTarget, doAddBlankQuestion, doDeleteQuestion, setEditQuestion
 }: ExamDetailViewProps) {
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
   const [showAudit, setShowAudit] = useState(false);
@@ -124,6 +125,7 @@ export function ExamDetailView({
                   year={selectedYear}
                   expectedCount={selectedCommission === 'UPSC' ? 100 : 150}
                   onAddPlaceholder={(num) => doAddBlankQuestion?.(selectedExamName, selectedYear, num)}
+                  onEditQuestion={(question) => setEditQuestion?.(question)}
                   onDeleteQuestion={(id) => doDeleteQuestion?.(id)}
                 />
               </div>

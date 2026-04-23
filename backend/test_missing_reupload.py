@@ -24,6 +24,18 @@ class MissingReuploadTests(unittest.TestCase):
         missing = main._missing_question_numbers_for_exam("Demo Exam", 2024, expected_count=0)
         self.assertEqual(missing, [])
 
+    @patch.object(main, "_question_rows_for_exam")
+    def test_repair_target_numbers_include_inactive_numbered_rows(self, mock_rows):
+        mock_rows.return_value = [
+            {"question_number": 1, "is_active": True},
+            {"question_number": 2, "is_active": True},
+            {"question_number": 3, "is_active": False},
+            {"question_number": 4, "is_active": True},
+            {"question_number": 5, "is_active": False},
+        ]
+        targets = main._repair_target_numbers_for_exam("Demo Exam", 2024, expected_count=6)
+        self.assertEqual(targets, [3, 5, 6])
+
     @patch.object(papers, "refresh_paper_publish_state")
     @patch.object(papers, "ensure_paper_for_upload")
     @patch.object(papers, "get_latest_paper_for_exam")

@@ -185,6 +185,11 @@ def _row_is_public(row: dict, supported_cols: set[str] | None = None) -> bool:
     return True
 
 
+def _filter_question_write_payload(payload: dict, supported_cols: set[str] | None = None) -> dict:
+    supported = supported_cols or _question_supported_columns()
+    return {key: value for key, value in payload.items() if key in supported}
+
+
 def _topic_bucket_questions(
     *,
     subject: str,
@@ -403,15 +408,18 @@ def _publishable_exam_keys() -> set[tuple[str, int]]:
     return _compute_publish_gate()["publishable_keys"]
 
 
-def _question_rows_for_exam(exam_name: str, exam_year: int) -> list[dict]:
+def _question_rows_for_exam(exam_name: str, exam_year: int, *, is_active: Optional[bool] = True) -> list[dict]:
     rows: list[dict] = []
     offset = 0
     while True:
-        r = supabase.table("questions").select(
+        q = supabase.table("questions").select(
             "id, exam_name, exam_year, question_number, needs_review, correct_answer, "
             "question_text, option_a, option_b, option_c, option_d, question_type, topic, "
-            "subject, subtopic, difficulty"
-        ).eq("exam_name", exam_name).eq("exam_year", exam_year).eq("is_active", True).range(offset, offset + 999).execute()
+            "subject, subtopic, difficulty, concept, passage, has_image, image_url, is_active"
+        ).eq("exam_name", exam_name).eq("exam_year", exam_year)
+        if is_active is not None:
+            q = q.eq("is_active", is_active)
+        r = q.range(offset, offset + 999).execute()
         batch = r.data or []
         rows.extend(batch)
         if len(batch) < 1000:
@@ -438,6 +446,34 @@ def _missing_question_numbers_for_exam(
     if upper_bound <= 0:
         return []
     return [n for n in range(1, upper_bound + 1) if n not in numbered_set]
+
+
+def _repair_target_numbers_for_exam(
+    exam_name: str,
+    exam_year: int,
+    *,
+    expected_count: int = 0,
+) -> list[int]:
+    rows = _question_rows_for_exam(exam_name, exam_year, is_active=None)
+    active_numbers = {
+        int(q["question_number"])
+        for q in rows
+        if q.get("is_active") is True
+        and isinstance(q.get("question_number"), int)
+        and int(q.get("question_number")) > 0
+    }
+    all_numbered = {
+        int(q["question_number"])
+        for q in rows
+        if isinstance(q.get("question_number"), int)
+        and int(q.get("question_number")) > 0
+    }
+    upper_bound = max(max(all_numbered, default=0), int(expected_count or 0))
+    if upper_bound <= 0:
+        return []
+    # Any numbered row that is currently inactive should also be repaired on re-upload,
+    # not just gaps that are completely absent from the DB.
+    return [n for n in range(1, upper_bound + 1) if n not in active_numbers]
 
 
 def _count_explanations(question_ids: list[str]) -> int:
@@ -840,6 +876,23 @@ def _build_exam_repair_queue(
             "exam_year": exam_year,
             "question_number": row.get("question_number"),
             "question_id": qid,
+            "question_text": row.get("question_text") or "",
+            "option_a": row.get("option_a") or "",
+            "option_b": row.get("option_b") or "",
+            "option_c": row.get("option_c") or "",
+            "option_d": row.get("option_d") or "",
+            "correct_answer": row.get("correct_answer") or "",
+            "subject": row.get("subject") or "",
+            "topic": row.get("topic") or "",
+            "subtopic": row.get("subtopic") or "",
+            "difficulty": row.get("difficulty") or "",
+            "question_type": row.get("question_type") or "",
+            "concept": row.get("concept") or "",
+            "passage": row.get("passage") or "",
+            "has_image": bool(row.get("has_image")),
+            "image_url": row.get("image_url"),
+            "is_active": bool(row.get("is_active")),
+            "needs_review": bool(row.get("needs_review")),
             "issue_type": issue_type,
             "severity": severity,
             "publish_blocker": publish_blocker,
@@ -858,6 +911,23 @@ def _build_exam_repair_queue(
                 "exam_year": exam_year,
                 "question_number": missing_qn,
                 "question_id": None,
+                "question_text": "",
+                "option_a": "",
+                "option_b": "",
+                "option_c": "",
+                "option_d": "",
+                "correct_answer": "",
+                "subject": "",
+                "topic": "",
+                "subtopic": "",
+                "difficulty": "",
+                "question_type": "",
+                "concept": "",
+                "passage": "",
+                "has_image": False,
+                "image_url": None,
+                "is_active": False,
+                "needs_review": True,
                 "issue_type": "numbering/data repair",
                 "severity": "critical",
                 "publish_blocker": "none",
@@ -1880,7 +1950,7 @@ async def admin_upload_pdf(
 
     # Normalize exam_name: collapse multiple spaces, strip edges, preserve original casing
     exam_name = normalize_exam_name(exam_name)
-    existing_missing_numbers = _missing_question_numbers_for_exam(
+    existing_missing_numbers = _repair_target_numbers_for_exam(
         exam_name,
         exam_year,
         expected_count=expected_count,
@@ -2274,17 +2344,18 @@ async def admin_repair_queue(
         items: list[dict] = []
         exam_reports: list[dict] = []
         for current_exam_name, current_exam_year in exams:
-            rows = _question_rows_for_exam(current_exam_name, current_exam_year)
-            if not rows:
+            active_rows = _question_rows_for_exam(current_exam_name, current_exam_year, is_active=True)
+            audit_rows = _question_rows_for_exam(current_exam_name, current_exam_year, is_active=None)
+            if not active_rows and not audit_rows:
                 continue
             contradiction_by_qid = _contradiction_map(current_exam_name, current_exam_year)
             queue = _build_exam_repair_queue(
                 current_exam_name,
                 current_exam_year,
-                rows,
+                audit_rows,
                 contradiction_by_qid=contradiction_by_qid,
             )
-            assessment = _paper_publish_assessment(rows, queue)
+            assessment = _paper_publish_assessment(active_rows, queue)
             items.extend(queue)
             exam_reports.append({
                 "exam": f"{current_exam_name} {current_exam_year}",
@@ -2483,29 +2554,36 @@ async def admin_rename_exam(
 async def admin_add_blank_question(req: dict):
     """Add a blank question for manual correction of missing numbers."""
     try:
+        supported_cols = _question_supported_columns()
         target_paper_id = resolve_paper_id(exam_name=req.get("exam_name", ""), exam_year=req.get("exam_year", 2024), sb=supabase)
         new_q = {
             "exam_name": req.get("exam_name", ""),
             "exam_year": req.get("exam_year", 2024),
             "paper_id": target_paper_id,
             "question_number": req.get("question_number", 1),
-            "question_text": "New Blank Question",
-            "option_a": "Option A",
-            "option_b": "Option B",
-            "option_c": "Option C",
-            "option_d": "Option D",
-            "correct_answer": "A",
-            "subject": "General Knowledge",
-            "topic": "General",
-            "difficulty": "Medium",
+            "question_text": req.get("question_text") or "New Blank Question",
+            "option_a": req.get("option_a") or "Option A",
+            "option_b": req.get("option_b") or "Option B",
+            "option_c": req.get("option_c") or "Option C",
+            "option_d": req.get("option_d") or "Option D",
+            "correct_answer": req.get("correct_answer") or "A",
+            "subject": req.get("subject") or "General Knowledge",
+            "topic": req.get("topic") or "General",
+            "subtopic": req.get("subtopic") or "",
+            "difficulty": req.get("difficulty") or "Medium",
+            "question_type": req.get("question_type") or "mcq",
+            "concept": req.get("concept") or "",
+            "passage": req.get("passage") or "",
             "is_active": True,
+            "needs_review": bool(req.get("needs_review", True)),
             "question_hash": f"manual_{int(time.time())}_{req.get('question_number', 1)}"
         }
         merged = merge_quality_fields(new_q, explanation_present=False)
-        for key in ("structural_status", "answer_status", "explanation_status", "public_visibility", "primary_issue_code", "issue_codes"):
-            new_q[key] = merged[key]
+        new_q.update(_filter_question_write_payload(merged, supported_cols))
+        new_q = _filter_question_write_payload(new_q, supported_cols)
         r = supabase.table("questions").insert([new_q]).execute()
         refresh_paper_publish_state(target_paper_id, sb=supabase)
+        _invalidate_meta_cache()
         return {"status": "success", "data": r.data}
     except Exception as e:
         raise HTTPException(500, f"Error adding question: {e}")

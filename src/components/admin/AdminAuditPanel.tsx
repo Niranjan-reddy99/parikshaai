@@ -11,6 +11,7 @@ interface AdminAuditPanelProps {
   year: number;
   expectedCount?: number;
   onAddPlaceholder?: (num: number) => void;
+  onEditQuestion?: (question: Question) => void;
   onDeleteQuestion?: (id: string) => void;
 }
 
@@ -49,6 +50,7 @@ export function AdminAuditPanel({
   year,
   expectedCount = 150,
   onAddPlaceholder,
+  onEditQuestion,
 }: AdminAuditPanelProps) {
   const [queue, setQueue] = useState<RepairQueueItem[]>([]);
   const [paper, setPaper] = useState<RepairQueuePaper | null>(null);
@@ -105,6 +107,35 @@ export function AdminAuditPanel({
     }
     return Array.from(map.entries());
   }, [queue]);
+
+  const mapQueueItemToQuestion = (item: RepairQueueItem): Question | null => {
+    if (!item.question_id) return null;
+    return {
+      id: item.question_id,
+      question: item.question_text || '',
+      question_number: item.question_number ?? undefined,
+      options: {
+        A: item.option_a || '',
+        B: item.option_b || '',
+        C: item.option_c || '',
+        D: item.option_d || '',
+      },
+      answer: item.correct_answer || '',
+      explanation: '',
+      subject: item.subject || 'General Knowledge',
+      topic: item.topic || 'General',
+      subtopic: item.subtopic || '',
+      difficulty: item.difficulty || 'Medium',
+      concept: item.concept || '',
+      type: item.question_type || 'mcq',
+      year: item.exam_year,
+      exam: item.exam_name,
+      passage: item.passage || undefined,
+      needs_review: item.needs_review ?? true,
+      has_image: item.has_image ?? false,
+      image_url: item.image_url || undefined,
+    };
+  };
 
   if (questions.length === 0) return null;
 
@@ -200,6 +231,11 @@ export function AdminAuditPanel({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {items.slice(0, 40).map(item => {
                   const tone = toneForSeverity(item.severity);
+                  const preview = item.question_text?.trim()
+                    ? item.question_text.trim()
+                    : item.question_id
+                      ? 'Question row exists but content is broken or incomplete.'
+                      : 'Missing numbered question. Add a repair draft and fill the content manually if extraction cannot recover it.';
                   return (
                     <div key={`${item.question_id || 'paper'}-${item.question_number || 'na'}-${item.issue_type}`} style={{ display: 'grid', gridTemplateColumns: '120px 1fr auto', gap: 10, alignItems: 'center', background: 'rgba(0,0,0,0.18)', padding: 10, borderRadius: 10 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
@@ -217,8 +253,41 @@ export function AdminAuditPanel({
                         )}
                       </div>
                       <div style={{ fontSize: 11, color: C.textSec, fontFamily: "'DM Mono', monospace" }}>{item.priority}</div>
+                      <div style={{ gridColumn: '1 / -1', fontSize: 12, color: C.text, lineHeight: 1.55, background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px' }}>
+                        {preview}
+                        {(item.option_a || item.option_b || item.option_c || item.option_d) && (
+                          <div style={{ display: 'grid', gap: 4, marginTop: 10, fontSize: 11, color: C.textSec }}>
+                            {item.option_a && <div><span style={{ color: C.text, fontWeight: 700 }}>A.</span> {item.option_a}</div>}
+                            {item.option_b && <div><span style={{ color: C.text, fontWeight: 700 }}>B.</span> {item.option_b}</div>}
+                            {item.option_c && <div><span style={{ color: C.text, fontWeight: 700 }}>C.</span> {item.option_c}</div>}
+                            {item.option_d && <div><span style={{ color: C.text, fontWeight: 700 }}>D.</span> {item.option_d}</div>}
+                          </div>
+                        )}
+                      </div>
                       <div style={{ gridColumn: '1 / -1', fontSize: 11, color: C.textSec, lineHeight: 1.5 }}>
                         {item.reasons.join(' · ')}
+                      </div>
+                      <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {item.question_id ? (
+                          <button
+                            onClick={() => {
+                              const question = mapQueueItemToQuestion(item);
+                              if (question) onEditQuestion?.(question);
+                            }}
+                            style={{ padding: '6px 10px', background: C.accentDim, border: `1px solid ${C.accent}40`, borderRadius: 8, fontSize: 11, color: C.accentText, cursor: 'pointer' }}
+                            className="hover-lift"
+                          >
+                            Edit Repair Row
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => item.question_number && onAddPlaceholder?.(item.question_number)}
+                            style={{ padding: '6px 10px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 11, color: C.text, cursor: 'pointer' }}
+                            className="hover-lift"
+                          >
+                            Add Repair Draft
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

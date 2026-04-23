@@ -39,6 +39,7 @@ from ai_models import (
     ANSWER_MODEL,
     EXPLANATION_MODEL,
     EXTRACTION_MODEL,
+    EXTRACTION_REPAIR_MODEL,
     TAGGING_MODEL,
     get_genai_client,
     short_model_name,
@@ -2876,7 +2877,7 @@ def _targeted_vision_recovery(
         return []
 
     print(f"    🎯 Targeting {len(target_page_indices)} page(s) for Vision recovery")
-    _vision_model = EXTRACTION_MODEL
+    _vision_model = EXTRACTION_REPAIR_MODEL or EXTRACTION_MODEL
     doc = fitz.open(pdf_path)
     all_pages = list(doc)
     recovered: list[dict] = []
@@ -2919,7 +2920,11 @@ def _targeted_vision_recovery(
                 targeted_prompt = (
                     _VISION_STRUCT_PROMPT
                     + f"\n\nIMPORTANT: Extract ONLY these question numbers: {chunk}. "
-                    "Do NOT include any other questions. Output a JSON array with only these questions."
+                    "Do NOT include any other questions. Output a JSON array with only these questions. "
+                    "If any target is a 'Match the following' question, return the FULL question stem and the left/right column statements, "
+                    "not just the answer-code combinations. "
+                    "If the page is bilingual or regional-language, extract ONLY the English version of the target question. "
+                    "If the target question spills onto the next page, combine both pages and return one complete question object."
                 )
             else:
                 targeted_prompt = _VISION_STRUCT_PROMPT

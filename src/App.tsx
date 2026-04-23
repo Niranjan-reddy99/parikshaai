@@ -1294,6 +1294,7 @@ function AppContent() {
                 isAdmin={isAdmin} setRenameModal={setRenameModal} setRenameValue={setRenameValue} setDeleteExamTarget={setDeleteExamTarget}
                 doAddBlankQuestion={doAddBlankQuestion}
                 doDeleteQuestion={doDeleteQuestion}
+                setEditQuestion={setEditQuestion}
               />
             </Suspense>
           )}
