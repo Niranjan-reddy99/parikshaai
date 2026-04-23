@@ -38,12 +38,17 @@ load_dotenv()
 
 from google import genai as _genai_main
 from google.genai import types as _gtypes
-_GENAI_CLIENT = _genai_main.Client(
-    vertexai=True,
-    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-    location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
-)
+from functools import lru_cache
 _GENAI_EXECUTOR = _cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="main-genai")
+
+
+@lru_cache(maxsize=1)
+def _get_main_genai_client():
+    return _genai_main.Client(
+        vertexai=True,
+        project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+        location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
+    )
 
 from fastapi import FastAPI, HTTPException, Header, Query, Depends, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -2906,6 +2911,10 @@ async def admin_ai_detect_answers(
             return {"updated": 0, "message": "All questions already have answers"}
 
         from google.genai import types as _gtypes
+        try:
+            genai_client = _get_main_genai_client()
+        except Exception as e:
+            raise HTTPException(503, f"AI client unavailable: {e}")
 
         BATCH = 25
         updated = 0
@@ -2931,7 +2940,7 @@ async def admin_ai_detect_answers(
             for attempt in range(3):
                 try:
                     fut = _GENAI_EXECUTOR.submit(
-                        _GENAI_CLIENT.models.generate_content,
+                        genai_client.models.generate_content,
                         model="publishers/google/models/gemini-2.5-flash",
                         contents=prompt,
                         config=_gtypes.GenerateContentConfig(temperature=0.0, max_output_tokens=512),
