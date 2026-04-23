@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { X, Play, Brain } from 'lucide-react';
 import { C, diffColor, diffBg } from '../lib/tokens';
+import { QuestionText } from '../lib/QuestionText';
 import { type Question } from '../types';
 
 interface QuestionModalProps {
@@ -39,7 +40,9 @@ export function QuestionModal({ question, onClose, onStartPractice }: QuestionMo
               <p style={{ fontSize: 12, color: C.textSec, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{question.passage}</p>
             </div>
           )}
-          <p style={{ fontSize: 16, fontWeight: 600, color: C.text, lineHeight: 1.7, marginBottom: 20, whiteSpace: 'pre-wrap' }}>{question.question}</p>
+          <div style={{ fontSize: 16, fontWeight: 600, color: C.text, marginBottom: 20 }}>
+            <QuestionText text={question.question} hasImage={(question as any).has_image} style={{ fontSize: 16, fontWeight: 600 }} />
+          </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
             {Object.entries(question.options).map(([key, val]) => (

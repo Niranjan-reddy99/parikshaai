@@ -1,11 +1,8 @@
 import React, { useMemo } from 'react';
 import { C } from '../lib/tokens';
 import { type UserStats, xpToLevel } from '../lib/stats';
-import { type Question } from '../types/index';
-
 interface BadgesViewProps {
   stats: UserStats;
-  questions: Question[];
 }
 
 interface Badge {
@@ -16,7 +13,7 @@ interface Badge {
   earned: boolean;
 }
 
-export function BadgesView({ stats, questions }: BadgesViewProps) {
+export function BadgesView({ stats }: BadgesViewProps) {
   const { level } = xpToLevel(stats.xp);
 
   const overallAcc = useMemo(() => {

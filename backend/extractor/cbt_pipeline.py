@@ -35,31 +35,38 @@ from pathlib import Path
 from typing import Optional
 
 import fitz  # PyMuPDF
+from ai_models import EXTRACTION_MODEL, get_genai_client
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google.genai import types
+from extraction_cleanup import clean_and_dedupe_questions
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY required in backend/.env")
+_CLIENT = get_genai_client()
 
-genai.configure(api_key=GEMINI_API_KEY)
-
-# Model for answer detection — flash-lite: cheapest vision model
-_VISION_MODEL = genai.GenerativeModel("gemini-2.5-flash-lite")
+# Two model tiers initially, now both standardized to flash:
+# - VISION_LITE was used for simple green/red answer detection (Telegram CBT)
+# - VISION_FULL was used for full extraction (question text + options + answer)
+# Standardized to gemini-1.5-flash-002 for max accuracy in all modules as requested.
+_VISION_MODEL      = EXTRACTION_MODEL
+_VISION_FULL_MODEL = EXTRACTION_MODEL
 
 CACHE_DIR = Path(__file__).parent.parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
-# DPI for page rendering — 150 is enough to see green/red colors clearly
-_RENDER_DPI = 150
-_MAT = fitz.Matrix(_RENDER_DPI / 72, _RENDER_DPI / 72)
+# DPI for page rendering
+_RENDER_DPI      = 150                                        # answer-only detection
+_RENDER_DPI_FULL = 200                                        # full text extraction (sharper)
+_MAT      = fitz.Matrix(_RENDER_DPI / 72, _RENDER_DPI / 72)
+_MAT_FULL = fitz.Matrix(_RENDER_DPI_FULL / 72, _RENDER_DPI_FULL / 72)
 
-# Cost tracking
+# Cost tracking — gemini-2.0-flash pricing (thinking_budget=0, no thinking tokens)
+# NOTE: Google bills 30% more than calculated due to image rounding + billing granularity.
+# We apply a 1.35x safety margin to match actual charges.
 _USD_TO_INR = 84
-_INPUT_PRICE_PER_1M  = 0.10   # gemini-2.5-flash-lite USD
-_OUTPUT_PRICE_PER_1M = 0.40
+_INPUT_PRICE_PER_1M  = 0.10    # gemini-2.0-flash USD per 1M input tokens
+_OUTPUT_PRICE_PER_1M = 0.40    # gemini-2.0-flash USD per 1M output tokens
+_BILLING_MARGIN      = 1.35    # actual Google billing is ~35% above raw token math
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -92,7 +99,7 @@ class CostTracker:
         self.total_input  += inp
         self.total_output += out
         cost_usd = (inp / 1_000_000 * _INPUT_PRICE_PER_1M +
-                    out / 1_000_000 * _OUTPUT_PRICE_PER_1M)
+                    out / 1_000_000 * _OUTPUT_PRICE_PER_1M) * _BILLING_MARGIN
         self.steps.append({"step": step, "in": inp, "out": out,
                            "inr": round(cost_usd * _USD_TO_INR, 5)})
 
@@ -211,6 +218,197 @@ def detect_shifts(pdf_path: str) -> list[ShiftInfo]:
         print(f"    • {sh.shift_label}  pages {sh.start_page+1}–{sh.end_page+1} ({pages} pages)")
 
     return shifts
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FORMAT DETECTION — TCSiON CAE vs Telegram CBT
+# ══════════════════════════════════════════════════════════════════════════════
+
+_TCSION_SIG_RE = re.compile(
+    r'(TCSiON\s+CAE|Question\s+Number\s*:\s*\d+\s+Question\s+Id\s*:|tcsion\.com)',
+    re.IGNORECASE
+)
+
+# TCSiON page header that appears at the top of every page:
+#   "22/05/2023, 13:04"
+#   "https://g06.tcsion.com/CAE/viewHtmlPDFAction.action"
+#   "https://g06.tcsion.com/CAE/viewHtmlPDFAction.action"
+#   "63/66"    ← page X/total
+_TCSION_HEADER_RE = re.compile(
+    r'\d{1,2}/\d{1,2}/\d{4},\s*\d{1,2}:\d{2}\s*\n'   # date+time line
+    r'https?://[^\n]+tcsion[^\n]*\n'                   # URL line 1
+    r'(?:https?://[^\n]+tcsion[^\n]*\n)?'              # URL line 2 (optional)
+    r'\d{1,3}/\d{1,3}\s*\n',                           # page X/total line
+    re.IGNORECASE
+)
+
+
+def _strip_tcsion_headers(text: str) -> str:
+    """Remove TCSiON page header blocks (date, URL×2, page-of-total) from text."""
+    # Strip the 3-4 line header pattern
+    text = _TCSION_HEADER_RE.sub('\n', text)
+    # Also strip any stray tcsion URLs and date lines that slipped through
+    text = re.sub(r'https?://[^\n]*tcsion[^\n]*\n?', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\d{1,2}/\d{1,2}/\d{4},\s*\d{1,2}:\d{2}\s*\n?', '', text)
+    # Strip bare page-number lines like "63/66" or "4/66"
+    text = re.sub(r'(?m)^\s*\d{1,3}/\d{1,3}\s*$\n?', '', text)
+    return text
+
+def _is_tcsion_format(pdf_path: str) -> bool:
+    """Return True if this is a TCSiON CAE answer key PDF."""
+    doc = fitz.open(pdf_path)
+    for i in range(min(3, len(doc))):
+        if _TCSION_SIG_RE.search(doc[i].get_text("text")):
+            doc.close()
+            return True
+    doc.close()
+    return False
+
+
+# Telugu Unicode range U+0C00–U+0C7F
+_TELUGU_CHAR_RE = re.compile(r'[\u0C00-\u0C7F]')
+
+def _is_mostly_telugu(text: str) -> bool:
+    """Return True if >25% of alphabetic chars are Telugu script."""
+    alpha = sum(1 for c in text if c.isalpha())
+    if alpha == 0:
+        return False
+    telugu = sum(1 for c in text if '\u0C00' <= c <= '\u0C7F')
+    return (telugu / alpha) > 0.40  # Increased threshold to be safer against bilingual English questions
+
+
+def _parse_tcsion_full_text(full_text: str) -> list[dict]:
+    """Parse all questions from TCSiON CAE full PDF text.
+
+    TCSiON format: each question appears TWICE — once in English, once in Telugu.
+    Both repeat the same metadata header with the same Question Number.
+    We keep only the English version (skip the block where question text is mostly Telugu).
+
+    Each block looks like:
+        Question Number : 1 Question Id : 630680220939 Option Shuffling : Yes ...
+        Correct Marks : 1 Wrong Marks : 0
+        <question text>
+        Options :
+        1. Option A
+        2. Option B
+        3. Option C
+        4. Option D
+    """
+    # Strip TCSiON page headers BEFORE splitting — they break question block detection
+    full_text = _strip_tcsion_headers(full_text)
+
+    raw_blocks = re.split(r'(?i)(?=Question\s+Number\s*[:\s]\s*\d+)', full_text)
+    seen: dict[int, dict] = {}
+
+    for block in raw_blocks:
+        block = block.strip()
+        if not block:
+            continue
+
+        q_num_m = re.match(r'(?i)Question\s+Number\s*[:\s]\s*(\d+)', block)
+        if not q_num_m:
+            continue
+        q_num = int(q_num_m.group(1))
+
+        # Extract Question Id for robust deduplication (Number repeats across sections)
+        q_id_m = re.search(r'(?i)Question\s+Id\s*[:\s]\s*(\d+)', block)
+        unique_key = q_id_m.group(1) if q_id_m else f"q_{q_num}_{hash(block[:100])}"
+
+        # Find where "Correct Marks" line ends — everything after is question content
+        cm_m = re.search(r'Correct\s+Marks[^\n]*\n', block, re.IGNORECASE)
+        if not cm_m:
+            continue
+        content = block[cm_m.end():].strip()
+        # Strip any residual page headers inside content (belt+suspenders)
+        content = _strip_tcsion_headers(content)
+
+        # Split on "Options :" to separate question text from options
+        opts_split = re.split(r'Options\s*:\s*\n', content, maxsplit=1, flags=re.IGNORECASE)
+        if len(opts_split) < 2:
+            continue
+
+        q_text_raw = opts_split[0].strip()
+        opts_raw   = opts_split[1].strip()
+
+        if not q_text_raw or len(q_text_raw) < 8:
+            continue
+        if _is_mostly_telugu(q_text_raw):
+            continue  # skip Telugu version
+
+        # Reject blocks where metadata header leaked into question_text
+        # This happens when "Correct Marks" line was split across a page boundary
+        # and the header-stripper missed the partial line.
+        if re.match(r'Question\s+(Number|Id)\s*:', q_text_raw, re.IGNORECASE):
+            continue  # metadata wasn't properly stripped — skip this block
+
+        # Detect match/table questions with empty cell content
+        # TCSiON match questions render their table as an image; the text layer
+        # only has the labels (A. B. C. / i. ii. iii.) with no actual text.
+        _EMPTY_MATCH = re.compile(
+            r'^(?:[\s\n]*(?:[A-D]\.?|[ivIV]+\.?)\s*[\n]){3,}',
+        )
+        is_empty_match = bool(_EMPTY_MATCH.match(q_text_raw)) or (
+            len(q_text_raw) < 40 and
+            len(re.findall(r'(?m)^\s*[A-D]\.\s*$', q_text_raw)) >= 2
+        )
+
+        # Parse numbered options 1–4 (may span multiple lines)
+        opt_parts = re.split(r'(?m)^\s*(\d)\.\s+', opts_raw)
+        opt_map: dict[str, str] = {}
+        i = 1
+        while i < len(opt_parts) - 1:
+            num = opt_parts[i].strip()
+            txt = opt_parts[i + 1].strip()
+            txt = _TELUGU_CHAR_RE.sub('', txt).strip()
+            txt = re.sub(r'\s*\d{1,3}\s*$', '', txt).strip()
+            if num in ('1', '2', '3', '4') and txt:
+                opt_map[num] = txt
+            i += 2
+
+        opt_a = opt_map.get('1', '')
+        opt_b = opt_map.get('2', '')
+        opt_c = opt_map.get('3', '')
+        opt_d = opt_map.get('4', '')
+
+        if not (opt_a or opt_b):
+            continue  # no usable options — skip
+
+        q: dict = {
+            'question_number': q_num,
+            'question_text':   q_text_raw,
+            'option_a': opt_a,
+            'option_b': opt_b,
+            'option_c': opt_c,
+            'option_d': opt_d,
+            'correct_answer': None,   # filled by vision step
+            'exam_section':   'General Studies',
+            'passage':        '',
+            # Mark as needs_review if options incomplete OR the match table is empty
+            'needs_review':   not (opt_a and opt_b and opt_c and opt_d) or is_empty_match,
+        }
+        if unique_key not in seen or len(q_text_raw) > len(seen[unique_key]['question_text']):
+            seen[unique_key] = q
+
+    return clean_and_dedupe_questions(list(seen.values()))
+
+
+def extract_tcsion_questions(pdf_path: str, shift: ShiftInfo) -> list[dict]:
+    """Extract questions from TCSiON CAE PDF for the given shift page range.
+
+    Concatenates all page text then parses holistically because question blocks
+    can span page boundaries in TCSiON PDFs.
+    """
+    doc = fitz.open(pdf_path)
+    parts = []
+    for page_idx in range(shift.start_page, shift.end_page + 1):
+        t = doc[page_idx].get_text("text")
+        if t.strip():
+            parts.append(t)
+    doc.close()
+
+    questions = _parse_tcsion_full_text('\n'.join(parts))
+    print(f'  [tcsion] Shift {shift.shift_label}: {len(questions)} English questions extracted (₹0)')
+    return questions
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -377,16 +575,24 @@ def _parse_page_questions(
 def extract_text_questions(pdf_path: str, shift: ShiftInfo) -> list[dict]:
     """
     Extract all questions from text layer for a given shift's page range.
-    Cost: ₹0 (pure PyMuPDF, no API calls).
+    Auto-detects whether this is a TCSiON CAE PDF or a Telegram CBT PDF
+    and routes to the correct parser. Cost: ₹0 (pure PyMuPDF, no API calls).
     """
+    # TCSiON PDFs need holistic parsing (questions span page boundaries)
+    if _is_tcsion_format(pdf_path):
+        print(f'  [format] TCSiON CAE detected — using TCSiON parser')
+        return extract_tcsion_questions(pdf_path, shift)
+
+    # Standard Telegram CBT format — page-by-page parsing
+    print(f'  [format] Telegram CBT format detected — using standard parser')
     doc = fitz.open(pdf_path)
     all_questions: list[dict] = []
-    current_section = "General Knowledge"
-    current_passage = ""
+    current_section = 'General Knowledge'
+    current_passage = ''
 
     for page_idx in range(shift.start_page, shift.end_page + 1):
         page = doc[page_idx]
-        page_text = page.get_text("text")
+        page_text = page.get_text('text')
         if not page_text.strip():
             continue
         qs, current_section, current_passage = _parse_page_questions(
@@ -396,15 +602,9 @@ def extract_text_questions(pdf_path: str, shift: ShiftInfo) -> list[dict]:
 
     doc.close()
 
-    # Deduplicate by question_number — keep longest question_text
-    seen: dict[int, dict] = {}
-    for q in all_questions:
-        n = q["question_number"]
-        if n not in seen or len(q["question_text"]) > len(seen[n]["question_text"]):
-            seen[n] = q
-    questions = sorted(seen.values(), key=lambda q: q["question_number"])
+    questions = clean_and_dedupe_questions(all_questions)
 
-    print(f"  [text] Shift {shift.shift_label}: {len(questions)} questions extracted (₹0)")
+    print(f'  [text] Shift {shift.shift_label}: {len(questions)} questions extracted (₹0)')
     return questions
 
 
@@ -414,35 +614,228 @@ def extract_text_questions(pdf_path: str, shift: ShiftInfo) -> list[dict]:
 # Returns {q_num: "A"|"B"|"C"|"D"} per page, cached to avoid re-paying.
 # ══════════════════════════════════════════════════════════════════════════════
 
+# ── Telegram CBT answer-only prompt (used for non-TCSiON format) ──────────────
 _ANSWER_PROMPT = """This is a page from an Indian state exam answer key PDF exported from a computer-based test (CBT).
 
 Each question shows 4 answer options labeled 1, 2, 3, 4.
 The CORRECT answer option is displayed in GREEN color with a ✓ (tick/checkmark) symbol.
 The WRONG answer options are displayed in RED color with a ✗ (cross/X) symbol.
 
-Your task: For EACH question visible on this page, identify which option number (1, 2, 3, or 4) is the CORRECT answer (the one shown in green with a tick).
+Your task: For EACH UNIQUE question number visible on this page, identify which option
+number (1, 2, 3, or 4) is the CORRECT answer (the one shown in green with a tick).
 
 Return ONLY a JSON array. No markdown, no explanation. Just raw JSON.
 Format: [{"q": 1, "ans": 3}, {"q": 2, "ans": 1}, {"q": 3, "ans": 4}]
 
 Rules:
-- "q" = the question number (the number after "Q.")
+- "q" = the question number
 - "ans" = 1, 2, 3, or 4 — the option shown in GREEN with a ✓ tick
-- If the page has no questions (cover page, instructions), return: []
-- If you cannot clearly see which option is green/ticked for a question, use null: {"q": 5, "ans": null}
+- If the page has no questions, return: []
+- If you cannot clearly see which option is green/ticked for a question, use null
+"""
+
+# ── TCSiON full-extraction prompt (question text + answer in one vision pass) ──
+_TCSION_FULL_PROMPT = """This is a page from a TCSiON CAE computer-based exam answer key PDF.
+
+Each question appears TWICE on this page:
+  1st: ENGLISH version
+  2nd: TELUGU (or regional language) version
+Both versions have the same question number.
+
+The CORRECT answer option is shown in GREEN with a ✓ tick mark.
+Wrong options are shown in RED with a ✗ mark.
+
+YOUR TASK: Extract ONLY the ENGLISH version of each unique question.
+For each question return:
+  "q"    - question number (from "Question Number : N")
+  "text" - FULL English question text. For "Match the following" questions,
+           include all column headers and items you can read. If the table is
+           an image you cannot read, write "Match the following: [table image]"
+  "a"    - English option 1 text
+  "b"    - English option 2 text
+  "c"    - English option 3 text
+  "d"    - English option 4 text
+  "ans"  - option number that is GREEN with ✓ (1, 2, 3, or 4). null if unclear.
+
+STRICT RULES:
+- Skip Telugu/regional language versions entirely (same q_num already seen)
+- Skip page headers (date, URL like tcsion.com, page numbers like 4/66)
+- Skip cover pages, instruction pages — return [] for those
+- Do NOT repeat the same question number twice
+- "text" must be English only, complete sentence, no Telugu characters
+- Options must be English only
+
+Return ONLY a valid JSON array. No markdown backticks, no explanation:
+[{"q":1,"text":"...","a":"...","b":"...","c":"...","d":"...","ans":2}, ...]
+
+If no English questions on this page: []
 """
 
 _NUM_TO_LETTER = {"1": "A", "2": "B", "3": "C", "4": "D",
                   1: "A", 2: "B", 3: "C", 4: "D"}
 
 
-def _page_ans_cache_key(pdf_path: str, page_idx: int) -> Path:
-    pdf_hash = hashlib.sha256(Path(pdf_path).read_bytes()).hexdigest()[:16]
-    return CACHE_DIR / f"cbt_ans_{pdf_hash}_p{page_idx:04d}.json"
+def _page_ans_cache_key(pdf_hash: str, page_idx: int) -> Path:
+    return CACHE_DIR / f"cbt_v10_ans_{pdf_hash}_p{page_idx:04d}.json"
+
+
+def _page_tcsion_cache_key(pdf_hash: str, page_idx: int) -> Path:
+    """Separate cache namespace for TCSiON full-extraction (text+answer together)."""
+    return CACHE_DIR / f"tcsion_v10_{pdf_hash}_p{page_idx:04d}.json"
+
+
+def _extract_tcsion_page(
+    pdf_path: str,
+    pdf_hash: str,
+    page_idx: int,
+    page: 'fitz.Page',
+    tracker: CostTracker,
+    retries: int = 3,
+) -> list[dict]:
+    """
+    Single Gemini Vision call that extracts BOTH question content AND correct
+    answer from one TCSiON page. Returns list of question dicts ready to store.
+    Cached per page so re-runs are free.
+    """
+    cache_file = _page_tcsion_cache_key(pdf_hash, page_idx)
+    if cache_file.exists():
+        try:
+            data = json.loads(cache_file.read_text())
+            print(f"  [cache] tcsion page {page_idx+1}: {len(data)} questions")
+            return data
+        except Exception:
+            pass
+
+    # Render at 200 DPI for sharp text — needed for accurate bilingual extraction
+    pix = page.get_pixmap(matrix=_MAT_FULL, colorspace=fitz.csRGB)
+    png_bytes = pix.tobytes("png")
+    image_part = types.Part.from_bytes(data=png_bytes, mime_type="image/png")
+
+    last_err = None
+    for attempt in range(retries):
+        try:
+            _RPM.wait()
+            resp = _CLIENT.models.generate_content(
+                model=_VISION_FULL_MODEL,
+                contents=[_TCSION_FULL_PROMPT, image_part],
+                config=types.GenerateContentConfig(
+                    temperature=0.0, max_output_tokens=4096,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
+            )
+            tracker.record(f"tcsion_p{page_idx+1}", resp)
+
+            raw = (resp.text or "").strip()
+            raw = re.sub(r"^```(?:json)?", "", raw).strip().rstrip("`").strip()
+
+            if not raw or raw == "[]":
+                cache_file.write_text("[]")
+                return []
+
+            items = json.loads(raw)
+            if not isinstance(items, list):
+                raise ValueError(f"Expected list, got {type(items)}")
+
+            questions = []
+            for item in items:
+                q_num = item.get("q")
+                if q_num is None:
+                    continue
+                q_num = int(q_num)
+
+                ans_raw = item.get("ans")
+                correct_letter = _NUM_TO_LETTER.get(ans_raw) if ans_raw is not None else None
+
+                q_text = (item.get("text") or "").strip()
+                opt_a  = (item.get("a") or "").strip()
+                opt_b  = (item.get("b") or "").strip()
+                opt_c  = (item.get("c") or "").strip()
+                opt_d  = (item.get("d") or "").strip()
+
+                if not q_text or len(q_text) < 5:
+                    continue  # skip empty/noise
+
+                questions.append({
+                    "question_number": q_num,
+                    "question_text":   q_text,
+                    "option_a":        opt_a,
+                    "option_b":        opt_b,
+                    "option_c":        opt_c,
+                    "option_d":        opt_d,
+                    "correct_answer":  correct_letter,
+                    "exam_section":    "General Studies",
+                    "passage":         "",
+                    "needs_review":    (correct_letter is None) or not (opt_a and opt_b and opt_c and opt_d),
+                })
+
+            cache_file.write_text(json.dumps(questions))
+            print(f"  [tcsion-vision] page {page_idx+1}: {len(questions)} questions extracted")
+            return questions
+
+        except json.JSONDecodeError as e:
+            last_err = e
+            print(f"  [warn] tcsion page {page_idx+1} JSON error (attempt {attempt+1}): {e}")
+            if attempt == 0:
+                # Retry at even higher DPI (250) for problematic pages
+                mat3 = fitz.Matrix(250 / 72, 250 / 72)
+                pix2 = page.get_pixmap(matrix=mat3, colorspace=fitz.csRGB)
+                png_bytes = pix2.tobytes("png")
+                image_part = types.Part.from_bytes(data=png_bytes, mime_type="image/png")
+            time.sleep(2 ** attempt)
+
+        except Exception as e:
+            last_err = e
+            err_str = str(e)
+            if "429" in err_str or "quota" in err_str.lower():
+                wait = 60 * (attempt + 1)
+                print(f"  ⏳ Rate limited. Waiting {wait}s...")
+                time.sleep(wait)
+            else:
+                print(f"  [warn] tcsion page {page_idx+1} error (attempt {attempt+1}): {e}")
+                time.sleep(2 ** attempt)
+
+    print(f"  [error] tcsion page {page_idx+1} failed after {retries} attempts: {last_err}")
+    cache_file.write_text("[]")
+    return []
+
+
+def extract_tcsion_vision(
+    pdf_path: str,
+    pdf_hash: str,
+    shift: 'ShiftInfo',
+    tracker: CostTracker,
+    progress_callback=None,
+) -> list[dict]:
+    """
+    Full TCSiON extraction via vision: reads question text + correct answer
+    from rendered page images. Replaces text-regex extraction + separate
+    answer-vision step entirely. One Gemini call per page, results cached.
+    """
+    doc = fitz.open(pdf_path)
+    seen: dict[int, dict] = {}
+    total_pages = shift.end_page - shift.start_page + 1
+
+    for i, page_idx in enumerate(range(shift.start_page, shift.end_page + 1)):
+        page_qs = _extract_tcsion_page(pdf_path, pdf_hash, page_idx, doc[page_idx], tracker)
+        for q in page_qs:
+            n = q["question_number"]
+            if n not in seen:
+                seen[n] = q
+        if progress_callback:
+            progress_callback(i + 1, total_pages)
+
+    doc.close()
+
+    questions = clean_and_dedupe_questions(list(seen.values()))
+    found_ans = sum(1 for q in questions if q.get("correct_answer"))
+    print(f"  [tcsion-vision] Shift {shift.shift_label}: "
+          f"{len(questions)} questions, {found_ans} with answers")
+    return questions
 
 
 def _extract_answers_page(
     pdf_path: str,
+    pdf_hash: str,
     page_idx: int,
     page: fitz.Page,
     tracker: CostTracker,
@@ -452,7 +845,7 @@ def _extract_answers_page(
     Returns {q_num: "A"|"B"|"C"|"D"|None} for all questions on this page.
     Cached per page — re-runs cost ₹0.
     """
-    cache_file = _page_ans_cache_key(pdf_path, page_idx)
+    cache_file = _page_ans_cache_key(pdf_hash, page_idx)
     if cache_file.exists():
         try:
             data = json.loads(cache_file.read_text())
@@ -464,18 +857,19 @@ def _extract_answers_page(
     # Render page as image
     pix = page.get_pixmap(matrix=_MAT, colorspace=fitz.csRGB)
     png_bytes = pix.tobytes("png")
-    image_part = {"mime_type": "image/png", "data": png_bytes}
+    image_part = types.Part.from_bytes(data=png_bytes, mime_type="image/png")
 
     last_err = None
     for attempt in range(retries):
         try:
             _RPM.wait()
-            resp = _VISION_MODEL.generate_content(
-                [_ANSWER_PROMPT, image_part],
-                generation_config=genai.GenerationConfig(
-                    temperature=0.0, max_output_tokens=512
+            resp = _CLIENT.models.generate_content(
+                model=_VISION_MODEL,
+                contents=[_ANSWER_PROMPT, image_part],
+                config=types.GenerateContentConfig(
+                    temperature=0.0, max_output_tokens=512,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
-                request_options={"timeout": 60},
             )
             tracker.record(f"ans_p{page_idx+1}", resp)
 
@@ -536,6 +930,7 @@ def _extract_answers_page(
 
 def extract_answers_vision(
     pdf_path: str,
+    pdf_hash: str,
     shift: ShiftInfo,
     tracker: CostTracker,
     progress_callback=None,
@@ -550,7 +945,7 @@ def extract_answers_vision(
 
     for i, page_idx in enumerate(range(shift.start_page, shift.end_page + 1)):
         page_answers = _extract_answers_page(
-            pdf_path, page_idx, doc[page_idx], tracker
+            pdf_path, pdf_hash, page_idx, doc[page_idx], tracker
         )
         # Merge: if same q_num appears on multiple pages (shouldn't happen), keep first
         for q_num, letter in page_answers.items():
@@ -593,7 +988,7 @@ def merge_questions_answers(
 
         q_merged = {
             **q,
-            "correct_answer": answer or "A",   # 'A' placeholder if unknown
+            "correct_answer": answer or "",  # Left blank if unknown — AI fills it in store_questions
             "needs_review":   (answer is None) or q.get("needs_review", False),
             # Shift metadata
             "shift_label":    shift.shift_label,
@@ -618,6 +1013,7 @@ def run_cbt_pipeline(
     exam_year: int,
     dry_run: bool = False,
     specific_shift_idx: Optional[int] = None,
+    expected_count: int = 0,
 ) -> dict:
     """
     Full CBT pipeline: shift detection → text extract → vision answers → tag → store.
@@ -633,6 +1029,7 @@ def run_cbt_pipeline(
         {"inserted": N, "skipped": N, "shifts_processed": N, "total_cost_inr": X}
     """
     pdf_path = str(Path(pdf_path).resolve())
+    pdf_hash = hashlib.sha256(Path(pdf_path).read_bytes()).hexdigest()[:16]
     tracker = CostTracker()
 
     print(f"\n{'='*60}")
@@ -671,7 +1068,7 @@ def run_cbt_pipeline(
 
         # ── Step 3: Vision answer detection ───────────────────────────────
         print(f"\n[3/5] Vision answer detection ({shift.end_page - shift.start_page + 1} pages)...")
-        answers = extract_answers_vision(pdf_path, shift, tracker)
+        answers = extract_answers_vision(pdf_path, pdf_hash, shift, tracker)
 
         # ── Step 4: Merge ─────────────────────────────────────────────────
         print("\n[4/5] Merging questions + answers...")
@@ -703,11 +1100,12 @@ def run_cbt_pipeline(
               f"inserted={result.get('inserted', 0)}, "
               f"skipped={result.get('skipped', 0)}")
 
-    # ── Cost summary ───────────────────────────────────────────────────────
-    tracker.print_summary()
-    print(f"\n  Shifts processed:  {len(shifts)}")
-    print(f"  Total inserted:    {total_inserted}")
-    print(f"  Total skipped:     {total_skipped}")
+    if total_inserted == 0 and not dry_run:
+        raise RuntimeError(
+            "No questions were found in the PDF text layer. "
+            "This usually happens with scanned/image-based TSPSC papers. "
+            "FIX: Please delete this exam and re-upload using the 'Universal/Vision' or 'Scanned' option."
+        )
 
     return {
         "inserted":         total_inserted,
@@ -731,6 +1129,7 @@ def process_cbt_job_background(
     exam_name: str,
     exam_year: int,
     shift_label_override: Optional[str] = None,
+    expected_count: int = 0,
 ) -> None:
     """
     Background thread entry point — mirrors process_job_background() in pipeline.py.
@@ -739,6 +1138,7 @@ def process_cbt_job_background(
     import sys
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from config import supabase as sb
+    from papers import mark_paper_lifecycle, paper_id_for_job
 
     def _upd(progress: Optional[int] = None, status: Optional[str] = None, error: Optional[str] = None):
         data: dict = {}
@@ -746,6 +1146,7 @@ def process_cbt_job_background(
             data["progress"] = progress
         if status:
             data["status"] = status
+        # In CBT we might have multiple messages, but usually we just set the final gap list.
         if error:
             data["error_log"] = error
         if data:
@@ -756,6 +1157,10 @@ def process_cbt_job_background(
 
     try:
         _upd(progress=2, status="processing")
+        
+        # Calculate hash ONCE at start to prevent FileNotFoundError in large loops
+        print(f"[CBT job {job_id[:12]}] Generating PDF hash...")
+        pdf_hash = hashlib.sha256(Path(pdf_path).read_bytes()).hexdigest()[:16]
 
         # Step 1: detect shifts
         _upd(progress=5)
@@ -774,29 +1179,56 @@ def process_cbt_job_background(
         total_skipped  = 0
         n_shifts = len(shifts)
 
+        # Detect format ONCE — TCSiON uses unified vision extraction,
+        # Telegram CBT uses text-layer + separate vision answer detection
+        is_tcsion = _is_tcsion_format(pdf_path)
+        if is_tcsion:
+            _upd(status="TCSiON format detected — using vision extraction...")
+            print(f"  [format] TCSiON CAE detected — using unified vision pipeline")
+        else:
+            print(f"  [format] Telegram CBT format — using text + vision pipeline")
+
         for shift_num, shift in enumerate(shifts, 1):
             shift_base_progress = 10 + int(80 * (shift_num - 1) / n_shifts)
             shift_end_progress  = 10 + int(80 * shift_num / n_shifts)
-
-            # Step 2: text extraction (free)
-            _upd(progress=shift_base_progress + 2)
-            questions = extract_text_questions(pdf_path, shift)
-            if not questions:
-                continue
-
-            # Step 3: vision answers — update progress per page
-            total_pages = shift.end_page - shift.start_page + 1
-            vision_budget = int((shift_end_progress - shift_base_progress) * 0.6)
+            vision_budget = int((shift_end_progress - shift_base_progress) * 0.85)
 
             def _vision_progress(done: int, total: int):
                 p = shift_base_progress + 5 + int(vision_budget * done / max(total, 1))
-                _upd(progress=min(p, shift_end_progress - 5))
+                msg = f"Reading page {done} of {total} in {shift.shift_label}..."
+                _upd(progress=min(p, shift_end_progress - 5), status=msg)
 
-            answers = extract_answers_vision(pdf_path, shift, tracker,
-                                             progress_callback=_vision_progress)
+            if is_tcsion:
+                # ── TCSiON: single vision pass → question text + answer together ──
+                _upd(progress=shift_base_progress + 2,
+                     status=f"Extracting {shift.shift_label} via vision...")
+                merged = extract_tcsion_vision(
+                    pdf_path, pdf_hash, shift, tracker,
+                    progress_callback=_vision_progress,
+                )
+                # Stamp shift metadata (merge_questions_answers normally does this)
+                for q in merged:
+                    q.setdefault("shift_label", shift.shift_label)
+                    q.setdefault("test_date",   shift.test_date)
+                    q.setdefault("test_time",   shift.test_time)
+            else:
+                # ── Telegram CBT: text layer for questions, vision for answers ──
+                _upd(progress=shift_base_progress + 2)
+                questions = extract_text_questions(pdf_path, shift)
+                if not questions:
+                    continue
+                answers = extract_answers_vision(pdf_path, pdf_hash, shift, tracker,
+                                                 progress_callback=_vision_progress)
+                merged = merge_questions_answers(questions, answers, shift)
 
-            # Step 4: merge
-            merged = merge_questions_answers(questions, answers, shift)
+            if not merged:
+                print(f"  [warn] Shift {shift.shift_label}: no questions extracted — skipping")
+                continue
+
+            # Validation
+            if expected_count > 0 and len(merged) != expected_count:
+                print(f"  [warn] Shift {shift.shift_label}: found {len(merged)}, "
+                      f"expected {expected_count}")
 
             # Step 5a: tag
             _upd(progress=shift_end_progress - 4)
@@ -805,29 +1237,84 @@ def process_cbt_job_background(
             tagged = tag_questions(merged, exam_name, tracker=tag_tracker)
 
             # Step 5b: store
-            _upd(progress=shift_end_progress - 1)
-            result = store_questions(tagged, pdf_path, exam_name, exam_year)
+            _upd(progress=shift_end_progress - 2)
+            result = store_questions(tagged, pdf_path, exam_name, exam_year, job_id=job_id)
             total_inserted += result.get("inserted", 0)
             total_skipped  += result.get("skipped", 0)
+            
+        if total_inserted == 0:
+            print(f"[CBT job {job_id}] zero questions found in text layer. Falling back to Universal/Vision extractor.")
+            # Status "recovering" is used to show the user we are attempting a deeper scan
+            _upd(status="processing", error="Auto-Recovery: Text extraction failed. Switching to Deep Vision engine (Guaranteed extraction)...")
+            
+            # Local import to avoid circular dependency
+            from extractor.universal_extractor import process_universal_job_background
+            return process_universal_job_background(
+                job_id=job_id,
+                pdf_path=pdf_path,
+                exam_name=exam_name,
+                exam_year=exam_year
+            )
 
-        _upd(progress=100, status="completed")
+        # ── Detect missing question numbers and report in admin dashboard ─────
+        missing_log = ""
+        try:
+            from config import supabase as _sb  # type: ignore
+            stored_res = _sb.table("questions").select("question_number").eq("exam_name", exam_name).eq("exam_year", exam_year).execute()
+            all_qns = [r["question_number"] for r in (stored_res.data or []) if isinstance(r.get("question_number"), int)]
+            if all_qns:
+                max_qn = max(expected_count or 0, max(all_qns))
+                if max_qn > 0:
+                    extracted_set = set(all_qns)
+                    missing_nums = [str(i) for i in range(1, max_qn + 1) if i not in extracted_set]
+                    if missing_nums:
+                        missing_log = f"Missing questions ({len(missing_nums)}): {', '.join(missing_nums)}"
+                        print(f"[CBT job {job_id}] ⚠️ {missing_log}")
+        except Exception as _me:
+            print(f"[CBT job {job_id}] Missing-Q check failed (non-fatal): {_me}")
+
+        _upd(progress=100, status="completed", error=missing_log)
+        mark_paper_lifecycle(
+            paper_id_for_job(job_id, sb=sb),
+            "ingested",
+            last_job_id=job_id,
+            sb=sb,
+        )
         print(f"[CBT job {job_id}] done — inserted={total_inserted}, "
               f"skipped={total_skipped}, cost=₹{tracker.total_inr():.4f}")
 
     except Exception as e:
         import traceback
-        print(f"[CBT job {job_id}] FAILED: {e}\n{traceback.format_exc()}")
+        tb = traceback.format_exc()
+        print(f"[CBT job {job_id}] FAILED: {e}\n{tb}")
+        # Always write a non-empty error — str(e) can be blank for some exceptions
+        err_msg = str(e) or f"{type(e).__name__}: (no message)"
+        
+        # Format for display: User-friendly message first, then technical details
+        final_log = f"⚠️ EXTRACTION ERROR:\n{err_msg}\n\n"
+        final_log += f"{'='*50}\nTECHNICAL DETAILS (for support):\n{tb[-1000:]}"
+        
         try:
             sb.table("jobs").update({
-                "status": "failed", "error_log": str(e)
+                "status": "failed",
+                "error_log": final_log[:2000],  # Supabase text column limit safety
             }).eq("id", job_id).execute()
-        except Exception:
-            pass
+            mark_paper_lifecycle(
+                paper_id_for_job(job_id, sb=sb),
+                "failed",
+                last_job_id=job_id,
+                sb=sb,
+            )
+        except Exception as inner:
+            print(f"[CBT job {job_id}] Could not write error to DB: {inner}")
     finally:
-        try:
-            os.unlink(pdf_path)
-        except Exception:
-            pass
+        # If we didn't fall back, clean up. 
+        # If we DID fall back, universal_extractor will clean up.
+        if os.path.exists(pdf_path):
+            try:
+                os.unlink(pdf_path)
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

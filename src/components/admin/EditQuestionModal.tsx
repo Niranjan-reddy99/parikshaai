@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { X, Save, Loader2 } from 'lucide-react';
 import { C } from '../../lib/tokens';
+import { API_BASE, adminHeaders } from '../../lib/api';
 import { type Question } from '../../types';
 
 interface EditQuestionModalProps {
@@ -10,8 +11,6 @@ interface EditQuestionModalProps {
   onSaved: (updated: Question) => void;
   onDeleted?: (questionId: string) => void;
 }
-
-const ADMIN_KEY = import.meta.env.VITE_ADMIN_KEY || 'upsc-admin-secret-key-change-me';
 
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 const ANSWERS = ['A', 'B', 'C', 'D'];
@@ -41,15 +40,15 @@ const labelStyle: React.CSSProperties = {
 };
 
 export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: EditQuestionModalProps) {
-  const [qText, setQText] = useState(question.question);
-  const [optA, setOptA] = useState(question.options.A);
-  const [optB, setOptB] = useState(question.options.B);
-  const [optC, setOptC] = useState(question.options.C);
-  const [optD, setOptD] = useState(question.options.D);
+  const [qText, setQText] = useState(question.question || '');
+  const [optA, setOptA] = useState(question.options?.A || '');
+  const [optB, setOptB] = useState(question.options?.B || '');
+  const [optC, setOptC] = useState(question.options?.C || '');
+  const [optD, setOptD] = useState(question.options?.D || '');
   const [answer, setAnswer] = useState(question.answer || 'A');
-  const [subject, setSubject] = useState(question.subject);
-  const [topic, setTopic] = useState(question.topic);
-  const [difficulty, setDifficulty] = useState(question.difficulty);
+  const [subject, setSubject] = useState(question.subject || 'General Knowledge');
+  const [topic, setTopic] = useState(question.topic || 'General');
+  const [difficulty, setDifficulty] = useState(question.difficulty || 'Medium');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,9 +59,9 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:8000/admin/questions/${question.id}`, {
+      const res = await fetch(`${API_BASE}/admin/questions/${question.id}`, {
         method: 'DELETE',
-        headers: { 'x-admin-key': ADMIN_KEY },
+        headers: adminHeaders(),
       });
       if (!res.ok) throw new Error(await res.text());
       if (onDeleted) onDeleted(question.id);
@@ -78,9 +77,9 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:8000/admin/questions/${question.id}`, {
+      const res = await fetch(`${API_BASE}/admin/questions/${question.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+        headers: { 'Content-Type': 'application/json', ...adminHeaders() },
         body: JSON.stringify({
           question_text: qText.trim(),
           option_a: optA.trim(),

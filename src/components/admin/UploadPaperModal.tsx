@@ -2,13 +2,13 @@ import React, { useState, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { X, Upload, FileText, Loader2, CheckCircle2, AlertCircle, Key } from 'lucide-react';
 import { C } from '../../lib/tokens';
+import { API_BASE, adminHeaders } from '../../lib/api';
 
 interface UploadPaperModalProps {
   onClose: () => void;
   onComplete: () => void;
 }
 
-const ADMIN_KEY = import.meta.env.VITE_ADMIN_KEY || 'upsc-admin-secret-key-change-me';
 
 type Phase = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
 type Mode  = 'auto' | 'answer_key' | 'visual' | 'cbt';
@@ -25,11 +25,13 @@ const labelStyle: React.CSSProperties = {
 };
 
 const MODES: { id: Mode; label: string; desc: string; icon: string }[] = [
-  { id: 'auto',       label: 'Auto-detect',     icon: '⚡', desc: 'Regex → hybrid → vision. System picks the best approach automatically.' },
-  { id: 'answer_key', label: '+ Answer Key PDF', icon: '🗝️', desc: 'Upload question paper + a separate answer key PDF (text or scanned).' },
-  { id: 'visual',     label: 'Visual Final Key', icon: '👁️', desc: 'PDF with boxes/circles drawn on correct answers (APPSC Final Key style).' },
-  { id: 'cbt',        label: 'CBT Color Key',    icon: '🟢', desc: 'Telegram CBT PDF — green ✓ = correct, red ✗ = wrong. Detects shifts automatically.' },
+  { id: 'auto',       label: 'Universal (Vision)', icon: '⚡', desc: 'Gemini AI reads every page directly — handles MCQ, Match-the-following, tables, charts, images, bilingual PDFs. Works on any paper format.' },
+  { id: 'answer_key', label: '+ Answer Key PDF',  icon: '🗝️', desc: 'Upload question paper + a separate answer key PDF. Auto-detects multi-set keys (Set A/B/C/D) and matches the correct set.' },
+  { id: 'visual',     label: 'Visual Final Key',  icon: '👁️', desc: 'PDF with boxes/circles drawn on correct answers (APPSC Final Key style).' },
+  { id: 'cbt',        label: 'CBT Color Key',     icon: '🟢', desc: 'Telegram CBT PDF — green ✓ = correct, red ✗ = wrong. Detects shifts automatically.' },
 ];
+
+const ACTIVE_JOB_KEY = 'upsc_active_upload_job';
 
 export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps) {
   const [file, setFile]             = useState<File | null>(null);
@@ -43,9 +45,53 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
   const [progress, setProgress]     = useState(0);
   const [statusMsg, setStatusMsg]   = useState('');
   const [error, setError]           = useState('');
+  const [expectedCount, setExpectedCount] = useState<string | number>(''); // Empty for Auto
+  const [showConflict, setShowConflict] = useState<{
+    type: 'file' | 'exam';
+    msg: string;
+    existingName?: string;       // display label e.g. "TSPSC GROUP 1 PRELIMS 2022"
+    existingExamName?: string;   // raw exam_name for re-submission
+    existingExamYear?: string;   // raw exam_year for re-submission
+  } | null>(null);
+
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [stuckSecs, setStuckSecs]       = useState(0);
+
   const fileRef   = useRef<HTMLInputElement>(null);
   const akFileRef = useRef<HTMLInputElement>(null);
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastProgressRef = useRef<number>(-1);
+  const stuckSecsRef    = useRef<number>(0);
+
+  // On mount: resume polling if there's an active job from a previous session
+  React.useEffect(() => {
+    const saved = localStorage.getItem(ACTIVE_JOB_KEY);
+    if (saved) {
+      try {
+        const { jobId, savedMode } = JSON.parse(saved);
+        if (jobId) {
+          if (savedMode) setMode(savedMode as Mode);
+          // Check job status immediately before starting poll interval
+          fetch(`${API_BASE}/admin/jobs/${jobId}`, { headers: adminHeaders() })
+            .then(r => r.ok ? r.json() : null)
+            .then(job => {
+              if (!job) { localStorage.removeItem(ACTIVE_JOB_KEY); return; }
+              if (job.status === 'completed') {
+                localStorage.removeItem(ACTIVE_JOB_KEY);
+                setPhase('done'); setProgress(100);
+                onComplete(); // auto-refresh questions list
+              } else if (job.status === 'failed') {
+                localStorage.removeItem(ACTIVE_JOB_KEY);
+                setPhase('error'); setError(job.error_log || 'Processing failed');
+              } else {
+                pollJob(jobId); // still running — resume polling
+              }
+            })
+            .catch(() => { localStorage.removeItem(ACTIVE_JOB_KEY); });
+        }
+      } catch { localStorage.removeItem(ACTIVE_JOB_KEY); }
+    }
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent, which: 'main' | 'ak') => {
     e.preventDefault();
@@ -55,33 +101,79 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
     }
   }, []);
 
+  const handleRetry = async (jobId: string) => {
+    try {
+      const r = await fetch(`${API_BASE}/admin/retry-job/${jobId}`, {
+        method: 'POST', headers: adminHeaders(),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setError(data.detail || 'Retry failed');
+        return;
+      }
+      // Reset stuck counter and resume polling
+      stuckSecsRef.current = 0;
+      setStuckSecs(0);
+      lastProgressRef.current = -1;
+      pollJob(jobId);
+    } catch {
+      setError('Retry request failed — check backend is running');
+    }
+  };
+
   const pollJob = (jobId: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    setCurrentJobId(jobId);
+    stuckSecsRef.current = 0;
+    setStuckSecs(0);
+    lastProgressRef.current = -1;
     setPhase('processing');
     setStatusMsg('Processing — reading the paper...');
     let attempts = 0;
     pollRef.current = setInterval(async () => {
       attempts++;
-      if (attempts > 360) { // 6 min timeout
-        clearInterval(pollRef.current!);
+      // Wait up to 45 minutes (2700 seconds) for large PDFs
+      if (attempts > 2700) {
+        if (pollRef.current) clearInterval(pollRef.current);
         setPhase('error');
-        setError('Processing timed out. Check backend logs.');
+        setError('Processing timed out. This often happens with very large papers. Check the Dashboard in 5-10 minutes to see if it finished.');
         return;
       }
       try {
-        const r = await fetch(`http://localhost:8000/admin/jobs/${jobId}`, {
-          headers: { 'x-admin-key': ADMIN_KEY },
+        const r = await fetch(`${API_BASE}/admin/jobs/${jobId}`, {
+          headers: adminHeaders(),
         });
-        if (!r.ok) return;
+        if (!r.ok) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (currentJobId === jobId || !currentJobId) {
+            localStorage.removeItem(ACTIVE_JOB_KEY);
+          }
+          setPhase('error');
+          setError(`Upload status check failed (${r.status}). Please retry the upload.`);
+          return;
+        }
         const job = await r.json();
-        setProgress(job.progress || 0);
         const p = job.progress || 0;
+        setProgress(p);
+
+        // Stuck detection: increment counter if progress hasn't moved, reset if it did
+        if (p === lastProgressRef.current) {
+          stuckSecsRef.current += 1;
+          setStuckSecs(stuckSecsRef.current);
+        } else {
+          stuckSecsRef.current = 0;
+          setStuckSecs(0);
+          lastProgressRef.current = p;
+        }
         if (job.status === 'completed') {
-          clearInterval(pollRef.current!);
+          if (pollRef.current) clearInterval(pollRef.current);
+          localStorage.removeItem(ACTIVE_JOB_KEY);
           setPhase('done');
           setStatusMsg('');
           setProgress(100);
         } else if (job.status === 'failed') {
-          clearInterval(pollRef.current!);
+          if (pollRef.current) clearInterval(pollRef.current);
+          localStorage.removeItem(ACTIVE_JOB_KEY);
           setPhase('error');
           setError(job.error_log || 'Processing failed');
         } else if (job.status === 'processing') {
@@ -94,7 +186,8 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
           } else {
             if (p < 15)       setStatusMsg('Extracting text from PDF...');
             else if (p < 25)  setStatusMsg('Parsing questions with regex...');
-            else if (p < 50)  setStatusMsg('Vision recovery for missing questions...');
+            else if (p < 72)  setStatusMsg('Vision recovery for missing questions...');
+            else if (p < 80)  setStatusMsg('Recovering difficult pages with deeper extraction...');
             else if (p < 85)  setStatusMsg('Tagging subjects & topics with AI...');
             else if (p < 95)  setStatusMsg('Injecting answers & storing in database...');
             else              setStatusMsg('Generating explanations...');
@@ -106,41 +199,101 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
     }, 1000);
   };
 
-  const handleSubmit = async () => {
+  const handleCancel = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    localStorage.removeItem(ACTIVE_JOB_KEY);
+    setPhase('idle');
+    setProgress(0);
+    setStatusMsg('');
+    setError('');
+  };
+
+  // replaceExisting=true → archive old exam, clear PDF cache, re-extract under existing name
+  const handleSubmit = async (isForced = false, replaceExisting = false) => {
     if (!file || !examName.trim() || !year) return;
     if (mode === 'answer_key' && !akFile) return;
+    const conflict = showConflict;
+    if (pollRef.current) clearInterval(pollRef.current);
+    localStorage.removeItem(ACTIVE_JOB_KEY);
+    setCurrentJobId(null);
     setError('');
+    setShowConflict(null);
     setPhase('uploading');
     setStatusMsg('Uploading PDF...');
     setProgress(0);
 
     const form = new FormData();
     form.append('file', file);
-    form.append('exam_name', examName.trim());
-    form.append('exam_year', year);
+    // For replace: use the existing exam's name/year so we overwrite the right record
+    const targetName = replaceExisting && conflict?.existingExamName
+      ? conflict.existingExamName
+      : examName.trim();
+    const targetYear = replaceExisting && conflict?.existingExamYear
+      ? conflict.existingExamYear
+      : year;
+    form.append('exam_name', targetName);
+    form.append('exam_year', targetYear);
     form.append('series', series.trim());
     form.append('use_vision', mode === 'visual' ? 'true' : 'false');
     form.append('is_cbt', mode === 'cbt' ? 'true' : 'false');
     if (mode === 'cbt' && shiftLabel.trim()) {
       form.append('shift_label_override', shiftLabel.trim());
     }
-    if (mode === 'answer_key' && akFile) {
+    if ((mode === 'answer_key' || mode === 'auto') && akFile) {
       form.append('answer_key_file', akFile);
     }
+    // Convert expectedCount to number or 0 (0 = Auto)
+    const countVal = !expectedCount ? 0 : parseInt(expectedCount.toString());
+    form.append('expected_count', (countVal || 0).toString());
+
+    if (isForced) form.append('force_replace', 'true');
+    if (replaceExisting) form.append('clear_cache', 'true');
 
     try {
-      const res = await fetch('http://localhost:8000/admin/upload-pdf', {
+      console.log('🚀 Starting upload to 127.0.0.1:8000...');
+      const res = await fetch(`${API_BASE}/admin/upload-pdf`, {
         method: 'POST',
-        headers: { 'x-admin-key': ADMIN_KEY },
+        headers: adminHeaders(),
         body: form,
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
-      setProgress(5);
-      pollJob(data.job_id);
+      console.log('📥 Backend response:', data);
+      
+      if (!res.ok) {
+        if (res.status === 409) {
+          const type = data.error === 'duplicate_file' ? 'file' : 'exam';
+          const existingName = data.existing_exam_name
+            ? `${data.existing_exam_name} ${data.existing_exam_year || ''}`.trim()
+            : undefined;
+          setShowConflict({
+            type,
+            msg: data.message,
+            existingName,
+            existingExamName: data.existing_exam_name,
+            existingExamYear: data.existing_exam_year?.toString(),
+          });
+          setPhase('idle');
+          return;
+        }
+        throw new Error(data.detail || data.message || JSON.stringify(data));
+      }
+      
+      if (data.job_id) {
+        localStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify({ jobId: data.job_id, savedMode: mode }));
+        setProgress(5);
+        pollJob(data.job_id);
+      } else if (data.inserted !== undefined) {
+        setPhase('done');
+        setProgress(100);
+      }
     } catch (e: any) {
+      localStorage.removeItem(ACTIVE_JOB_KEY);
       setPhase('error');
-      setError(e.message || 'Upload failed');
+      // Handle FastAPI's detail objects or lists accurately
+      let msg = 'Upload failed';
+      if (e.message) msg = e.message;
+      if (typeof msg === 'object') msg = JSON.stringify(msg);
+      setError(msg);
     }
   };
 
@@ -250,47 +403,64 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
               />
             </div>
 
-            {mode === 'answer_key' && (
+            {(mode === 'answer_key' || mode === 'auto') && (
               <div>
-                <label style={labelStyle}>Answer Key PDF</label>
+                <label style={labelStyle}>
+                  Answer Key PDF
+                  {mode === 'auto' && <span style={{ color: C.textTert, fontWeight: 400, textTransform: 'none', fontSize: 10 }}> — optional</span>}
+                </label>
                 <FileZone
                   f={akFile}
                   onDrop={e => handleDrop(e, 'ak')}
                   onClick={() => akFileRef.current?.click()}
-                  label="Drop answer key PDF here"
-                  hint="Text or scanned — any format supported"
+                  label={mode === 'auto' ? 'Drop answer key PDF here (optional)' : 'Drop answer key PDF here'}
+                  hint="Text or scanned — auto-detects Set A/B/C/D"
                 />
               </div>
             )}
           </div>
 
-          {/* Form fields */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Exam Name</label>
-              <input type="text" value={examName} onChange={e => setExamName(e.target.value)}
-                placeholder='e.g. "APPSC Group II Mains Paper I"'
-                style={inputStyle} disabled={phase !== 'idle'} />
-            </div>
+          {/* Settings */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
             <div>
-              <label style={labelStyle}>Year</label>
-              <input type="number" value={year} onChange={e => setYear(e.target.value)}
-                style={inputStyle} disabled={phase !== 'idle'} min={2000} max={2035} />
+              <label style={labelStyle}>Expected Total Questions</label>
+              <input type="number" value={expectedCount} onChange={e => setExpectedCount(e.target.value)}
+                placeholder="Leave blank for Auto"
+                style={inputStyle} disabled={phase !== 'idle'} min={1} max={250} />
+              <p style={{ fontSize: 10, color: C.textTert, marginTop: 4 }}>
+                Helps detect gaps (e.g. 100 for UPSC, 150 for States)
+              </p>
             </div>
             <div>
               <label style={labelStyle}>Series (optional)</label>
               <input type="text" value={series} onChange={e => setSeries(e.target.value)}
                 placeholder="A / B / C" style={inputStyle} disabled={phase !== 'idle'} />
             </div>
+          </div>
 
-            {mode === 'cbt' && (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>Shift Label Override (optional)</label>
-                <input type="text" value={shiftLabel} onChange={e => setShiftLabel(e.target.value)}
-                  placeholder='e.g. "Shift 1" or "24/08/2025 Morning" — leave blank for auto-detect'
-                  style={inputStyle} disabled={phase !== 'idle'} />
+          {/* Form fields */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Exam Name</label>
+              <input type="text" value={examName} onChange={e => setExamName(e.target.value)}
+                placeholder='e.g. "APPSC Group II Mains Paper I"'
+                style={inputStyle} disabled={phase !== 'idle'} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Year</label>
+                <input type="number" value={year} onChange={e => setYear(e.target.value)}
+                  style={inputStyle} disabled={phase !== 'idle'} min={2000} max={2035} />
               </div>
-            )}
+              {mode === 'cbt' && (
+                <div>
+                  <label style={labelStyle}>Shift Label</label>
+                  <input type="text" value={shiftLabel} onChange={e => setShiftLabel(e.target.value)}
+                    placeholder='e.g. "Shift 1"'
+                    style={inputStyle} disabled={phase !== 'idle'} />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Progress */}
@@ -305,6 +475,16 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
                   animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
               </div>
               <p style={{ fontSize: 11, color: C.textTert, marginTop: 4, textAlign: 'right' }}>{progress}%</p>
+
+              {/* Stuck detection — keep the user informed, but don't allow live retries.
+                  Retrying an active job can mix pipelines and corrupt the run. */}
+              {stuckSecs >= 180 && currentJobId && (
+                <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ fontSize: 12, color: '#FBBF24' }}>
+                    Still at {progress}% for {Math.floor(stuckSecs / 60)}m. Around 72-80% the extractor may be retrying difficult pages, which can take a while without visible movement. Live retry is disabled to avoid corrupting the upload.
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -323,6 +503,71 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
               {error}
             </div>
           )}
+
+          {/* Conflict Warning */}
+          {showConflict && (
+            <div style={{ padding: '16px', background: C.accentDim, border: `1px solid ${C.accent}40`, borderRadius: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: C.accent, marginBottom: 10 }}>
+                <AlertCircle style={{ width: 18, height: 18 }} />
+                <p style={{ fontSize: 13, fontWeight: 700 }}>
+                  {showConflict.type === 'file' ? 'Duplicate PDF Detected' : 'Exam Already Exists'}
+                </p>
+              </div>
+              {showConflict.type === 'file' && showConflict.existingName ? (
+                <>
+                  <p style={{ fontSize: 12, color: C.textSec, lineHeight: 1.6, marginBottom: 16 }}>
+                    This PDF was already uploaded as <strong style={{ color: C.text }}>"{showConflict.existingName}"</strong>.
+                    Choose how to proceed:
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                    <div style={{ padding: '10px 12px', background: '#0D2218', border: '1px solid #22c55e30', borderRadius: 10 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: '#22c55e', marginBottom: 3 }}>Replace Existing</p>
+                      <p style={{ fontSize: 11, color: C.textSec, lineHeight: 1.5 }}>
+                        Deletes old questions for <strong style={{ color: C.text }}>"{showConflict.existingName}"</strong>, clears PDF cache, and re-extracts fresh. Use this to fix extraction errors.
+                      </p>
+                    </div>
+                    <div style={{ padding: '10px 12px', background: C.accentDim, border: `1px solid ${C.accent}30`, borderRadius: 10 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 3 }}>Add as New Exam</p>
+                      <p style={{ fontSize: 11, color: C.textSec, lineHeight: 1.5 }}>
+                        Keeps <strong style={{ color: C.text }}>"{showConflict.existingName}"</strong> intact and adds a separate entry as <strong style={{ color: C.text }}>"{examName} {year}"</strong>.
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setShowConflict(null)}
+                      style={{ padding: '8px 14px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, color: C.textSec, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                    <button onClick={() => handleSubmit(true, true)}
+                      style={{ flex: 1, padding: '8px', background: '#22c55e', border: 'none', borderRadius: 8, color: '#000', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      Replace Existing
+                    </button>
+                    <button onClick={() => handleSubmit(true, false)}
+                      style={{ flex: 1, padding: '8px', background: C.accent, border: 'none', borderRadius: 8, color: '#000', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      Add as New Exam
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: 12, color: C.textSec, lineHeight: 1.5, marginBottom: 16 }}>
+                    {showConflict.msg}<br/>
+                    Do you want to replace the existing data? Old questions will be archived.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={() => setShowConflict(null)}
+                      style={{ flex: 1, padding: '8px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, color: C.textSec, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                    <button onClick={() => handleSubmit(true)}
+                      style={{ flex: 1, padding: '8px', background: C.accent, border: 'none', borderRadius: 8, color: '#000', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      Yes, Replace Data
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -334,11 +579,12 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
             </button>
           ) : (
             <>
-              <button onClick={onClose} disabled={phase === 'uploading' || phase === 'processing'}
-                style={{ padding: '9px 20px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: C.textSec, cursor: 'pointer', opacity: (phase === 'uploading' || phase === 'processing') ? 0.4 : 1 }}>
-                Cancel
+              <button
+                onClick={phase === 'uploading' || phase === 'processing' ? handleCancel : onClose}
+                style={{ padding: '9px 20px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: C.textSec, cursor: 'pointer' }}>
+                {phase === 'uploading' || phase === 'processing' ? 'Stop & Reset' : 'Cancel'}
               </button>
-              <button onClick={handleSubmit} disabled={!canSubmit}
+              <button onClick={() => handleSubmit(false)} disabled={!canSubmit}
                 style={{ padding: '9px 22px', background: canSubmit ? C.accent : C.border, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, color: canSubmit ? '#000' : C.textSec, cursor: canSubmit ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Upload style={{ width: 14, height: 14 }} /> Upload & Process
               </button>

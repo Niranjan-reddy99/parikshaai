@@ -22,22 +22,39 @@ import sys
 import json
 import time
 import hashlib
-from pathlib import Path
-from typing import Optional
-
+import io as _io
 import datetime
+import concurrent.futures as _cf
+from pathlib import Path
+from typing import Optional, Any, cast, List, Dict, Union
+from langdetect import detect
+
+_TAG_EXECUTOR = _cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="tagger")
+
+import traceback
 import fitz  # PyMuPDF
+from PIL import Image as PILImage
+import pytesseract
+from ai_models import (
+    ANSWER_MODEL,
+    EXPLANATION_MODEL,
+    EXTRACTION_MODEL,
+    TAGGING_MODEL,
+    get_genai_client,
+    short_model_name,
+)
+from canonical_taxonomy import derive_canonical_taxonomy
+from config import supabase
+from extraction_cleanup import clean_and_dedupe_questions
+from papers import resolve_paper_id, sync_paper_question_counts, source_filename_from_path
+from question_repairs import record_ai_repair_proposals
+from row_quality import derive_quality_fields, merge_quality_fields
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google.genai import types
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY required in .env")
-
-genai.configure(api_key=GEMINI_API_KEY)
-
+_CLIENT = get_genai_client()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # COST TRACKER — accumulates real token counts from API responses
@@ -57,10 +74,11 @@ class CostTracker:
         self.steps: list[dict] = []
 
     def record(self, step: str, input_tokens: int, output_tokens: int, cached: bool = False):
+        _SAFETY_MARGIN = 1.20  # 20% overhead to match Google AI Studio billing
         cost_usd = (
             input_tokens  / 1_000_000 * _INPUT_PRICE_PER_1M +
             output_tokens / 1_000_000 * _OUTPUT_PRICE_PER_1M
-        )
+        ) * _SAFETY_MARGIN
         self.steps.append({
             "step": step,
             "input_tokens": input_tokens,
@@ -112,9 +130,8 @@ class CostTracker:
         log_path.write_text(json.dumps(existing, indent=2, ensure_ascii=False))
         print(f"  📋 Cost log saved → cache/cost_log.json")
 
-# ── Model: gemini-2.5-flash-lite ───────────────────────────────────────────
-# Used for tagging + explanations — same model as vision to keep it simple
-TAGGER_MODEL = genai.GenerativeModel("gemini-2.5-flash-lite")
+TAGGER_MODEL       = TAGGING_MODEL
+BEST_MODEL         = EXPLANATION_MODEL
 
 # ── Local cache to avoid re-paying for same batches ────────────────────────
 CACHE_DIR = Path("./cache")
@@ -122,7 +139,8 @@ CACHE_DIR.mkdir(exist_ok=True)
 
 # ── Batch size: 30 question TEXTS (not 5 raw pages) ────────────────────────
 # Sending only question text = ~50 tokens/question vs ~500 tokens/raw page
-TAG_BATCH_SIZE = 30
+TAG_BATCH_SIZE = 20
+TAG_PROMPT_VERSION = "v6"  # bust stale tagging cache
 
 
 # ── Lazy Supabase ───────────────────────────────────────────────────────────
@@ -131,9 +149,139 @@ _supabase = None
 def get_supabase():
     global _supabase
     if _supabase is None:
-        from config import supabase
-        _supabase = supabase
+        try:
+            from config import supabase as sb
+            _supabase = sb
+        except ImportError:
+            # Fallback for when running in subdirectories
+            sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+            from config import supabase as sb
+            _supabase = sb
     return _supabase
+
+
+_question_supported_columns_cache: set[str] | None = None
+
+
+def _question_supported_columns(sb=None) -> set[str]:
+    """
+    Live DBs can lag behind local code. Filter writes to only the columns that
+    actually exist so uploads keep working before every migration is applied.
+    """
+    global _question_supported_columns_cache
+    if _question_supported_columns_cache is not None:
+        return _question_supported_columns_cache
+
+    sb = sb or get_supabase()
+    fallback = {
+        "question_text", "option_a", "option_b", "option_c", "option_d",
+        "correct_answer", "subject", "topic", "subtopic", "difficulty",
+        "canonical_subject", "canonical_topic_family", "canonical_subtopic_family",
+        "question_type", "concept", "exam_name", "exam_year", "source_pdf",
+        "paper_id", "question_hash", "question_number", "is_active",
+        "needs_review", "has_image", "image_url", "shift_label",
+        "test_date", "test_time", "exam_section", "passage",
+        "student_answer", "structural_status", "answer_status",
+        "explanation_status", "tagging_status", "review_required",
+        "confidence_score", "public_visibility", "primary_issue_code",
+        "issue_codes",
+    }
+    try:
+        data = sb.table("questions").select("*").limit(1).execute().data or []
+        if data:
+            _question_supported_columns_cache = set(data[0].keys())
+        else:
+            _question_supported_columns_cache = fallback
+    except Exception:
+        _question_supported_columns_cache = fallback
+    return _question_supported_columns_cache
+
+
+def _merge_canonical_taxonomy(row: dict[str, Any], supported_cols: set[str] | None = None) -> dict[str, Any]:
+    updated = dict(row)
+    canonical = derive_canonical_taxonomy(
+        updated.get("subject"),
+        updated.get("topic"),
+        updated.get("subtopic"),
+    )
+    updated["subject"] = canonical["canonical_subject"]
+    updated["topic"] = canonical["canonical_topic_family"]
+    updated["subtopic"] = canonical["canonical_subtopic_family"]
+    if supported_cols is None or "canonical_subject" in supported_cols:
+        updated["canonical_subject"] = canonical["canonical_subject"]
+    if supported_cols is None or "canonical_topic_family" in supported_cols:
+        updated["canonical_topic_family"] = canonical["canonical_topic_family"]
+    if supported_cols is None or "canonical_subtopic_family" in supported_cols:
+        updated["canonical_subtopic_family"] = canonical["canonical_subtopic_family"]
+    return updated
+
+
+def _quality_update_payload(row: dict[str, Any], merged_quality: dict[str, Any], supported_cols: set[str]) -> dict[str, Any]:
+    payload = dict(row)
+    for key in (
+        "structural_status",
+        "answer_status",
+        "explanation_status",
+        "tagging_status",
+        "review_required",
+        "confidence_score",
+        "public_visibility",
+        "primary_issue_code",
+        "issue_codes",
+    ):
+        if key in supported_cols and key in merged_quality:
+            payload[key] = merged_quality[key]
+    return payload
+
+
+_DEVANAGARI = re.compile(r'[\u0900-\u097F]')
+_TELUGU_UNICODE = re.compile(r'[\u0C00-\u0C7F]')
+
+def _strip_telugu_unicode(text: str) -> str:
+    """Hard Unicode filter: remove lines where ≥15% of alpha chars are Telugu script."""
+    if not text:
+        return text
+    lines = text.split('\n')
+    clean: list[str] = []
+    for line in lines:
+        alpha = [c for c in line if c.isalpha()]
+        if not alpha:
+            clean.append(line)
+            continue
+        telugu = sum(1 for c in alpha if '\u0C00' <= c <= '\u0C7F')
+        if telugu / len(alpha) >= 0.15:
+            continue
+        clean.append(_TELUGU_UNICODE.sub('', line))
+    return '\n'.join(clean)
+
+def _strip_bilingual_noise(text: str) -> str:
+    """Remove Hindi (Devanagari) and Telugu text from bilingual papers.
+    Used as a late-stage cleanup, not during initial extraction to avoid data loss.
+    """
+    if not text:
+        return ""
+    lines = text.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Remove lines >40% Hindi (Devanagari)
+        hindi_chars = len(_DEVANAGARI.findall(stripped))
+        if len(stripped) > 0 and (hindi_chars / len(stripped)) > 0.4:
+            continue
+        # Remove lines ≥15% Telugu Unicode (U+0C00–U+0C7F)
+        alpha = [c for c in stripped if c.isalpha()]
+        if alpha:
+            telugu = sum(1 for c in alpha if '\u0C00' <= c <= '\u0C7F')
+            if telugu / len(alpha) >= 0.15:
+                continue
+        # Strip remaining Hindi + Telugu chars inline
+        cleaned_line = _DEVANAGARI.sub('', line)
+        cleaned_line = _TELUGU_UNICODE.sub('', cleaned_line).strip()
+        if cleaned_line:
+            cleaned_lines.append(cleaned_line)
+    return '\n'.join(cleaned_lines)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -147,6 +295,9 @@ def _normalize_block_text(text: str) -> str:
     text like '6.\\nThe\\nsecond\\nmeeting\\n...'.  Join consecutive short lines
     (≤ 15 chars) that are not structural markers (option labels, numbered opts,
     question numbers) onto the previous line.
+
+    EXCEPTION: Never merge lines that look like standalone numeric answers
+    (e.g. "24", "1/3", "₹240", "12.5%") — these are aptitude question options.
     """
     result: list[str] = []
     for sub in text.split('\n'):
@@ -158,7 +309,13 @@ def _normalize_block_text(text: str) -> str:
             bool(re.match(r'^\([1-4]\)', s)) or               # (1) numbered opt
             bool(re.match(r'^(?:Q\.?\s*)?\d{1,3}[.)]', s))   # question number
         )
-        if result and len(s) <= 15 and not is_structural:
+        # Numeric/symbol-only short lines are standalone option VALUES, not word
+        # fragments — e.g. "24", "1/3", "₹240", "12.5%", "−18", "√2".
+        # Merging them onto the previous line destroys aptitude question options.
+        is_numeric_answer = bool(re.match(
+            r'^[₹\-\+\√]?[\d][\d,./:%²³⁴\s]*[%]?$|^[\d]+/[\d]+$', s
+        ))
+        if result and len(s) <= 15 and not is_structural and not is_numeric_answer:
             result[-1] = result[-1] + ' ' + s
         else:
             result.append(sub.rstrip())
@@ -263,26 +420,66 @@ def _is_instruction_page(text: str) -> bool:
     return matches >= 3
 
 
-def extract_text(pdf_path: str, tracker: "CostTracker | None" = None, skip_bilingual: bool = False) -> list[str]:
-    """Extract text page-by-page using PyMuPDF.
+_PRESTORE_INSTRUCTION_RE = re.compile(
+    r'\b(?:hall\s+ticket|omr\s+answer\s+sheet|darkening\s+(?:appropriate\s+)?circles?|'
+    r'invigilator|rough\s+work\s+(?:should\s+be\s+done|only\s+in)|'
+    r'question\s+booklet\s+(?:number|no\.?)|answer\s+sheet\s+is\s+invalidated|'
+    r'no\s+correspondence\s+will\s+be\s+entertained|'
+    r'discrepancy\s+between\s+english\s+(?:&|and)\s+(?:telugu|hindi|urdu)|'
+    r'(?:use\s+of\s+)?calculators?,?\s+mathematical\s+tables?|'
+    r'electronic\s+gadgets?\s+is\s+strictly\s+prohibited|'
+    r'sign(?:ature)?\s+(?:in\s+the\s+space\s+provided|of\s+the\s+invigilator)|'
+    r'do\s+not\s+(?:mark|write|fold)\s+(?:answer\s+choices?|on\s+the\s+question)|'
+    r'bio[-\s]?data\s+printed\s+against|nominal\s+rolls?\b|'
+    r'candidates?\s+(?:are\s+)?(?:instructed|advised|required|should\s+not|must\s+not|will\s+not)|'
+    r'do\s+not\s+(?:open|write\s+on|start\s+writing|fold|tear|damage)|'
+    r'write\s+your\s+(?:name|roll\s+number|registration\s+number|admit\s+card)|'
+    r'(?:fill|mark|darken|shade)\s+(?:in\s+)?(?:the\s+)?(?:appropriate|correct|relevant)\s+(?:circle|oval|bubble|box)|'
+    r'use\s+(?:only\s+)?(?:blue|black)\s+(?:ink\s+)?(?:ball\s+point\s+)?pen|'
+    r'mobile\s+phones?\s+(?:are\s+)?(?:not\s+allowed|prohibited|strictly)|'
+    r'negative\s+marking|wrong\s+answer\s+(?:will\s+)?(?:carry|result\s+in|attract)|'
+    r'(?:answer|attempt)\s+all\s+(?:the\s+)?questions?|'
+    r'this\s+(?:paper|booklet|examination)\s+(?:has|contains?|consists?\s+of)\s+\d|'
+    r'(?:maximum\s+)?(?:total\s+)?marks?\s+(?:for\s+(?:this\s+)?(?:paper|exam|test)\s+)?(?:is|are|:)\s*\d|'
+    r'(?:total\s+)?(?:time|duration)\s+(?:of\s+(?:the\s+)?(?:exam|test|paper)\s+)?(?:is|allowed)\s*[:,]?\s*\d'
+    r')\b',
+    re.IGNORECASE
+)
 
-    skip_bilingual=True: disables the Telugu/Hindi line filter — use for UPSC PDFs
-    where the bilingual filter incorrectly strips English content.
 
-    Handles bilingual two-column PDFs (e.g. TSPSC Group 1): pages alternate
-    between Telugu-only and English-only. English pages have two columns
-    (Q1-3 left, Q4-6 right). Blocks are grouped by row to avoid the
-    'one word per line' problem.  Falls back to OCR for scanned pages.
+def filter_instruction_like_questions(questions: list[dict]) -> list[dict]:
+    """Drop extracted rows that are clearly exam instructions, not questions."""
+    if not questions:
+        return questions
+    filtered = [
+        q for q in questions
+        if not _PRESTORE_INSTRUCTION_RE.search((q.get("question_text") or "").strip())
+    ]
+    removed = len(questions) - len(filtered)
+    if removed:
+        print(f"  🗑️  Removed {removed} instruction-page items (hall ticket, OMR, etc.)")
+    return filtered
 
-    Results are cached by PDF content hash — re-uploading the same PDF costs ₹0.
+
+def extract_text(pdf_path: str, tracker: "CostTracker | None" = None, skip_bilingual: bool = False, job_id: Optional[str] = None) -> list[tuple[int, str]]:
+    """Extract text page-by-page. Returns list of (physical_page_index, text).
+
+    skip_bilingual=True: disables the aggressive bilingual line filter — CRITICAL
+    for UPSC PDFs where English and Hindi appear in the same block.
     """
     # ── Page-extraction cache (avoids re-paying Gemini Vision) ───────────────
     pdf_bytes = Path(pdf_path).read_bytes()
     pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()[:16]
-    _page_cache_path = CACHE_DIR / f"pages_{pdf_hash}.json"
+    _page_cache_path = CACHE_DIR / f"pages_v2_{pdf_hash}.json"
     if _page_cache_path.exists():
         with open(_page_cache_path) as _f:
-            cached_pages = json.load(_f)
+            cached_data = json.load(_f)
+        # Handle migration from list[str] to list[tuple[int, str]]
+        if cached_data and isinstance(cached_data[0], str):
+            cached_pages = [(idx, txt) for idx, txt in enumerate(cached_data)]
+        else:
+            cached_pages = [(item[0], item[1]) for item in cached_data]
+            
         print(f"  📦 Page extraction: cache hit ({len(cached_pages)} pages, ₹0)")
         if tracker:
             tracker.record("Vision OCR (all pages)", 0, 0, cached=True)
@@ -364,8 +561,17 @@ def extract_text(pdf_path: str, tracker: "CostTracker | None" = None, skip_bilin
     doc = fitz.open(pdf_path)
     pages = []
     bilingual_announced = False
+    _total_pages = doc.page_count
+    _sb_for_progress = get_supabase() if job_id else None
 
     for i, page in enumerate(doc):
+        # ── Per-page progress: 5% → 12% during extraction ─────────────────────
+        if job_id and _sb_for_progress and (i % 8 == 0):
+            _prog = 5 + int(7 * i / max(1, _total_pages))
+            try:
+                _sb_for_progress.table("jobs").update({"progress": _prog}).eq("id", job_id).execute()
+            except Exception:
+                pass
         page_width = page.rect.width
         blocks = page.get_text("blocks")           # (x0,y0,x1,y1,text,block_no,type)
         text_blocks = [b for b in blocks if b[6] == 0 and b[4].strip()]  # type-0 = text
@@ -395,43 +601,39 @@ def extract_text(pdf_path: str, tracker: "CostTracker | None" = None, skip_bilin
             all_text_sample = " ".join(b[4] for b in text_blocks)
             all_alpha = max(1, sum(1 for c in all_text_sample if c.isalpha()))
             all_non_ascii = sum(1 for c in all_text_sample if ord(c) > 127)
+            # Telugu/mojibake: activated by skip_bilingual=False flag
             page_has_telugu = (not skip_bilingual) and (all_non_ascii / all_alpha) > 0.15
+            # Hindi (Devanagari U+0900–U+097F): always filter regardless of skip_bilingual.
+            # UPSC CISF papers are English+Hindi — skip_bilingual skips Telugu filter but
+            # Hindi Devanagari must still be stripped to prevent parser confusion.
+            _deva_count = sum(1 for c in all_text_sample if '\u0900' <= c <= '\u097F')
+            page_has_hindi = (_deva_count / all_alpha) > 0.10
 
-            if page_has_telugu:
+            def _two_col_layout(blocks):
+                mid = page_width * 0.50
+                left_col  = [b for b in blocks if b[0] < mid]
+                right_col = [b for b in blocks if b[0] >= mid]
+                lc = sum(len(b[4]) for b in left_col)
+                rc = sum(len(b[4]) for b in right_col)
+                if lc > 50 and rc > 50:
+                    return (_blocks_to_lines(left_col) + "\n" + _blocks_to_lines(right_col)).strip()
+                return _blocks_to_lines(blocks)
+
+            if (page_has_telugu or page_has_hindi) and not skip_bilingual:
+                lang_label = "Hindi" if page_has_hindi and not page_has_telugu else "Telugu/bilingual"
                 if not bilingual_announced:
-                    print(f"  🌐 Bilingual PDF detected (page {i+1}) — filtering Telugu lines per-block")
+                    print(f"  🌐 {lang_label} bilingual detected (page {i+1}) — filtering non-English lines")
                     bilingual_announced = True
                 is_bilingual = True
-                # Clean each block to extract its English lines only
                 cleaned_blocks = []
                 for b in text_blocks:
                     cleaned_text = _extract_english_from_block(b[4])
                     if cleaned_text.strip():
                         cleaned_blocks.append(b[:4] + (cleaned_text,) + b[5:])
-                if not cleaned_blocks:
-                    text = ""
-                else:
-                    # Two-column layout: left col (<50% width) and right col (≥50%)
-                    mid = page_width * 0.50
-                    left_col  = [b for b in cleaned_blocks if b[0] < mid]
-                    right_col = [b for b in cleaned_blocks if b[0] >= mid]
-                    left_chars  = sum(len(b[4]) for b in left_col)
-                    right_chars = sum(len(b[4]) for b in right_col)
-                    if left_chars > 50 and right_chars > 50:
-                        text = (_blocks_to_lines(left_col) + "\n" + _blocks_to_lines(right_col)).strip()
-                    else:
-                        text = _blocks_to_lines(cleaned_blocks)
+                text = _two_col_layout(cleaned_blocks) if cleaned_blocks else ""
             else:
-                # Pure English page — two columns (Q1-3 left, Q4-6 right)
-                mid = page_width * 0.50
-                left_col  = [b for b in text_blocks if b[0] < mid]
-                right_col = [b for b in text_blocks if b[0] >= mid]
-                left_chars  = sum(len(b[4]) for b in left_col)
-                right_chars = sum(len(b[4]) for b in right_col)
-                if left_chars > 50 and right_chars > 50:
-                    text = (_blocks_to_lines(left_col) + "\n" + _blocks_to_lines(right_col)).strip()
-                else:
-                    text = _blocks_to_lines(text_blocks)
+                # UPSC style: Keep everything, handle Hindi stripping later to avoid dropping English.
+                text = _two_col_layout(text_blocks)
         else:
             text = page.get_text("text").strip()
 
@@ -444,32 +646,45 @@ def extract_text(pdf_path: str, tracker: "CostTracker | None" = None, skip_bilin
             continue  # Telugu-only text page — skip silently
         if len(text) < 50:
             try:
-                from PIL import Image as PILImage
-                import io as _io
                 pix = page.get_pixmap(dpi=150)
                 img_bytes = pix.tobytes("png")
 
                 # ── Gemini Vision: best for bilingual scanned PDFs ────────────
-                # gemini-2.0-flash-lite: ~₹0.89 for a 50-page paper (under ₹1).
+                # gemini-1.5-flash: ~₹0.89 for a 50-page paper (under ₹1).
                 # Understands both English and Telugu — extracts English-only.
                 try:
-                    import PIL.Image
                     _img = PIL.Image.open(_io.BytesIO(img_bytes))
-                    _vision_model = genai.GenerativeModel("gemini-2.5-flash-lite")
-                    _prompt = (
-                        "This is a scanned page from an Indian competitive exam (TSPSC/UPSC). "
+                    _vision_model = EXTRACTION_MODEL
+                    _bilingual_note = (
                         "Each question appears TWICE on the page — once in English and once in Telugu. "
                         "Extract ONLY the English version of each question, exactly ONCE. "
-                        "Preserve the original question number (e.g. '8. Match the following...'). "
-                        "Format: [number]. [question text]\n(1) [option] (2) [option] (3) [option] (4) [option]\n"
-                        "For match-the-following, keep A/B/C/D and I/II/III/IV labels. "
                         "Do NOT output any Telugu or Hindi characters. "
+                    ) if not skip_bilingual else (
+                        "This is an English-medium exam. Questions may appear alongside Hindi (Devanagari) text. "
+                        "Extract ONLY the English text. Completely ignore all Devanagari/Hindi script. "
+                        "Extract every question exactly ONCE. "
+                    )
+                    _prompt = (
+                        "This is a scanned page from an Indian competitive exam. "
+                        + _bilingual_note +
+                        "Preserve the original question number (e.g. '8. Match the following...'). "
+                        "Format: [number]. [question text]\n(a) [option] (b) [option] (c) [option] (d) [option]\n"
+                        "Options may also be labeled (A)/(B)/(C)/(D) or (1)/(2)/(3)/(4) — preserve as-is. "
+                        "For match-the-following, keep A/B/C/D and I/II/III/IV labels. "
                         "Do NOT duplicate questions. Do NOT add explanations — raw exam text only. "
                         "IGNORE any watermark text such as 'MASTER COPY' or 'M A S T E R C O P Y'. "
                         "IGNORE page number codes like 'ET 22 X' or 'ET X 22'. "
                         "IGNORE 'P.T.O.' markers. Output question text only."
                     )
-                    _resp = _vision_model.generate_content([_prompt, _img])
+                    _resp = _CLIENT.models.generate_content(
+                        model=_vision_model,
+                        contents=[_prompt, _img],
+                        config=types.GenerateContentConfig(
+                            temperature=0.0,
+                            max_output_tokens=4096,
+                            thinking_config=types.ThinkingConfig(thinking_budget=0),
+                        ),
+                    )
                     text = _clean_ocr_page(_resp.text.strip())
                     print(f"  🤖 Page {i+1}: Gemini Vision ({len(text)} chars)")
                     if tracker:
@@ -480,7 +695,6 @@ def extract_text(pdf_path: str, tracker: "CostTracker | None" = None, skip_bilin
                             pass
                 except Exception as _ve:
                     # Fallback to Tesseract if Gemini Vision fails
-                    import pytesseract
                     pytesseract.pytesseract.tesseract_cmd = '/opt/homebrew/bin/tesseract'
                     _img2 = PILImage.open(_io.BytesIO(img_bytes))
                     text = pytesseract.image_to_string(_img2, lang="eng+tel+hin")
@@ -548,10 +762,16 @@ def extract_text(pdf_path: str, tracker: "CostTracker | None" = None, skip_bilin
 # Handles: "Consider the following", "Match the following", statement-based Qs
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Matches lines like: "1." "Q1." "Q.1" "1)" but NOT answer choices like "1) A and B only"
-# Requires the line content to look like actual question text (>= 5 chars after the number)
-# and that the number is followed by the number of a proper question (not a sub-item 1-4)
-_Q_START = re.compile(r'^(?:Q\.?\s*)?(\d{1,3})[.)]\s+(.{5,})', re.MULTILINE)
+# Matches: "1." "Q1." "Q.1" "1)" (requires separator)
+# OR Matches: "Question Number : 1" (separator optional)
+# Requires at least 8 chars of text to follow.
+_Q_START = re.compile(
+    r'^\s*(?:'
+    r'(?:Q\.?\s*)?(\d{1,3})[.)]|'                  # Standard case: 1. or 1)
+    r'Question\s+Number\s*[:.-]\s*(\d{1,3})[.)]?' # Explicit prefix case
+    r')\s+(.{8,})',
+    re.MULTILINE | re.IGNORECASE
+)
 
 # Matches option lines: "(A)" "A." "A)" "(a)" "a."
 _OPT = re.compile(
@@ -590,6 +810,9 @@ def parse_questions_local(pages: list[str]) -> list[dict]:
     # on a single line. Split every (N) that is not already at the start of a line.
     # Using lookahead preserves (N) in output; non-overlapping so all 4 are split.
     full_text = re.sub(r'(?<!\n) +(?=\([1-4]\) )', r'\n', full_text)
+    # Same for letter options — UPSC/CISF prints "(a) text  (b) text  (c) text  (d) text"
+    # all on one line. Without this split the entire line gets jammed into option_a.
+    full_text = re.sub(r'(?<!\n) {2,}(?=\([ABCDabcd]\) )', r'\n', full_text)
 
     # Clean common PDF noise
     full_text = re.sub(r'Page\s+\d+\s+of\s+\d+', '', full_text, flags=re.IGNORECASE)
@@ -618,40 +841,77 @@ def parse_questions_local(pages: list[str]) -> list[dict]:
     full_text = re.sub(r'\n[\w][\w\-]+[ \t]*\(\s*\d{2,3}\s*\)(?=[ \t]*(?:\n|$))', '', full_text)
 
     splits = list(_Q_START.finditer(full_text))
-    questions = []
-    prev_q_num = 0   # for sequential-number validation
 
-    for idx, match in enumerate(splits):
+    # Compiled once for performance — detects statement/list context in preceding text
+    _STMT_CTX_RE = re.compile(
+        r'(?:consider|following\s+(?:statement|list|fact|pair|column)|'
+        r'given\s+below|select\s+the|arrange|match|assert|reason|'
+        r'list\s+[I-V]|column\s+[A-D]|which\s+of\s+the|'
+        r'statements?\b|pairing|combination|'
+        r'correct\s+(?:statement|answer|code)|incorrect\s+statement|true\s+statement)',
+        re.IGNORECASE
+    )
+
+    # ── PASS 1: identify REAL question starts only ────────────────────────────
+    # Collects (q_num, start_pos, match) for every confirmed real question.
+    # Statement list items (1., 2., 3. inside a "which of the following" block)
+    # are filtered out here so they NEVER pollute block boundaries in Pass 2.
+    real_questions: list[tuple[int, int, re.Match]] = []
+    prev_q_num = 0
+
+    for match in splits:
         q_num = int(match.group(1))
+        match_pos = match.start()
+        preceding = full_text[max(0, match_pos - 250):match_pos]
+        # _Q_START uses ^\s* (MULTILINE) so the match may START on a '\n'.
+        # A blank line (\n\n) is then split: preceding ends with '\n', match starts with '\n'.
+        # Extend the window to include the first few chars of the match itself.
+        match_prefix = full_text[match_pos:match_pos + 6]
+        
+        # Librarian / TCS iON papers often skip blank lines between questions.
+        # If it says "Question Number", it's a guaranteed question start.
+        is_explicit_q = bool(match.group(2))
+        preceded_by_blank = '\n\n' in (preceding[-30:] + match_prefix) or match_pos < 50 or is_explicit_q
 
-        # Skip if question number is out of sequence (e.g. "240" inside Q143 text).
-        # A real question number must be greater than the previous AND within 20.
-        # Gap of 20 handles: section headers, OCR drops, multi-column layout glitches.
+        q_num = int(match.group(1) or match.group(2))
+
         if q_num <= prev_q_num or q_num > prev_q_num + 20:
             # OCR recovery: Gemini Vision sometimes drops a leading digit, e.g.
-            # "42." → "2." because "4" was missed.  If the parsed number is a
-            # suffix of (prev_q_num + 1) AND has fewer digits, recover it.
+            # "42." → "2." because "4" was missed.
             expected = prev_q_num + 1
             expected_str = str(expected)
             q_str = str(q_num)
+            inside_statement_list = bool(_STMT_CTX_RE.search(preceding))
+            ends_with_list_intro = re.search(r'[:;,]\s*$', preceding.strip())
+
             if (len(q_str) < len(expected_str)
-                    and expected_str.endswith(q_str)):
-                q_num = expected  # treat as the expected next question
+                    and expected_str.endswith(q_str)
+                    and preceded_by_blank
+                    and not (inside_statement_list or ends_with_list_intro)):
+                q_num = expected
             else:
                 continue
-        prev_q_num = q_num
 
-        start = match.start()
-        # Find the end: next VALID split (skip out-of-sequence false positives)
-        end = len(full_text)
-        j = idx + 1
-        while j < len(splits):
-            future_match = splits[j]
-            fn = int(future_match.group(1))
-            if fn > q_num and fn <= q_num + 20:
-                end = future_match.start()
-                break
-            j += 1
+        # Statement-list guard for in-sequence candidates:
+        # "3. Item C" inside Q2 has q_num=3 > prev=2 so passes the check above,
+        # but it's not a real question — it lacks a blank-line before it.
+        if not preceded_by_blank:
+            preceding_close = preceding[-120:]
+            prev_line_is_numbered = bool(
+                re.search(r'\n\s*\d+[.)]\s+\S[^\n]{2,}', preceding_close)
+            )
+            if prev_line_is_numbered or bool(_STMT_CTX_RE.search(preceding)):
+                continue
+
+        prev_q_num = q_num
+        real_questions.append((q_num, match.start(), match))
+
+    # ── PASS 2: extract blocks using ONLY real question boundaries ────────────
+    # This is the critical fix: block end = next REAL question start, not any
+    # regex split. Statement numbers (3., 4.) inside Q2 never truncate Q2's block.
+    questions = []
+    for i, (q_num, start, match) in enumerate(real_questions):
+        end = real_questions[i + 1][1] if i + 1 < len(real_questions) else len(full_text)
         block = full_text[start:end].strip()
 
         # ── Detect question structure ─────────────────────────────────────────
@@ -719,8 +979,17 @@ def parse_questions_local(pages: list[str]) -> list[dict]:
             # Strip trailing sub-statement labels A./B./C./D. that bleed in from bilingual format
             # e.g. "Neither A nor B\nA.\nB." → "Neither A nor B"
             text = re.sub(r'(?:\s+[A-D]\.\s*)+$', '', text).strip()
-            # Strip "(1) A only (2) ..." suffix — answer choices embedded in option D
-            text = re.sub(r'\s*[\(\[]1[\)\]]\s*.+$', '', text, flags=re.DOTALL).strip()
+            # Strip "(1) A only (2) ..." suffix — answer choices that bled into option text.
+            # IMPORTANT: Only strip when the (1) suffix looks like a SHORT combo-answer
+            # (e.g. "A only", "A and B only", "All of the above") — NOT long statement content.
+            # The DOTALL flag was previously used here but caused entire statement blocks inside
+            # DAO-style questions to be erased. Now we require the match to be ≤120 chars.
+            _suffix_m = re.search(
+                r'\s*[\(\[]1[\)\]]\s*(?:[A-D](?:\s+(?:and|only|,)\s*[A-D]?)?|All\s+of|None\s+of|Both\s+[A-D]).{0,80}$',
+                text, flags=re.IGNORECASE
+            )
+            if _suffix_m:
+                text = text[:_suffix_m.start()].strip()
             # Strip "Which of the above..." / "Choose the correct answer" trailing directive
             text = re.sub(
                 r'\s+(?:Which\s+of\s+the\s+above|Choose\s+the\s+correct|'
@@ -782,12 +1051,26 @@ def parse_questions_local(pages: list[str]) -> list[dict]:
                 "needs_review": opt_count < 4,
             })
 
-    # Deduplicate by question_number — keep the one with the longest question_text
-    # Phantom questions (from numbered sub-items) tend to have shorter, fragment-like text
+    # ── Filter out instruction-page items BEFORE dedup ────────────────────────
+    # Must happen FIRST — instruction items are often long (detailed rules), so they
+    # would win the "keep longest text" dedup if filtered after. Numbered exam instructions
+    # ("7. Mark your Hall Ticket...") get parsed as Q7 and corrupt the real Q7.
+    questions = filter_instruction_like_questions(questions)
+
+    # ── Deduplicate by question_number — quality score wins, not raw length ───
+    # Score = (options_present * 10) + text_length_bonus
+    # This ensures a real MCQ with 4 options beats an instruction item that has
+    # no options but very long text (e.g., "7. Mark your Hall Ticket...").
+    def _q_score(q: dict) -> int:
+        opts = sum(1 for k in ("option_a", "option_b", "option_c", "option_d")
+                   if (q.get(k) or "").strip())
+        txt_len = len((q.get("question_text") or "").strip())
+        return opts * 200 + txt_len  # 4 real options = +800, beats any plain text
+
     seen: dict[int, dict] = {}
     for q in questions:
         n = q["question_number"]
-        if n not in seen or len(q["question_text"]) > len(seen[n]["question_text"]):
+        if n not in seen or _q_score(q) > _q_score(seen[n]):
             seen[n] = q
     questions = list(seen.values())
 
@@ -801,6 +1084,25 @@ def parse_questions_local(pages: list[str]) -> list[dict]:
         re.IGNORECASE
     )
     questions = [q for q in questions if not _ANSWER_FRAG.match(q["question_text"].strip())]
+
+    # ── Image/chart/graph question detection ─────────────────────────────
+    # Questions referencing bar graphs, pie charts, tables etc. can't be
+    # answered without the visual. Flag them needs_review=True so admin knows.
+    _IMAGE_RE = re.compile(
+        r'\b(?:bar\s+graph|pie\s+chart|bar\s+chart|line\s+graph|histogram|'
+        r'(?:the\s+)?(?:graph|chart|figure|diagram|picture|map)\s+(?:below|above|given|shown|following)|'
+        r'(?:following|given|below)\s+(?:graph|chart|figure|diagram|table|map)|'
+        r'refer\s+to\s+the|data\s+given\s+(?:below|above)|study\s+the\s+(?:following\s+)?'
+        r'(?:graph|chart|figure|table|diagram)|from\s+the\s+(?:graph|chart|figure|table))\b',
+        re.IGNORECASE
+    )
+    image_flagged = 0
+    for q in questions:
+        if _IMAGE_RE.search(q.get("question_text", "")):
+            q["needs_review"] = True
+            image_flagged += 1
+    if image_flagged:
+        print(f"  🖼️  Flagged {image_flagged} image/chart questions as needs_review")
 
     print(f"  ✅ Parsed {len(questions)} questions locally (₹0 cost)")
     return questions
@@ -882,13 +1184,6 @@ def extract_questions_via_vision(
     e.g. bilingual PDFs with custom Telugu font encoding that appears as garbled ASCII.
     Results are cached by PDF hash — re-upload of same PDF costs ₹0.
     """
-    try:
-        import PIL.Image as PILImage
-        import io as _io
-    except ImportError:
-        print("  ❌ PIL not available — cannot use Vision extraction")
-        return []
-
     pdf_bytes = Path(pdf_path).read_bytes()
     pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()[:16]
     _vis_cache = CACHE_DIR / f"vision_qs_{pdf_hash}.json"
@@ -900,7 +1195,7 @@ def extract_questions_via_vision(
             tracker.record("Vision Q-extract (all pages)", 0, 0, cached=True)
         return cached
 
-    _vision_model = genai.GenerativeModel("gemini-2.5-flash-lite")
+    _vision_model = EXTRACTION_MODEL
     doc = fitz.open(pdf_path)
     all_questions: list[dict] = []
     skipped = 0
@@ -925,10 +1220,14 @@ def extract_questions_via_vision(
 
         for attempt in range(2):
             try:
-                resp = _vision_model.generate_content(
-                    [_VISION_STRUCT_PROMPT] + imgs,
-                    generation_config=genai.GenerationConfig(temperature=0.1, max_output_tokens=16384),
-                    request_options={"timeout": 120},
+                resp = _CLIENT.models.generate_content(
+                    model=_vision_model,
+                    contents=[_VISION_STRUCT_PROMPT] + imgs,
+                    config=types.GenerateContentConfig(
+                        temperature=0.1,
+                        max_output_tokens=16384,
+                        thinking_config=types.ThinkingConfig(thinking_budget=0),
+                    ),
                 )
                 if tracker:
                     try:
@@ -1012,25 +1311,249 @@ def _is_garbled(text: str) -> bool:
 
 
 def _is_english(text: str) -> bool:
-    """Returns True if text is English (or detection is uncertain — keep by default)."""
-    if _is_garbled(text):
-        return False  # Mojibake from Telugu/regional font PDFs — reject
+    """Returns True if text is primarily English. Lenient for bilingual papers."""
+    if not text or _is_garbled(text):
+        return False
+    
+    # Quick ASCII check: if >30% is English, keep it. 
+    # (Bilingual UPSC papers often have 50/50 English/Hindi)
+    printable = [c for c in text if not c.isspace() and c.isprintable()]
+    if not printable: return False
+    ascii_count = sum(1 for c in printable if ord(c) < 128)
+    if (ascii_count / len(printable)) > 0.30:
+        return True
+
     try:
-        from langdetect import detect, LangDetectException
         lang = detect(text)
         return lang not in ("te", "hi", "ta", "kn", "ml", "mr", "bn", "gu")
     except Exception:
         return True  # uncertain → keep
 
-
-def filter_english(questions: list[dict]) -> list[dict]:
-    """Remove Telugu/Hindi/other non-English questions and mojibake garbage."""
+def filter_english(questions: list[dict], exam_name: str = "") -> list[dict]:
+    """Remove regional-only questions. Lenient if UPSC/CISF is detected."""
     before = len(questions)
-    english_qs = [q for q in questions if _is_english(q["question_text"])]
+    is_upsc = any(k in exam_name.lower() for k in ("upsc", "cisf", "nda", "cds"))
+    
+    if is_upsc:
+        # For UPSC, we trust the extractors more than the filter.
+        # Only remove if it's CLEARLY garbled or empty.
+        english_qs = [q for q in questions if q.get("question_text") and not _is_garbled(q["question_text"])]
+    else:
+        english_qs = [q for q in questions if _is_english(q["question_text"])]
+        
     removed = before - len(english_qs)
     if removed:
         print(f"  🔤 Filtered {removed} non-English/garbled questions → {len(english_qs)} remain")
     return english_qs
+
+
+_MATCH_CODE_OPT_RE = re.compile(
+    r'^\s*(?:'
+    r'(?:\d+\s*[-–]\s*[A-D](?:\s*,\s*\d+\s*[-–]\s*[A-D]){1,7})'
+    r'|'
+    r'(?:[A-D]\s*[-–]\s*\d+(?:\s*,\s*[A-D]\s*[-–]\s*\d+){1,7})'
+    r')\s*$',
+    re.IGNORECASE,
+)
+
+_MATCH_PROMPT_RE = re.compile(
+    r'\b(?:match\s+the\s+following|match\s+list\s+i\s+with\s+list\s+ii|list\s*i\b.*\blist\s*ii\b)\b',
+    re.IGNORECASE,
+)
+_MATCH_LEFT_RE = re.compile(r'^\s*([A-D])\.\s*(.+?)\s*$', re.IGNORECASE)
+_MATCH_RIGHT_RE = re.compile(r'^\s*((?:\d+|[IVXLCDM]+))\.\s*(.+?)\s*$', re.IGNORECASE)
+_MATCH_INLINE_BOTH_RE = re.compile(
+    r'^\s*([A-D])\.\s*(.+?)\s{2,}((?:\d+|[IVXLCDM]+))\.\s*(.+?)\s*$',
+    re.IGNORECASE,
+)
+_MATCH_END_RE = re.compile(
+    r'^\s*(?:choose|select)\s+the\s+correct'
+    r'|^\s*[A-D]\s*[-:]\s*[IVX\d]'
+    r'|^\s*\([1-4]\)\s*[A-D]-',
+    re.IGNORECASE,
+)
+
+
+def _regional_script_ratio(text: str) -> float:
+    if not text:
+        return 0.0
+    alpha = [c for c in text if c.isalpha()]
+    if not alpha:
+        return 0.0
+    regional = sum(1 for c in alpha if _DEVANAGARI.match(c) or _TELUGU_UNICODE.match(c))
+    return regional / len(alpha)
+
+
+def _is_publish_blocked(question: dict, exam_name: str) -> tuple[bool, str]:
+    """Block obviously broken questions from public publication.
+
+    The goal is not to be clever; it is to be safe. If a row is clearly
+    malformed for aspirants, store it as inactive so it can be audited instead
+    of silently reaching the public practice flow.
+    """
+    text = (question.get("question_text") or "").strip()
+    opts = [
+        (question.get("option_a") or "").strip(),
+        (question.get("option_b") or "").strip(),
+        (question.get("option_c") or "").strip(),
+        (question.get("option_d") or "").strip(),
+    ]
+    filled_opts = [o for o in opts if o]
+    exam_lc = exam_name.lower()
+    is_upsc_like = any(k in exam_lc for k in ("upsc", "cisf", "nda", "cds"))
+    qn = question.get("question_number")
+
+    if not isinstance(qn, int) or qn <= 0:
+        return True, "unnumbered-questions"
+
+    if not is_upsc_like:
+        combined = " ".join([text] + filled_opts)
+        if _regional_script_ratio(combined) >= 0.12:
+            return True, "regional-script"
+
+    is_match_like = (
+        question.get("question_type") == "match"
+        or "match the following" in text.lower()
+        or (question.get("topic") or "").strip().lower() == "matching"
+    )
+    if is_match_like:
+        if "__MATCH__:" in text:
+            try:
+                match_data = json.loads(text.split("\n\n__MATCH__:", 1)[1])
+                col1 = match_data.get("col1") or []
+                col2 = match_data.get("col2") or []
+                if not col1 or not col2:
+                    return True, "incomplete-match-columns"
+            except Exception:
+                return True, "invalid-match-payload"
+        else:
+            intro = re.sub(r'(?i)^match\s+the\s+following[:\s-]*', '', text).strip()
+            intro_alnum = len(re.sub(r'[^A-Za-z0-9]+', '', intro))
+            all_code_opts = len(filled_opts) == 4 and all(_MATCH_CODE_OPT_RE.match(o) for o in filled_opts)
+            has_match_structure = bool(re.search(
+                r'\b(?:column|list\s+i|list\s+ii|a\.|b\.|c\.|d\.|1\.|2\.|3\.|4\.)',
+                text,
+                re.IGNORECASE,
+            ))
+            if all_code_opts and (intro_alnum < 24 or not has_match_structure):
+                return True, "incomplete-match-stem"
+
+    if len(text) < 20 and len(filled_opts) == 4 and all(_MATCH_CODE_OPT_RE.match(o) for o in filled_opts):
+        return True, "option-combo-fragment"
+
+    return False, ""
+
+
+def _recover_inline_match_payload(question_text: str) -> tuple[str, list[str], list[str]] | None:
+    """Recover List I / List II columns from flattened match-the-following text."""
+    if not question_text or "__MATCH__:" in question_text:
+        return None
+
+    left: list[tuple[str, str]] = []
+    right: list[tuple[str, str]] = []
+    intro_lines: list[str] = []
+    pending_left_label: str | None = None
+    pending_right_label: str | None = None
+
+    lines = [ln.strip() for ln in question_text.replace("\t", "    ").splitlines() if ln.strip()]
+    for line in lines:
+        if _MATCH_END_RE.search(line):
+            break
+
+        if pending_left_label:
+            continuation = re.match(r'^\s*(.+?)\s+((?:\d+|[IVXLCDM]+))\.\s*(.+?)\s*$', line, re.IGNORECASE)
+            if continuation:
+                left.append((pending_left_label, continuation.group(1).strip()))
+                right.append((continuation.group(2), continuation.group(3).strip()))
+                pending_left_label = None
+                continue
+            right_m = _MATCH_RIGHT_RE.match(line)
+            if right_m:
+                left.append((pending_left_label, ""))
+                right.append((right_m.group(1), right_m.group(2).strip()))
+                pending_left_label = None
+                continue
+            left.append((pending_left_label, line.strip()))
+            pending_left_label = None
+            continue
+
+        if pending_right_label:
+            right_m = _MATCH_RIGHT_RE.match(line)
+            if right_m:
+                right.append((right_m.group(1), right_m.group(2).strip()))
+            else:
+                right.append((pending_right_label, line.strip()))
+            pending_right_label = None
+            continue
+
+        both = _MATCH_INLINE_BOTH_RE.match(line)
+        if both:
+            left.append((both.group(1).upper(), both.group(2).strip()))
+            right.append((both.group(3), both.group(4).strip()))
+            continue
+
+        left_with_right_only = re.match(
+            r'^\s*([A-D])\.\s*(.+?)\s+((?:\d+|[IVXLCDM]+))\.\s*$',
+            line,
+            re.IGNORECASE,
+        )
+        if left_with_right_only:
+            left.append((left_with_right_only.group(1).upper(), left_with_right_only.group(2).strip()))
+            pending_right_label = left_with_right_only.group(3)
+            continue
+
+        left_m = _MATCH_LEFT_RE.match(line)
+        if left_m:
+            label = left_m.group(1).upper()
+            value = left_m.group(2).strip()
+            if value:
+                continuation = re.match(
+                    r'^\s*(.+?)\s+((?:\d+|[IVXLCDM]+))\.\s*(.+?)\s*$',
+                    value,
+                    re.IGNORECASE,
+                )
+                if continuation:
+                    left.append((label, continuation.group(1).strip()))
+                    right.append((continuation.group(2), continuation.group(3).strip()))
+                else:
+                    trailing_right = re.match(r'^(.*?)\s+((?:\d+|[IVXLCDM]+))\.\s*$', value, re.IGNORECASE)
+                    if trailing_right:
+                        left.append((label, trailing_right.group(1).strip()))
+                        pending_right_label = trailing_right.group(2)
+                    else:
+                        left.append((label, value))
+            else:
+                pending_left_label = label
+            continue
+
+        right_m = _MATCH_RIGHT_RE.match(line)
+        if right_m:
+            right.append((right_m.group(1), right_m.group(2).strip()))
+            continue
+
+        intro_lines.append(line)
+
+    def _right_sort_value(label: str) -> int:
+        if label.isdigit():
+            return int(label)
+        roman_map = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+        total = 0
+        prev = 0
+        for ch in reversed(label.upper()):
+            value = roman_map.get(ch, 0)
+            total += -value if value < prev else value
+            prev = value
+        return total
+
+    col1 = [text for _, text in sorted(left, key=lambda x: x[0])]
+    col2 = [text for _, text in sorted(right, key=lambda x: _right_sort_value(x[0]))]
+    if len(col1) < 2 or len(col2) < 2:
+        return None
+    if not _MATCH_PROMPT_RE.search(question_text) and not re.search(r'list\s*i\b|word\b|book\b|writer\b|meaning\b', question_text, re.IGNORECASE):
+        return None
+
+    intro = "\n".join(intro_lines).strip() or "Match the following:"
+    return intro, col1, col2
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1040,24 +1563,80 @@ def filter_english(questions: list[dict]) -> list[dict]:
 # ══════════════════════════════════════════════════════════════════════════════
 
 TAXONOMY_SUBJECTS = (
-    "Polity | History | Geography | Economy | Environment | "
-    "Science & Tech | Current Affairs | Reasoning & Aptitude | "
-    "English | General Knowledge | Social Issues"
+    "History | Geography | Polity | Economy | Environment | "
+    "Science & Technology | General Science | Current Affairs | "
+    "Mathematics | Quantitative Aptitude | Logical Reasoning | "
+    "Mental Ability | English Language | Computer Knowledge | "
+    "General Knowledge | Social Issues"
 )
 
-TAG_PROMPT_TEMPLATE = """Classify these {exam_name} exam questions. Return ONLY a JSON array, no markdown.
+TAG_PROMPT_TEMPLATE = """You are a subject-matter expert for Indian competitive exams (UPSC, SSC, CISF, State PSC, High Court, etc.).
 
-For each question return exactly: {{"id": N, "subject": "...", "topic": "...", "difficulty": "Easy|Medium|Hard"}}
+Classify each question below. Return ONLY a valid JSON array — no markdown, no explanation, just raw JSON.
 
-Subjects (pick ONLY from this list): {subjects}
+For each question return: {{"id": N, "subject": "...", "topic": "...", "subtopic": "...", "difficulty": "Easy|Medium|Hard"}}
+
+Rules:
+- subject: pick EXACTLY one from this list — {subjects}
+- topic: a stable syllabus bucket within that subject, not a copy-paste from the question stem
+- subtopic: a reusable PYQ classification bucket inside the topic, not just a keyword lifted from the question
+- difficulty: Easy (factual recall), Medium (application), Hard (multi-step reasoning or obscure fact)
+- NEVER return "General Knowledge" unless the question is truly miscellaneous trivia with no better subject match
+- For calculation/aptitude questions → use "Quantitative Aptitude" or "Mathematics"
+- For logical puzzles, series, analogies, coding-decoding → use "Logical Reasoning"
+- For history/polity/geography/science questions → use the specific subject, NOT "General Knowledge"
+- Use the question stem PLUS the options/context to infer the classification
+- Prefer syllabus-style labels:
+  - Polity -> topic "Fundamental Rights", subtopic "Article 19"
+  - Geography -> topic "Indian Rivers", subtopic "Godavari Tributaries"
+  - Logical Reasoning -> topic "Seating Arrangement", subtopic "Circular Arrangement"
+  - Quantitative Aptitude -> topic "Time, Speed and Distance", subtopic "Relative Speed"
+- Do NOT use vague labels like "General", "Basics", "Mixed", "Question based", "Miscellaneous" unless absolutely unavoidable
+- Do NOT make subtopic equal to the raw question phrase, person names, place names, or a one-off keyword from the stem
+- If a strong subtopic is not possible, keep subtopic null and make topic strong
+
+Exam: {exam_name}
 
 Questions:
-{questions_text}
-"""
+{questions_text}"""
+
+
+def _clean_for_tagging(text: Any) -> str:
+    """Strip match JSON payload and truncate question text for tagging."""
+    if not text or not isinstance(text, str):
+        return ""
+    idx = text.find('\n\n__MATCH__:')
+    if idx != -1:
+        text = text[:idx]
+    return text[:320].strip()
+
+
+def _tagging_context(q: dict, idx: int) -> str:
+    stem = _clean_for_tagging(q.get("question_text"))
+    opts = []
+    for label, key in (("A", "option_a"), ("B", "option_b"), ("C", "option_c"), ("D", "option_d")):
+        val = str(q.get(key) or "").strip()
+        if val:
+            opts.append(f"{label}. {val[:120]}")
+    q_type = str(q.get("question_type") or "MCQ").strip()
+    lines = [f"{idx}. [type: {q_type}] {stem}"]
+    if opts:
+        lines.append("Options: " + " | ".join(opts))
+    return "\n".join(lines)
 
 
 def _batch_cache_key(questions: list[dict], exam_name: str) -> str:
-    combined = exam_name + "||" + "||".join(q["question_text"][:60] for q in questions)
+    # Include TAG_PROMPT_VERSION so taxonomy/prompt changes bust stale caches
+    combined = TAG_PROMPT_VERSION + "||" + exam_name + "||" + "||".join(
+        (
+            _clean_for_tagging(q["question_text"])[:60]
+            + "||"
+            + str(q.get("option_a") or "")[:24]
+            + "||"
+            + str(q.get("option_b") or "")[:24]
+        )
+        for q in questions
+    )
     return hashlib.md5(combined.encode()).hexdigest()
 
 
@@ -1076,9 +1655,9 @@ def _save_cache(key: str, data: list[dict]):
 
 
 def _call_tagger(questions: list[dict], exam_name: str, tracker: "CostTracker | None" = None) -> list[dict]:
-    """Send ONLY question texts (not options, not raw pages) for subject/topic tagging."""
+    """Send question stem plus key options for stronger subject/topic/subtopic tagging."""
     qs_text = "\n".join(
-        f"{i+1}. {q['question_text'][:200]}"  # cap at 200 chars to limit tokens
+        _tagging_context(q, i + 1)
         for i, q in enumerate(questions)
     )
     prompt = TAG_PROMPT_TEMPLATE.format(
@@ -1089,18 +1668,38 @@ def _call_tagger(questions: list[dict], exam_name: str, tracker: "CostTracker | 
 
     for attempt in range(3):
         try:
-            resp = TAGGER_MODEL.generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(
+            fut = _TAG_EXECUTOR.submit(
+                _CLIENT.models.generate_content,
+                model=TAGGER_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
                     temperature=0.1,
-                    max_output_tokens=2048,
+                    max_output_tokens=4096,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
-                request_options={"timeout": 60},
             )
+            try:
+                resp = fut.result(timeout=60)
+            except _cf.TimeoutError:
+                print(f"    ⚠️  Tagger timed out after 60s on attempt {attempt+1}")
+                time.sleep(5)
+                continue
             raw = (resp.text or "").strip()
-            # Strip markdown fences if present
+            # Strip markdown fences
             if raw.startswith("```"):
                 raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
+            
+            if not raw:
+                return []
+
+            # Robustly extract JSON array — ignore any text before/after the array
+            start = raw.find('[')
+            end = raw.rfind(']') + 1
+            if start != -1 and end > start:
+                raw = raw[start:end]
+            else:
+                return []
+
             tags = json.loads(raw)
             if isinstance(tags, list):
                 if tracker:
@@ -1125,8 +1724,9 @@ def _call_tagger(questions: list[dict], exam_name: str, tracker: "CostTracker | 
                 print(f"    ❌ API error: {e}")
                 break
 
-    # Return empty tags on total failure — questions still saved, just untagged
-    return [{"id": i+1, "subject": "General Knowledge", "topic": "General", "difficulty": "Medium"}
+    # All retries failed — return unclassified (never silently discard questions)
+    print(f"    ❌ Tagging failed for batch of {len(questions)} — storing as Unclassified")
+    return [{"id": i+1, "subject": "Unclassified", "topic": "Unclassified", "difficulty": "Medium"}
             for i in range(len(questions))]
 
 
@@ -1151,15 +1751,16 @@ def tag_questions(questions: list[dict], exam_name: str, job_id: str = None, tra
         else:
             print(f"  🧠 Batch {batch_num}/{total_batches}: calling API...")
             tags = _call_tagger(batch, exam_name, tracker)
-            _save_cache(cache_key, tags)
+            # Only cache if we got real tags (not the "Unclassified" default list)
+            if tags and not all(t.get("subject") == "Unclassified" for t in tags):
+                _save_cache(cache_key, tags)
             total_api_calls += 1
             if batch_num < total_batches:
                 time.sleep(1)  # gentle rate limiting
 
-        # Merge tags back into questions
-        tag_map = {t.get("id", i+1): t for i, t in enumerate(tags)}
+        # Merge tags back into questions — positional only (AI-returned IDs may be strings/wrong)
         for i, q in enumerate(batch):
-            tag = tag_map.get(i+1, {})
+            tag = tags[i] if i < len(tags) else {}
             q["subject"] = tag.get("subject") or "General Knowledge"
             q["topic"] = tag.get("topic") or "General"
             q["subtopic"] = tag.get("subtopic")
@@ -1182,31 +1783,94 @@ def tag_questions(questions: list[dict], exam_name: str, job_id: str = None, tra
 # STEP 5a — INJECT ANSWERS from separate answer key
 # ══════════════════════════════════════════════════════════════════════════════
 
-def inject_answers(answer_map: dict[int, str], exam_name: str, exam_year: int) -> dict:
+def inject_answers(answer_map: dict, exam_name: str, exam_year: int) -> dict:
     """
     Bulk-update correct_answer in the questions table for an exam, matching by
     question_number. Call this after store_questions() when a separate answer
     key PDF was provided.
 
-    Groups updates by answer letter for efficiency (4 DB calls max).
+    Also deletes stale cached explanations for updated questions so they
+    regenerate correctly against the new verified correct answer.
+
+    Persists the answer_map in the answer_keys table for future replay
+    (e.g., if questions are re-extracted, the key can be re-injected automatically).
     """
     sb = get_supabase()
     exam_name = exam_name.strip()
     updated = 0
+    updated_ids: list[str] = []
+
+    # Normalize keys to int — answer_map may have string keys from JSON parsing
+    norm_map: dict[int, str] = {}
+    for k, v in answer_map.items():
+        try:
+            norm_map[int(k)] = str(v).upper()[:1]
+        except (ValueError, TypeError):
+            pass
+    answer_map = norm_map
+
+    # Persist the answer key so it can be re-applied without re-uploading
+    try:
+        sb.table("answer_keys").upsert({
+            "exam_name": exam_name,
+            "exam_year": exam_year,
+            "answer_map": answer_map,
+            "source": "user_upload",
+        }, on_conflict="exam_name,exam_year").execute()
+        print(f"  💾 Answer key saved ({len(answer_map)} entries)")
+    except Exception as e:
+        print(f"  ⚠️  Could not persist answer key (table may not exist yet): {e}")
 
     for letter in "ABCD":
         nums = [num for num, ans in answer_map.items() if ans == letter]
         if not nums:
             continue
         try:
-            sb.table("questions").update(
-                {"correct_answer": letter}
-            ).eq("exam_name", exam_name).eq("exam_year", exam_year).in_(
+            # Fetch IDs of questions whose answer will change
+            id_res = sb.table("questions").select("id, correct_answer").eq(
+                "exam_name", exam_name
+            ).eq("exam_year", exam_year).in_("question_number", nums).execute()
+            changing_ids = [
+                r["id"] for r in (id_res.data or [])
+                if r.get("correct_answer", "").upper() != letter
+            ]
+            updated_ids.extend(changing_ids)
+
+            quality_updates = merge_quality_fields(
+                {
+                    "exam_name": exam_name,
+                    "question_text": "placeholder",
+                    "option_a": "A",
+                    "option_b": "B",
+                    "option_c": "C",
+                    "option_d": "D",
+                    "question_number": 1,
+                    "is_active": True,
+                },
+                {"correct_answer": letter, "needs_review": False},
+            )
+            payload = _quality_update_payload(
+                {"correct_answer": letter, "needs_review": False},
+                quality_updates,
+                _question_supported_columns(sb),
+            )
+            sb.table("questions").update(payload).eq("exam_name", exam_name).eq("exam_year", exam_year).in_(
                 "question_number", nums
             ).execute()
             updated += len(nums)
         except Exception as e:
             print(f"  ⚠️  inject_answers letter={letter}: {e}")
+
+    # Delete stale explanations for questions whose answer changed
+    if updated_ids:
+        try:
+            for i in range(0, len(updated_ids), 50):
+                chunk = updated_ids[i:i+50]
+                sb.table("explanations").delete().in_("question_id", chunk).execute()
+                sb.table("questions").update({"explanation_status": "missing"}).in_("id", chunk).execute()
+            print(f"  🧹 Deleted {len(updated_ids)} stale explanations (answer changed)")
+        except Exception as e:
+            print(f"  ⚠️  Could not delete stale explanations: {e}")
 
     print(f"  💉 Injected answers: ~{updated} questions updated in DB")
     return {"updated": updated}
@@ -1216,13 +1880,127 @@ def inject_answers(answer_map: dict[int, str], exam_name: str, exam_year: int) -
 # STEP 5 — STORE IN SUPABASE  (unchanged)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def store_questions(questions: list[dict], source_pdf: str, exam_name: str, exam_year: int) -> dict:
+def _ai_fill_missing_answers(questions: list[dict]) -> list[dict]:
+    """
+    For any question missing a valid correct_answer (A/B/C/D), use Gemini to
+    infer the correct answer BEFORE storing. This prevents the 'default A' bug.
+    Questions answered by AI are marked needs_review=True.
+    """
+    VALID = {"A", "B", "C", "D"}
+    missing = [q for q in questions if (q.get("correct_answer") or "").upper()[:1] not in VALID]
+    if not missing:
+        return questions
+
+    print(f"  [ai-fill] {len(missing)} questions need AI answers — calling Gemini...")
+    BATCH = 15  # small batches to prevent JSON truncation
+    q_idx = {id(q): q for q in missing}  # identify by object identity
+
+    for start in range(0, len(missing), BATCH):
+        batch = missing[start:start + BATCH]
+        parts = []
+        for idx, q in enumerate(batch):
+            parts.append(
+                f'Q{idx+1}: {(q.get("question_text") or "")[:250]}\n'
+                f'  A) {q.get("option_a","")}  B) {q.get("option_b","")}'
+                f'  C) {q.get("option_c","")}  D) {q.get("option_d","")}'
+            )
+        prompt = (
+            'You are an expert exam analyst. For each question select the correct answer. '
+            'Output ONLY a JSON array: [{"q": 1, "ans": "B"}, ...]. Never output null.\n\n'
+            + "\n\n".join(parts)
+        )
+        for attempt in range(3):
+            try:
+                resp = _CLIENT.models.generate_content(
+                    model=BEST_MODEL,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.0,
+                        max_output_tokens=1024,
+                        thinking_config=types.ThinkingConfig(thinking_budget=0),
+                    ),
+                )
+                raw = (resp.text or "").strip()
+                if "```" in raw:
+                    raw = raw.split("```json")[-1].split("```")[0].strip()
+                data = json.loads(raw)
+                for item in data:
+                    idx = int(item.get("q", 0)) - 1
+                    ans = str(item.get("ans") or "").strip().upper()[:1]
+                    if 0 <= idx < len(batch) and ans in VALID:
+                        batch[idx]["correct_answer"] = ans
+                        batch[idx]["needs_review"] = True  # AI-inferred — flag for review
+                break
+            except Exception as e:
+                print(f"  [ai-fill] Attempt {attempt+1}/3 failed: {e}")
+                time.sleep(2 ** attempt)
+
+    filled = sum(1 for q in missing if (q.get("correct_answer") or "").upper()[:1] in VALID)
+    still_missing = len(missing) - filled
+    print(f"  [ai-fill] Filled {filled}/{len(missing)} answers. Still missing: {still_missing}")
+    return questions
+
+
+def store_questions(
+    questions: list[dict],
+    source_pdf: str,
+    exam_name: str,
+    exam_year: int,
+    *,
+    paper_id: Optional[str] = None,
+    job_id: Optional[str] = None,
+) -> dict:
     """Batch upsert with SHA-256 deduplication."""
     exam_name = exam_name.strip()  # prevent trailing-space duplicate exams
     sb = get_supabase()
+    resolved_paper_id = resolve_paper_id(
+        paper_id=paper_id,
+        job_id=job_id,
+        exam_name=exam_name,
+        exam_year=exam_year,
+        sb=sb,
+    )
     inserted = 0
     skipped = 0
+    blocked = 0
+    blocked_qnums: list[str] = []
     errors = []
+    supported_cols = _question_supported_columns(sb)
+
+    # ── AI-fill any questions that have no valid answer BEFORE storing ─────────
+    # This eliminates the old 'default A' placeholder bug permanently.
+    questions = _ai_fill_missing_answers(questions)
+
+    # If this looks like a standard numbered paper, never persist stray
+    # unnumbered rows. In practice these are almost always OCR/LLM fragments
+    # or duplicate paraphrases of already-numbered questions, and they inflate
+    # the final count (for example: 150-question papers ending up with 161 rows).
+    numbered_count = sum(
+        1 for q in questions
+        if isinstance(q.get("question_number"), int) and q.get("question_number") > 0
+    )
+    max_question_number = max(
+        (int(q.get("question_number")) for q in questions if isinstance(q.get("question_number"), int) and q.get("question_number") > 0),
+        default=0,
+    )
+    looks_like_standard_numbered_paper = (
+        questions
+        and numbered_count >= 50
+        and max_question_number >= 50
+        and (numbered_count / len(questions)) >= 0.50
+    )
+    if questions and ((numbered_count / len(questions)) >= 0.80 or looks_like_standard_numbered_paper):
+        before = len(questions)
+        questions = [
+            q for q in questions
+            if isinstance(q.get("question_number"), int) and q.get("question_number") > 0
+        ]
+        dropped = before - len(questions)
+        if dropped:
+            print(
+                f"  🧹 Dropped {dropped} unnumbered fragment(s) "
+                f"from mostly-numbered paper '{exam_name} {exam_year}'"
+            )
 
     for i in range(0, len(questions), 50):
         batch = questions[i:i+50]
@@ -1230,11 +2008,34 @@ def store_questions(questions: list[dict], source_pdf: str, exam_name: str, exam
         explanations_pending = []
 
         for q in batch:
-            hash_input = (
-                f"{(q.get('question_text') or '').strip().lower()}"
-                f"|{q.get('option_a','')}"
-                f"|{q.get('option_b','')}"
-            )
+            q_text = (q.get("question_text") or "").strip()
+            q_type = str(q.get("question_type") or "").strip().lower()
+            if q_text and "__MATCH__:" not in q_text:
+                recovered_match = _recover_inline_match_payload(q_text)
+                if recovered_match:
+                    intro, col1, col2 = recovered_match
+                    q["question_text"] = intro + "\n\n__MATCH__:" + json.dumps(
+                        {"col1": col1, "col2": col2},
+                        ensure_ascii=False,
+                    )
+                    if q_type != "match":
+                        q["question_type"] = "Match"
+
+            q_num = q.get("question_number")
+            if q_num is not None:
+                # Anchor identity to exam+Q# — re-uploads always upsert the same row
+                # regardless of minor text variation between extraction runs.
+                hash_input = f"{exam_name.strip().lower()}|{int(exam_year)}|q{q_num}"
+            else:
+                # Fallback: content-based hash for questions without a number
+                hash_input = (
+                    f"{exam_name.strip().lower()}|{int(exam_year)}|"
+                    f"{(q.get('question_text') or '').strip().lower()}"
+                    f"|{q.get('option_a','')}"
+                    f"|{q.get('option_b','')}"
+                    f"|{q.get('option_c','')}"
+                    f"|{q.get('option_d','')}"
+                )
             qhash = hashlib.sha256(hash_input.encode()).hexdigest()
 
             row = {
@@ -1243,36 +2044,58 @@ def store_questions(questions: list[dict], source_pdf: str, exam_name: str, exam
                 "option_b": (q.get("option_b") or "").strip(),
                 "option_c": (q.get("option_c") or "").strip(),
                 "option_d": (q.get("option_d") or "").strip(),
-                "correct_answer": ((q.get("correct_answer") or "A").upper() + "A")[:1],
+                "correct_answer": (q.get("correct_answer") or "").upper()[:1],
                 "subject": q.get("subject") or "General Knowledge",
                 "topic": q.get("topic") or "General",
                 "subtopic": q.get("subtopic"),
                 "difficulty": q.get("difficulty") or "Medium",
-                "question_type": "MCQ",
+                "question_type": q.get("question_type") or "MCQ",
                 "concept": None,
                 "exam_name": exam_name,
                 "exam_year": exam_year,
                 "source_pdf": source_pdf,
+                "paper_id": resolved_paper_id,
                 "question_hash": qhash,
                 "question_number": q.get("question_number"),
                 "is_active": True,
+                "needs_review": q.get("needs_review", False) or not q.get("correct_answer"),
             }
+            row = _merge_canonical_taxonomy(row, supported_cols)
+
+            # Image question columns
+            if q.get("has_image"):
+                row["has_image"] = True
+            if q.get("image_url"):
+                row["image_url"] = q["image_url"]
 
             # CBT / shift-specific optional columns — only set if present in question dict
             for _col in ("shift_label", "test_date", "test_time",
-                         "exam_section", "needs_review", "passage"):
+                         "exam_section", "passage"):
                 if _col in q and q[_col] is not None:
                     row[_col] = q[_col]
 
-            if not row["question_text"] or len(row["question_text"]) < 10:
+            if not row["question_text"] or len(row["question_text"]) < 5:
                 skipped += 1
                 continue
-            if row["correct_answer"] not in "ABCD":
-                row["correct_answer"] = "A"
+            if len(row["question_text"]) < 15:
+                row["needs_review"] = True  # Short text — flag instead of silently dropping
+            if row["correct_answer"] not in ("A", "B", "C", "D"):
+                row["needs_review"] = True
+                row["correct_answer"] = "A"  # Last-resort safety: AI fill above should have caught this
             if row["difficulty"] not in ("Easy", "Medium", "Hard"):
                 row["difficulty"] = "Medium"
 
-            rows.append(row)
+            blocked_publicly, reason = _is_publish_blocked(row, exam_name)
+            if blocked_publicly:
+                row["is_active"] = False
+                row["needs_review"] = True
+                blocked += 1
+                qnum = row.get("question_number")
+                blocked_qnums.append(f"{qnum if qnum is not None else '?'}:{reason}")
+
+            row.update(derive_quality_fields(row))
+
+            rows.append({k: v for k, v in row.items() if k in supported_cols})
 
         # Deduplicate within this batch by question_hash — Postgres upsert crashes if
         # two rows in the same batch share the same conflict key.
@@ -1282,14 +2105,75 @@ def store_questions(questions: list[dict], source_pdf: str, exam_name: str, exam
         rows = list(seen_hashes.values())
 
         if rows:
+            # MANUAL LOCK — Prevent overwriting human-reviewed questions.
+            # If needs_review is already False in the DB, we skip the upsert for that row.
+            hashes = [r["question_hash"] for r in rows]
             try:
-                result = sb.table("questions").upsert(rows, on_conflict="question_hash").execute()
-                inserted += len(result.data) if result.data else len(rows)
+                existing = sb.table("questions").select("question_hash, needs_review, is_active, exam_name, exam_year").in_("question_hash", hashes).execute()
+                existing_rows = existing.data or []
+                # Protect ACTIVE + reviewed questions from the SAME exam only.
+                same_exam_protected = {row["question_hash"] for row in existing_rows
+                    if row.get("needs_review") is False and row.get("is_active") is True
+                    and row.get("exam_name", "").strip() == exam_name
+                    and int(row.get("exam_year") or 0) == int(exam_year)}
+                # Questions protected by a DIFFERENT exam get a new exam-scoped hash so
+                # the same question text can coexist independently in multiple exams.
+                cross_exam_blocked = {row["question_hash"] for row in existing_rows
+                    if row.get("needs_review") is False and row.get("is_active") is True
+                    and (
+                        row.get("exam_name", "").strip() != exam_name
+                        or int(row.get("exam_year") or 0) != int(exam_year)
+                    )}
+
+                if same_exam_protected:
+                    _count_before = len(rows)
+                    rows = [r for r in rows if r["question_hash"] not in same_exam_protected]
+                    _locked = _count_before - len(rows)
+                    if _locked > 0:
+                        print(f"  🔒 Manual Lock: Preserved {_locked} already-reviewed questions from overwrite.")
+
+                # Re-hash cross-exam blocked questions with exam_name prefix so they
+                # can be stored independently without conflicting with the other exam.
+                if cross_exam_blocked:
+                    remapped = 0
+                    for r in rows:
+                        if r["question_hash"] in cross_exam_blocked:
+                            scoped_input = (
+                                f"{exam_name.strip().lower()}"
+                                f"|{int(exam_year)}"
+                                f"|{r['question_text'].strip().lower()}"
+                                f"|{r.get('option_a','')}"
+                                f"|{r.get('option_b','')}"
+                            )
+                            r["question_hash"] = hashlib.sha256(scoped_input.encode()).hexdigest()
+                            remapped += 1
+                    if remapped:
+                        print(f"  🔄 Re-hashed {remapped} questions shared with another exam (cross-exam insert).")
+
+                if rows:
+                    result = sb.table("questions").upsert(rows, on_conflict="question_hash").execute()
+                    inserted += len(result.data) if result.data else len(rows)
             except Exception as e:
                 errors.append(f"Batch {i//50+1}: {e}")
                 skipped += len(rows)
 
-    return {"inserted": inserted, "skipped": skipped, "errors": errors}
+    if blocked:
+        preview = ", ".join(blocked_qnums[:12])
+        suffix = "..." if len(blocked_qnums) > 12 else ""
+        print(f"  🚫 Blocked {blocked} question(s) from public publish: {preview}{suffix}")
+
+    if resolved_paper_id:
+        sync_paper_question_counts(resolved_paper_id, sb=sb)
+
+    return {
+        "inserted": inserted,
+        "skipped": skipped,
+        "blocked": blocked,
+        "blocked_qnums": blocked_qnums,
+        "errors": errors,
+        "paper_id": resolved_paper_id,
+        "source_filename": source_filename_from_path(source_pdf),
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1298,14 +2182,27 @@ def store_questions(questions: list[dict], source_pdf: str, exam_name: str, exam
 # After this runs once, every user gets explanations for free from the DB.
 # ══════════════════════════════════════════════════════════════════════════════
 
-EXPL_BATCH_SIZE = 15
+EXPL_BATCH_SIZE = 5
 
-EXPL_PROMPT_TEMPLATE = """You are an expert tutor for Indian government exams (UPSC, TSPSC, SSC, etc.).
+EXPL_PROMPT_TEMPLATE = """You are an expert tutor and subject matter authority for Indian government exams (UPSC, CDS, SSC, etc.).
 
-For each question below, write a clear 2-3 sentence explanation of WHY the correct answer is right.
-Be factual and educational. Return ONLY a JSON array, no markdown.
+For each question below, you must act as the source of truth to solve it deeply:
+1. "logic_steps": Write a very short internal derivation of the true answer in 2-4 brief steps only.
+2. "detected_answer": Calculate the actual correct option (A/B/C/D). Even if a 'Correct Answer' is provided below, strictly VALIDATE IT. If it is missing (?) or wrong, provide the newly solved answer.
+3. "explanation": Write a clear 2-3 sentence explanation of WHY this answer is right for the student.
+4. "cleaned_question": If the question text or options have OCR/typo errors, provide a cleaned version.
 
-Format: [{{"id": 1, "explanation": "..."}} , ...]
+Format strictly as a JSON array:
+[{{
+  "id": 1,
+  "logic_steps": "Step 1... Step 2... Conclusion",
+  "detected_answer": "A/B/C/D",
+  "explanation": "This is correct because...",
+  "cleaned_question": "..."
+}}]
+
+Return ONLY a JSON array, no markdown fences.
+Keep each field concise so the full response remains valid JSON.
 
 Questions:
 {questions_text}
@@ -1323,7 +2220,7 @@ def retag_exam(exam_name: str, exam_year: int) -> dict:
 
     print(f"\n🏷️  Retagging {exam_name} ({exam_year})...")
     qs_res = sb.table("questions").select(
-        "id, question_text, subject"
+        "id, question_text, option_a, option_b, option_c, option_d, question_type, subject"
     ).eq("exam_name", exam_name).eq("exam_year", exam_year).eq("is_active", True).execute()
     all_qs = qs_res.data or []
 
@@ -1336,30 +2233,209 @@ def retag_exam(exam_name: str, exam_year: int) -> dict:
     tracker = CostTracker()
 
     # Build minimal question dicts that tag_questions expects
-    tag_input = [{"question_text": q["question_text"], "id_db": q["id"]} for q in all_qs]
+    tag_input = [{
+        "question_text": q["question_text"],
+        "option_a": q.get("option_a"),
+        "option_b": q.get("option_b"),
+        "option_c": q.get("option_c"),
+        "option_d": q.get("option_d"),
+        "question_type": q.get("question_type"),
+        "id_db": q["id"],
+    } for q in all_qs]
     tagged = tag_questions(tag_input, exam_name, tracker=tracker)
 
     # Update DB in batches of 50
     updated = 0
+    failed_ids: list[str] = []
     for i in range(0, len(tagged), 50):
         batch = tagged[i:i+50]
         for q in batch:
             try:
-                sb.table("questions").update({
-                    "subject":   q.get("subject")   or "General Knowledge",
-                    "topic":     q.get("topic")     or "General",
-                    "subtopic":  q.get("subtopic"),
+                current_res = sb.table("questions").select("*").eq("id", q["id_db"]).single().execute()
+                current = current_res.data or {"id": q["id_db"], "is_active": True}
+                patch = {
+                    "subject": q.get("subject") or "General Knowledge",
+                    "topic": q.get("topic") or "General",
+                    "subtopic": q.get("subtopic"),
                     "difficulty": q.get("difficulty") or "Medium",
-                }).eq("id", q["id_db"]).execute()
+                }
+                patch = _merge_canonical_taxonomy(patch, _question_supported_columns(sb))
+                merged = merge_quality_fields(
+                    current,
+                    patch,
+                    explanation_present=current.get("explanation_status") == "generated",
+                    explanation_contradiction=current.get("explanation_status") == "contradiction",
+                )
+                payload = _quality_update_payload(patch, merged, _question_supported_columns(sb))
+                sb.table("questions").update(payload).eq("id", q["id_db"]).execute()
                 updated += 1
             except Exception as e:
                 print(f"    ⚠️  Failed to update {q['id_db']}: {e}")
+                failed_ids.append(q["id_db"])
 
     tracker.print_summary()
     tracker.save_log(f"{exam_name} (retag)", exam_year, len(all_qs))
 
-    print(f"  ✅ Updated tags for {updated}/{len(all_qs)} questions")
-    return {"updated": updated, "total": len(all_qs)}
+    print(f"  ✅ Updated tags for {updated}/{len(all_qs)} questions"
+          + (f" | ❌ {len(failed_ids)} failed" if failed_ids else ""))
+    return {"updated": updated, "total": len(all_qs), "failed_ids": failed_ids}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ANSWER VALIDATION  (best model, no answer key required)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_ANSWER_VALIDATION_PROMPT = """You are an expert in Indian government competitive exams (UPSC, SSC, CAPF, State PSC).
+
+For each question below, determine the CORRECT answer (A, B, C, or D) using your factual knowledge.
+Think carefully. Use elimination when unsure.
+
+Return ONLY a JSON array — no markdown, no commentary.
+Schema: [{{"q_num": 1, "answer": "B", "confidence": "high|medium|low"}}]
+
+Questions:
+{questions_text}"""
+
+
+def validate_answers_bulk(exam_name: str, exam_year: int) -> dict:
+    """
+    Use gemini-2.5-flash (best model) to determine the correct answer for every question
+    that has needs_review=True (AI-guessed or missing answers).
+
+    - Questions with needs_review=False (came from a real answer key) are NOT touched.
+    - Uses BEST_MODEL for high accuracy — costs more but runs once.
+    - Batch size 20; retries up to 5 times with backoff on rate limits.
+
+    Returns: {"validated": N, "skipped": N, "errors": N}
+    """
+    sb = get_supabase()
+    exam_name = exam_name.strip()
+
+    qs_res = sb.table("questions").select(
+        "id, question_number, question_text, option_a, option_b, option_c, option_d, correct_answer, needs_review"
+    ).eq("exam_name", exam_name).eq("exam_year", exam_year).eq("is_active", True).execute()
+    all_qs = qs_res.data or []
+
+    # Only validate questions where we don't trust the answer
+    pending = [q for q in all_qs if q.get("needs_review") is True]
+
+    if not pending:
+        print(f"  ✅ All {len(all_qs)} answers already verified — nothing to validate")
+        return {"validated": 0, "skipped": len(all_qs), "errors": 0}
+
+    print(f"\n🔍 Validating answers for {len(pending)} questions in {exam_name} {exam_year} "
+          f"(using {BEST_MODEL})...")
+
+    BATCH = 20
+    batches = [pending[i:i+BATCH] for i in range(0, len(pending), BATCH)]
+    validated = 0
+    errors = 0
+
+    for batch_num, batch in enumerate(batches, 1):
+        print(f"  🧠 Batch {batch_num}/{len(batches)}: validating {len(batch)} answers...")
+
+        qs_text = "\n\n".join(
+            f"Q{i+1} (DB Q#{q.get('question_number', '?')}):\n"
+            f"{q['question_text'][:400]}\n"
+            f"A) {q.get('option_a','')[:120]}\n"
+            f"B) {q.get('option_b','')[:120]}\n"
+            f"C) {q.get('option_c','')[:120]}\n"
+            f"D) {q.get('option_d','')[:120]}"
+            for i, q in enumerate(batch)
+        )
+        prompt = _ANSWER_VALIDATION_PROMPT.format(questions_text=qs_text)
+
+        result = None
+        for attempt in range(5):
+            try:
+                resp = _CLIENT.models.generate_content(
+                    model=BEST_MODEL,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.1,
+                        max_output_tokens=2048,
+                        thinking_config=types.ThinkingConfig(thinking_budget=0),
+                    ),
+                )
+                raw = (resp.text or "").strip()
+                if raw.startswith("```"):
+                    raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
+                result = json.loads(raw)
+                if isinstance(result, list):
+                    break
+                result = None
+            except json.JSONDecodeError:
+                print(f"    ⚠️  JSON error attempt {attempt+1}, retrying...")
+                time.sleep(3)
+            except Exception as e:
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    wait = 60 * (attempt + 1)
+                    print(f"    ⏳ Rate limited, waiting {wait}s...")
+                    time.sleep(wait)
+                else:
+                    print(f"    ❌ API error: {e}")
+                    break
+
+        if not result:
+            errors += len(batch)
+            continue
+
+        # Map by position (id = 1-indexed position in batch)
+        answer_map = {item.get("q_num", i+1): item for i, item in enumerate(result)}
+
+        batch_validated = 0
+        for i, q in enumerate(batch):
+            item = answer_map.get(i + 1, {})
+            new_answer = str(item.get("answer") or "").strip().upper()[:1]
+            confidence = str(item.get("confidence") or "low").lower()
+
+            if new_answer not in ("A", "B", "C", "D"):
+                continue
+
+            # Only mark needs_review=False for high/medium confidence
+            still_needs_review = confidence == "low"
+
+            try:
+                patch = {
+                    "correct_answer": new_answer,
+                    "needs_review": still_needs_review,
+                    "explanation_status": "stale" if q.get("correct_answer", "").upper() != new_answer else q.get("explanation_status", "missing"),
+                }
+                quality_updates = merge_quality_fields(
+                    q,
+                    patch,
+                    explanation_present=patch["explanation_status"] == "generated",
+                    explanation_contradiction=False,
+                )
+                payload = _quality_update_payload(patch, quality_updates, _question_supported_columns(sb))
+                sb.table("questions").update(payload).eq("id", q["id"]).execute()
+                batch_validated += 1
+                old = q.get("correct_answer", "?")
+                changed = "✓" if old != new_answer else "="
+                print(f"    Q{q.get('question_number','?')}: {old}→{new_answer} [{confidence}] {changed}")
+            except Exception as e:
+                print(f"    ❌ DB update failed for Q{q.get('question_number','?')}: {e}")
+
+        validated += batch_validated
+        print(f"    ✅ Batch {batch_num}: validated {batch_validated}/{len(batch)}")
+
+        if batch_num < len(batches):
+            time.sleep(2)
+
+    print(f"\n✅ Answer validation done: {validated} updated, {errors} failed, "
+          f"{len(all_qs) - len(pending)} already trusted")
+    return {"validated": validated, "skipped": len(all_qs) - len(pending), "errors": errors}
+
+
+def _record_ai_repair_proposals(question_id: str, current_q: dict, ai_item: dict, sb=None) -> int:
+    """
+    Phase 3 behavior: explanation generation is read-only by default.
+    Any AI-detected correction is stored as an auditable proposal instead of
+    rewriting canonical question data.
+    """
+    if not sb:
+        sb = get_supabase()
+    return record_ai_repair_proposals(question_id, current_q, ai_item, sb=sb)
 
 
 def generate_explanations_bulk(exam_name: str, exam_year: int, job_id: Optional[str] = None, tracker: "CostTracker | None" = None) -> dict:
@@ -1374,7 +2450,7 @@ def generate_explanations_bulk(exam_name: str, exam_year: int, job_id: Optional[
     # Fetch questions that have no explanation yet
     try:
         qs_res = sb.table("questions").select(
-            "id, question_text, option_a, option_b, option_c, option_d, correct_answer"
+            "id, question_text, option_a, option_b, option_c, option_d, correct_answer, needs_review"
         ).eq("exam_name", exam_name).eq("exam_year", exam_year).eq("is_active", True).execute()
         all_qs = qs_res.data or []
     except Exception as e:
@@ -1433,24 +2509,72 @@ def generate_explanations_bulk(exam_name: str, exam_year: int, job_id: Optional[
                 time.sleep(1)
 
         if not explanations:
-            errors += len(batch)
+            # Batch failed — fall back to one question at a time
+            print(f"    ↩️  Batch {batch_num} failed, retrying {len(batch)} questions individually...")
+            explanations = []
+            for qi, single_q in enumerate(batch):
+                item = _call_explanation_api_single(single_q, tracker)
+                if item:
+                    item["id"] = qi + 1
+                    explanations.append(item)
+                    print(f"      ✅ Q{qi+1} recovered individually")
+                else:
+                    errors += 1
+                    print(f"      ❌ Q{qi+1} failed even individually")
+                time.sleep(1)
+
+        if not explanations:
             continue
 
-        # Map by position (id field in response) back to question id
-        id_map = {e.get("id", i+1): e.get("explanation", "") for i, e in enumerate(explanations)}
-
+        items_any: Any = explanations
         rows = []
-        for i, q in enumerate(batch):
-            text = id_map.get(i+1, "").strip()
+        proposal_qids: set[str] = set()
+
+        for i, q_any in enumerate(batch):
+            q: Any = q_any
+            # Find the corresponding item in the explanations response
+            item: Any = next((it for it in items_any if it.get("id") == i + 1), {})
+            
+            text = str(item.get("explanation") or "").strip()
             if text and len(text) > 10:
-                rows.append({"question_id": q["id"], "explanation": text, "source": "gemini-1.5-flash-8b"})
+                rows.append({
+                    "question_id": q["id"],
+                    "explanation": text,
+                    "source": f"{short_model_name(BEST_MODEL)}-cot",
+                })
+            
+            # Phase 3: record repair proposals instead of mutating questions
+            proposal_count = _record_ai_repair_proposals(q["id"], q, item, sb)
+            if proposal_count:
+                proposal_qids.add(q["id"])
 
         if rows:
             try:
                 sb.table("explanations").upsert(rows, on_conflict="question_id").execute()
+                question_ids = [row["question_id"] for row in rows]
+                clean_ids = [qid for qid in question_ids if qid not in proposal_qids]
+                if clean_ids:
+                    for qid in clean_ids:
+                        qr = sb.table("questions").select("*").eq("id", qid).single().execute()
+                        current = qr.data or {"id": qid, "is_active": True}
+                        merged = merge_quality_fields(current, {"explanation_status": "generated"}, explanation_present=True)
+                        payload = _quality_update_payload({"explanation_status": "generated"}, merged, _question_supported_columns(sb))
+                        sb.table("questions").update(payload).eq("id", qid).execute()
+                if proposal_qids:
+                    for qid in proposal_qids:
+                        qr = sb.table("questions").select("*").eq("id", qid).single().execute()
+                        current = qr.data or {"id": qid, "is_active": True}
+                        merged = merge_quality_fields(
+                            current,
+                            {"explanation_status": "stale"},
+                            explanation_present=True,
+                            explanation_contradiction=True,
+                        )
+                        payload = _quality_update_payload({"explanation_status": "stale"}, merged, _question_supported_columns(sb))
+                        sb.table("questions").update(payload).eq("id", qid).execute()
                 generated += len(rows)
             except Exception as e:
-                print(f"    ❌ DB error on batch {batch_num}: {e}")
+                print(f"    ❌ DB error on explanation batch {batch_num}: {e}")
                 errors += len(rows)
 
         if job_id:
@@ -1465,23 +2589,105 @@ def generate_explanations_bulk(exam_name: str, exam_year: int, job_id: Optional[
     return {"generated": generated, "skipped": len(existing_ids), "errors": errors}
 
 
-def _call_explanation_api(prompt: str, expected: int, tracker: "CostTracker | None" = None) -> list[dict]:
-    """Call flash-8b to generate explanations. Returns list or empty on failure."""
-    for attempt in range(3):
+def run_scanned_post_processing(
+    exam_name: str,
+    exam_year: int,
+    job_id: Optional[str] = None,
+    tracker: "CostTracker | None" = None,
+) -> dict:
+    """
+    Post-upload repair pass for scanned papers.
+
+    Scanned uploads are the least reliable path, so we immediately follow storage with:
+    1. Retagging to replace fallback General/General Knowledge labels
+    2. Answer validation for AI-only papers with no official key
+    3. Explanation generation for admin review
+    """
+    sb = get_supabase() if job_id else None
+
+    def _update_job(progress: Optional[int] = None, status: Optional[str] = None):
+        if not sb or not job_id:
+            return
+        data: dict[str, Any] = {}
+        if progress is not None:
+            data["progress"] = progress
+        if status:
+            data["status"] = status
+        if data:
+            try:
+                sb.table("jobs").update(data).eq("id", job_id).execute()
+            except Exception:
+                pass
+
+    print("\nSTEP 4/6 — Retagging scanned-paper questions...")
+    _update_job(progress=72, status="processing")
+    retag = retag_exam(exam_name, exam_year)
+
+    print("\nSTEP 5/6 — Validating answers for scanned-paper questions...")
+    _update_job(progress=82, status="processing")
+    validated = validate_answers_bulk(exam_name, exam_year)
+
+    print("\nSTEP 6/6 — Generating explanations for scanned-paper questions...")
+    _update_job(progress=92, status="processing")
+    explanations = generate_explanations_bulk(exam_name, exam_year, job_id=job_id, tracker=tracker)
+
+    return {
+        "retag": retag,
+        "validated_answers": validated,
+        "explanations": explanations,
+    }
+
+
+def _extract_json_list(raw: Any) -> list | None:
+    """Robustly extract a JSON array from a model response that may have surrounding text."""
+    if not raw or not isinstance(raw, str):
+        return None
+    raw = raw.strip()
+    # Strip markdown code fences
+    if "```" in raw:
+        raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
+    # Try direct parse first
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            # Model wrapped the array: {"questions": [...]} or {"data": [...]}
+            for v in data.values():
+                if isinstance(v, list):
+                    return v
+    except json.JSONDecodeError:
+        pass
+    # Find the first '[' and last ']' and parse just that slice
+    start = raw.find("[")
+    end = raw.rfind("]")
+    if start != -1 and end != -1 and end > start:
         try:
-            resp = TAGGER_MODEL.generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(
+            data = json.loads(raw[start:end+1])
+            if isinstance(data, list):
+                return data
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+def _call_explanation_api(prompt: str, expected: int, tracker: "CostTracker | None" = None) -> list[dict]:
+    """Call best model to generate explanations. Returns list or empty on failure.
+    Uses BEST_MODEL (gemini-2.5-flash) for higher accuracy. Retries up to 5 times."""
+    for attempt in range(5):
+        try:
+            resp = _CLIENT.models.generate_content(
+                model=BEST_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=8192,
+                    max_output_tokens=16384,  # larger budget prevents JSON truncation
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
-                request_options={"timeout": 90},
             )
             raw = (resp.text or "").strip()
-            if raw.startswith("```"):
-                raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
-            data = json.loads(raw)
-            if isinstance(data, list):
+            data = _extract_json_list(raw)
+            if data is not None:
                 if tracker:
                     try:
                         _m = resp.usage_metadata
@@ -1489,11 +2695,10 @@ def _call_explanation_api(prompt: str, expected: int, tracker: "CostTracker | No
                     except Exception:
                         pass
                 return data
-        except json.JSONDecodeError:
             print(f"    ⚠️  JSON error attempt {attempt+1}, retrying...")
-            time.sleep(2)
+            time.sleep(3)
         except Exception as e:
-            if "429" in str(e) or "quota" in str(e).lower():
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower():
                 wait = 60 * (attempt + 1)
                 print(f"    ⏳ Rate limited, waiting {wait}s...")
                 time.sleep(wait)
@@ -1501,6 +2706,91 @@ def _call_explanation_api(prompt: str, expected: int, tracker: "CostTracker | No
                 print(f"    ❌ API error: {e}")
                 break
     return []
+
+
+def _call_explanation_api_single(q: dict, tracker: "CostTracker | None" = None) -> dict | None:
+    """Fallback: generate explanation for a single question. Used when batch JSON fails."""
+    qs_text = (
+        f"1. {q['question_text'][:500]}\n"
+        f"   A) {q.get('option_a','')[:150]}  B) {q.get('option_b','')[:150]}\n"
+        f"   C) {q.get('option_c','')[:150]}  D) {q.get('option_d','')[:150]}\n"
+        f"   Correct Answer: {q.get('correct_answer','A')}"
+    )
+    # Use the robust CoT prompt template (defined elsewhere in file)
+    prompt = EXPL_PROMPT_TEMPLATE.format(questions_text=qs_text)
+    result = _call_explanation_api(prompt, 1, tracker)
+    return result[0] if result else None
+
+
+def generate_single_explanation(question_id: str) -> dict | None:
+    """
+    Public entry point for lazy-loading a single explanation.
+    Explanation generation is read-only with respect to canonical question truth:
+    AI-detected corrections are recorded as repair proposals, not auto-applied.
+    """
+    sb = get_supabase()
+    
+    # 1. Fetch question details first
+    try:
+        qr = sb.table("questions").select("*").eq("id", question_id).single().execute()
+        if not qr.data:
+            return None
+        q = qr.data
+    except Exception:
+        return None
+
+    # 2. Check if explanation exists
+    expl_data = None
+    try:
+        r = sb.table("explanations").select("*").eq("question_id", question_id).limit(1).execute()
+        if r.data:
+            expl_data = r.data[0]
+    except Exception:
+        pass
+
+    # 3. If explanation exists but question is unverified (needs_review=True),
+    # re-generate the explanation so the text reflects the latest answer state.
+    if expl_data and q.get("needs_review", True):
+        # We don't necessarily need to re-generate if we trust the old explanation,
+        # but the user sees a mismatch right now. To be safe, we RE-GENERATE using CoT.
+        print(f"      ⚠️  Unverified question Q_{question_id[:8]} found with existing explanation. Re-verifying...")
+        expl_data = None # Force re-generation block below
+
+    # 4. If missing or forced, generate it using high-accuracy CoT
+    if not expl_data:
+        item = _call_explanation_api_single(q)
+        if not item:
+            return None
+
+        proposal_count = _record_ai_repair_proposals(question_id, q, item, sb)
+
+        # Store explanation in DB
+        expl_data = {
+            "question_id": question_id,
+            "explanation": item.get("explanation", ""),
+            "source": f"{short_model_name(BEST_MODEL)}-cot"
+        }
+        try:
+            sb.table("explanations").upsert(expl_data, on_conflict="question_id").execute()
+            merged_quality = merge_quality_fields(
+                q,
+                {"needs_review": q.get("needs_review", False)},
+                explanation_present=True,
+                explanation_contradiction=proposal_count > 0,
+            )
+            payload = _quality_update_payload({}, merged_quality, _question_supported_columns(sb))
+            sb.table("questions").update(payload).eq("id", question_id).execute()
+        except Exception:
+            pass
+        
+    # 5. Return combined truth (Explanation + potentially fixed metadata)
+    return {
+        "question_id": question_id,
+        "explanation": expl_data.get("explanation", ""),
+        "source": expl_data.get("source", ""),
+        "verified_answer": q.get("correct_answer"),
+        "needs_review": q.get("needs_review")
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1538,7 +2828,7 @@ def estimate_cost(num_questions: int) -> dict:
         "estimated_output_tokens": output_tokens,
         "estimated_cost_usd": cost_usd,
         "estimated_cost_inr": cost_inr,
-        "model": "gemini-2.5-flash-lite",
+        "model": "gemini-2.0-flash-lite",
         "note": "Re-runs of same PDF cost ₹0 (fully cached)"
     }
 
@@ -1546,8 +2836,9 @@ def estimate_cost(num_questions: int) -> dict:
 def _targeted_vision_recovery(
     pdf_path: str,
     missing: list[int],
-    pages: list[str],
+    pages_meta: list[tuple[int, str]],
     tracker: "CostTracker | None" = None,
+    page_nums: Optional[list[set[int]]] = None,
 ) -> list[dict]:
     """Call Vision only on pages that contain missing question numbers.
 
@@ -1559,73 +2850,48 @@ def _targeted_vision_recovery(
 
     Cost: typically 2–10 pages = ~₹0.05–0.20 vs ₹3–6 for full Vision.
     """
-    try:
-        import PIL.Image as PILImage
-        import io as _io
-    except ImportError:
-        return []
-
     # Build page → set-of-question-numbers mapping from extracted text
-    _qn_pat = re.compile(r'(?:^|\n)\s*(?:Q\.?\s*)?(\d{1,3})[.)]\s+\S', re.MULTILINE)
-    page_nums: list[set[int]] = []
-    for page_text in pages:
-        nums = {int(m.group(1)) for m in _qn_pat.finditer(page_text)}
-        page_nums.append(nums)
+    if page_nums is None:
+        _qn_pat = re.compile(r'(?:^|\n)\s*(?:Q\.?\s*)?(\d{1,3})[.)]\s+\S', re.MULTILINE)
+        page_nums = []
+        for _, page_text in pages_meta:
+            nums = {int(m.group(1)) for m in _qn_pat.finditer(page_text)}
+            page_nums.append(nums)
 
     # For each missing question number, identify the PDF page index to scan.
-    # Use the page whose known question numbers straddle the missing one.
     target_page_indices: set[int] = set()
     for mq in missing:
-        best_idx: int | None = None
-        best_dist: int = 999999
-        for pi, nums in enumerate(page_nums):
-            if not nums:
-                continue
-            # Distance from this page's question range to the missing number
+        for pi, (pdf_idx, _) in enumerate(pages_meta):
+            nums = page_nums[pi] if page_nums and pi < len(page_nums) else set()
+            if not nums: continue
             lo, hi = min(nums), max(nums)
             if lo <= mq <= hi:
                 target_page_indices.add(pi)
-                best_idx = None
                 break
-            dist = min(abs(mq - lo), abs(mq - hi))
-            if dist < best_dist:
-                best_dist = dist
-                best_idx = pi
-        if best_idx is not None:
-            # Include the neighbouring page too (question may span a page boundary)
-            target_page_indices.add(best_idx)
-            if best_idx + 1 < len(pages):
-                target_page_indices.add(best_idx + 1)
+            # Close match (within 2) — question might span page boundary
+            if abs(mq - lo) <= 2 or abs(mq - hi) <= 2:
+                target_page_indices.add(pi)
 
     if not target_page_indices:
         return []
 
     print(f"    🎯 Targeting {len(target_page_indices)} page(s) for Vision recovery")
-    _vision_model = genai.GenerativeModel("gemini-2.5-flash-lite")
+    _vision_model = EXTRACTION_MODEL
     doc = fitz.open(pdf_path)
     all_pages = list(doc)
     recovered: list[dict] = []
-
-    # Safety settings: BLOCK_NONE for all categories to prevent safety-filter page drops
-    _safety_off = [
-        {"category": "HARM_CATEGORY_HARASSMENT",        "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_HATE_SPEECH",       "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-    ]
+    missing_set = set(missing)
 
     # Map extracted-text page index → PDF page index.
-    # extract_text() skips some pages (rough-work, instruction, Telugu-only).
-    # Approximate: use the PDF page at the same relative position.
     total_pdf_pages = len(all_pages)
-    total_ext_pages = max(len(pages), 1)
+    total_ext_pages = max(len(pages_meta), 1)
 
     missing_set = set(missing)
 
-    for ext_idx in sorted(target_page_indices):
-        pdf_idx = min(round(ext_idx * total_pdf_pages / total_ext_pages), total_pdf_pages - 1)
+    for meta_idx in sorted(target_page_indices):
+        pdf_idx, _ = pages_meta[meta_idx]
         pg_a = all_pages[pdf_idx]
-        pg_b = all_pages[pdf_idx + 1] if pdf_idx + 1 < total_pdf_pages else None
+        pg_b = all_pages[pdf_idx + 1] if pdf_idx + 1 < len(all_pages) else None
         imgs = [PILImage.open(_io.BytesIO(pg_a.get_pixmap(dpi=200).tobytes("png")))]
         if pg_b:
             imgs.append(PILImage.open(_io.BytesIO(pg_b.get_pixmap(dpi=200).tobytes("png"))))
@@ -1633,8 +2899,10 @@ def _targeted_vision_recovery(
         # Identify which missing Q numbers are expected on this page
         page_missing = sorted(
             mq for mq in missing_set
-            if page_nums[ext_idx] and (min(page_nums[ext_idx]) - 5) <= mq <= (max(page_nums[ext_idx]) + 5)
-        ) if ext_idx < len(page_nums) and page_nums[ext_idx] else list(missing_set)
+            if page_nums and meta_idx < len(page_nums) and page_nums[meta_idx] and 
+            (min(page_nums[meta_idx]) - 3) <= mq <= (max(page_nums[meta_idx]) + 3)
+        )
+        if not page_missing: continue
 
         # Split into chunks of 5 to avoid 16384-token truncation on dense pages
         chunks = [page_missing[i:i+5] for i in range(0, max(len(page_missing), 1), 5)] if page_missing else [[]]
@@ -1659,11 +2927,20 @@ def _targeted_vision_recovery(
             vision_ok = False
             for attempt in range(2):
                 try:
-                    resp = _vision_model.generate_content(
-                        [targeted_prompt] + imgs,
-                        generation_config=genai.GenerationConfig(temperature=0.1, max_output_tokens=8192),
-                        safety_settings=_safety_off,
-                        request_options={"timeout": 120},
+                    resp = _CLIENT.models.generate_content(
+                        model=_vision_model,
+                        contents=[targeted_prompt] + imgs,
+                        config=types.GenerateContentConfig(
+                            temperature=0.1,
+                            max_output_tokens=8192,
+                            thinking_config=types.ThinkingConfig(thinking_budget=0),
+                            safety_settings=[
+                                types.SafetySetting(category="HARM_CATEGORY_HARASSMENT",        threshold="BLOCK_NONE"),
+                                types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH",       threshold="BLOCK_NONE"),
+                                types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+                                types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+                            ],
+                        ),
                     )
                     if tracker:
                         try:
@@ -1695,7 +2972,6 @@ def _targeted_vision_recovery(
         # OCR fallback for safety-blocked pages
         if page_safety_blocked:
             try:
-                import pytesseract
                 ocr_qs: list[dict] = []
                 # Re-render at 400 DPI for better OCR than the default 200 DPI used above
                 hd_pix = all_pages[pdf_idx].get_pixmap(dpi=400)
@@ -1739,11 +3015,65 @@ def _targeted_vision_recovery(
     return list(seen.values())
 
 
+def detect_questions_llm(pages: list[str], exam_name: str, tracker: Optional[CostTracker] = None) -> list[set[int]]:
+    """Scan all pages with a cheap LLM to build a map of [page_index] -> {question_numbers}.
+    This handles messy/bilingual text where regex fails to see the 'Q. 24' mark.
+    Returns a list of sets, one for each page index.
+    """
+    _llm = "publishers/google/models/gemini-2.0-flash-lite"
+    all_page_nums: list[set[int]] = [set() for _ in range(len(pages))]
+    
+    # Process in batches of 10 pages for speed/cost efficiency
+    for i in range(0, len(pages), 10):
+        chunk = pages[i : i + 10]
+        combined_text = ""
+        for idx, text in enumerate(chunk):
+            # Strip some noise to save tokens
+            clean = text[:2000] if len(text) > 2000 else text
+            combined_text += f"\n--- PAGE INDEX {i + idx} ---\n{clean}\n"
+
+        prompt = f"""Extract question NUMBERS present on each page of this {exam_name} paper.
+        Return a JSON object: {{"page_index": [list of numbers]}}.
+        Only include numbers that START a new question (e.g. 1, 2, 3...).
+        
+        {combined_text}
+        """
+        
+        try:
+            resp = _CLIENT.models.generate_content(
+                model=_llm,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
+            )
+            if tracker:
+                try:
+                    m = resp.usage_metadata
+                    tracker.record(f"LLM Q-Map (pp{i+1}-{i+len(chunk)})", m.prompt_token_count, m.candidates_token_count)
+                except Exception: pass
+            
+            mapping = json.loads(resp.text or "{}")
+            if isinstance(mapping, dict):
+                for idx_str, nums in mapping.items():
+                    try:
+                        idx = int(idx_str)
+                        if 0 <= idx < len(all_page_nums) and isinstance(nums, list):
+                            all_page_nums[idx].update(int(n) for n in nums if str(n).isdigit())
+                    except (ValueError, TypeError):
+                        pass
+        except Exception as e:
+            print(f"    ⚠️ LLM Q-Map failed for batch {i//10 + 1}: {e}")
+            
+    return all_page_nums
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN PIPELINE
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run_pipeline(pdf_path: str, exam_name: str, exam_year: int, job_id: str = None, answer_key_map: Optional[dict] = None) -> dict:
+def run_pipeline(pdf_path: str, exam_name: str, exam_year: int, job_id: str = None, answer_key_map: Optional[dict] = None, expected_count: int = 150) -> dict:
     """
     Full pipeline:
       1. Extract text locally (free)
@@ -1778,20 +3108,47 @@ def run_pipeline(pdf_path: str, exam_name: str, exam_year: int, job_id: str = No
     exam_name = exam_name.strip()  # guard against trailing spaces creating duplicate exams
     tracker = CostTracker()
 
+    # ── Zero-Waste Cache Check ───────────────────────────────────────────
+    file_hash = hashlib.sha256(open(pdf_path, 'rb').read()).hexdigest()
+    _results_cache = CACHE_DIR / "processed" / f"{file_hash}.json"
+    (CACHE_DIR / "processed").mkdir(exist_ok=True)
+
+    if _results_cache.exists():
+        print(f"  ♻️  Found pre-processed result in cache (₹0 cost). Restoring...")
+        try:
+            cached_qs = json.loads(_results_cache.read_text())
+            _update_job(progress=90, status="processing")
+            result = store_questions(
+                cached_qs,
+                Path(pdf_path).name,
+                exam_name,
+                exam_year,
+                job_id=job_id,
+            )
+            _update_job(progress=100, status="completed")
+            print(f"  ✅ Instant Restore complete!")
+            return result
+        except Exception as e:
+            print(f"  ⚠️  Failed to load cache: {e}. Falling back to full pipeline.")
+
     # ── Step 1: Extract ───────────────────────────────────────────────────
     print("STEP 1/4 — Extracting text (local, free)...")
     _update_job(progress=5, status="processing")
 
-    # UPSC Prelims: skip bilingual filter (it strips valid English content from Hindi pages)
+    # UPSC Prelims/CISF: skip_bilingual skips TSPSC-style Telugu filter.
+    # Hindi Devanagari is still filtered separately inside extract_text().
     is_upsc = "upsc" in exam_name.lower()
-    pages = extract_text(pdf_path, tracker, skip_bilingual=is_upsc)
+    pages = extract_text(pdf_path, tracker, skip_bilingual=is_upsc, job_id=job_id)
     if not pages:
         _update_job(status="failed", error="No text extracted from PDF")
         return None
 
+    # Bridge: Create raw text list for legacy functions
+    raw_pages = [p[1] for p in pages]
+
     # ── Step 2: Parse ─────────────────────────────────────────────────────
     print("\nSTEP 2/4 — Parsing questions (local regex, free)...")
-    questions = parse_questions_local(pages)
+    questions = parse_questions_local(raw_pages)
 
     if not questions:
         _update_job(status="failed", error="No questions parsed. Check PDF format.")
@@ -1809,42 +3166,59 @@ def run_pipeline(pdf_path: str, exam_name: str, exam_year: int, job_id: str = No
                 if q.get(field):
                     q[field] = _multispace.sub(' ', _nonascii.sub(' ', q[field])).strip()
 
+    cleaned_questions = clean_and_dedupe_questions(questions)
+    if len(cleaned_questions) != len(questions):
+        print(f"  🧹 Cleanup removed {len(questions) - len(cleaned_questions)} noisy/duplicate rows")
+    questions = cleaned_questions
+
     # ── Quality gate: fall back to Vision structured extraction ───────────
     # Custom-font bilingual PDFs (e.g. TSPSC Group 3) produce garbled option
     # text or miss C/D options entirely. Detect this and switch to Vision.
     quality = _parse_quality(questions)
     print(f"  ✅ Parse quality {quality:.0%} — {len(questions)} questions from regex (₹0)")
 
-    # ── Targeted Vision: recover only MISSING question numbers ───────────────
+    # ── targeted Vision: recover only MISSING question numbers ───────────────
     # Strategy: use known exam question count for range, then call Vision only
     # on the exact pages where missing questions should be — costs ~5% of full Vision.
-    if questions:
-        # Only count questions with valid text as "found" — short-text false detections
-        # must NOT block Vision recovery for those question numbers.
-        found_nums = {q["question_number"] for q in questions
+    if questions or expected_count > 0:
+        # 1. Identify which questions we definitely found with valid text
+        found_nums = {q["question_number"] for q in questions 
                       if (q.get("question_text") or "").strip() and len((q.get("question_text") or "").strip()) >= 10}
-        # Use exam-aware expected range so Q1/Q100 at boundaries aren't silently skipped
-        expected_count = 100 if is_upsc else 150
+        
+        # 2. Define the search space
         min_q = 1
-        max_q = expected_count
+        max_q = expected_count if expected_count > 0 else (max(found_nums) if found_nums else 1)
         missing = [n for n in range(min_q, max_q + 1) if n not in found_nums]
-        missing_pct = len(missing) / expected_count
+        
+        # 3. Use LLM to map questions to pages for precision
+        final_page_nums = None
+        if len(missing) > 0:
+            print(f"  🔍 Gaps found ({len(missing)} questions). Running LLM Q-Map for precision...")
+            _update_job(progress=11)
+            final_page_nums = detect_questions_llm(raw_pages, exam_name, tracker)
+            
+            # Recalculate 'missing' based on what LLM actually saw
+            # (prevents trying to recover ghost questions that aren't in the PDF at all)
+            if final_page_nums:
+                all_seen_by_llm = set().union(*final_page_nums)
+                # Keep 'missing' as all numbers up to expected_count, but use final_page_nums to find them
+                print(f"  ✅ LLM detected {len(all_seen_by_llm)} questions in PDF structure.")
 
-        if missing and missing_pct > 0.00:  # Any missing question → run targeted recovery
-            print(f"\n  🔍 {len(missing)} question numbers missing ({missing_pct:.0%}): "
-                  f"{missing[:10]}{'...' if len(missing) > 10 else ''}")
-            print("  🎯 Running targeted Vision only on pages containing missing questions...")
-            recovered = _targeted_vision_recovery(pdf_path, missing, pages, tracker)
+        # 4. Run recovery
+        if missing:
+            print(f"\n  🔍 {len(missing)} questions missing. Running targeted Vision recovery...")
+            _update_job(progress=13)
+            recovered = _targeted_vision_recovery(pdf_path, missing, pages, tracker, page_nums=final_page_nums)
             if recovered:
-                # Merge: keep whichever source has more complete options per question
                 regex_map = {q["question_number"]: q for q in questions}
                 for vq in recovered:
                     n = vq["question_number"]
                     r = regex_map.get(n)
                     if r:
+                        # Replace regex result if Vision one is 'better' (more options found)
                         r_opts = sum(1 for k in ("option_a","option_b","option_c","option_d") if r.get(k))
                         v_opts = sum(1 for k in ("option_a","option_b","option_c","option_d") if vq.get(k))
-                        if v_opts > r_opts:
+                        if v_opts >= r_opts:
                             regex_map[n] = vq
                     else:
                         regex_map[n] = vq
@@ -1855,7 +3229,7 @@ def run_pipeline(pdf_path: str, exam_name: str, exam_year: int, job_id: str = No
 
     # ── Step 3: English filter ────────────────────────────────────────────
     print("\nSTEP 3/4 — Filtering English questions...")
-    questions = filter_english(questions)
+    questions = filter_english(questions, exam_name=exam_name)
     if not questions:
         _update_job(status="failed", error="No English questions found after filtering.")
         return None
@@ -1874,7 +3248,13 @@ def run_pipeline(pdf_path: str, exam_name: str, exam_year: int, job_id: str = No
     # ── Step 5: Store ─────────────────────────────────────────────────────
     print("\nSTEP 5/6 — Storing in Supabase...")
     _update_job(progress=90)
-    result = store_questions(questions, Path(pdf_path).name, exam_name, exam_year)
+    result = store_questions(
+        questions,
+        Path(pdf_path).name,
+        exam_name,
+        exam_year,
+        job_id=job_id,
+    )
 
     # ── Step 5b: Inject answers from separate answer key ──────────────────
     if answer_key_map:
@@ -1887,9 +3267,26 @@ def run_pipeline(pdf_path: str, exam_name: str, exam_year: int, job_id: str = No
     expl_result = generate_explanations_bulk(exam_name, exam_year, job_id, tracker)
 
     _update_job(progress=100, status="completed")
+    try:
+        from papers import mark_paper_lifecycle, paper_id_for_job
+        mark_paper_lifecycle(
+            paper_id_for_job(job_id, sb=get_supabase()),
+            "ingested",
+            last_job_id=job_id,
+            sb=get_supabase(),
+        )
+    except Exception:
+        pass
 
     tracker.print_summary()
     tracker.save_log(exam_name, exam_year, len(questions))
+
+    # ── Save to Zero-Waste Cache ──────────────────────────────────────────
+    try:
+        _results_cache.write_text(json.dumps(questions, indent=2, ensure_ascii=False))
+        print(f"  💾 Processed results saved to cache → processed/{file_hash}.json")
+    except Exception as e:
+        print(f"  ⚠️  Failed to save result cache: {e}")
 
     print(f"\n{'='*60}")
     print(f"✅ Done!")
@@ -1903,16 +3300,159 @@ def run_pipeline(pdf_path: str, exam_name: str, exam_year: int, job_id: str = No
     return result
 
 
-def process_job_background(job_id: str, pdf_path: str, exam_name: str, exam_year: int, answer_key_map: Optional[dict] = None):
-    """Background worker entry point."""
+def recover_missing_questions_only(
+    pdf_path: str,
+    exam_name: str,
+    exam_year: int,
+    *,
+    missing_numbers: list[int],
+    job_id: str | None = None,
+    answer_key_map: Optional[dict] = None,
+) -> dict:
+    """
+    Targeted recovery path for re-uploads of an existing exam.
+    Only the explicitly missing question numbers are extracted, tagged, and stored.
+    """
+    sb = get_supabase()
+    tracker = CostTracker()
+    exam_name = exam_name.strip()
+    missing_numbers = sorted({int(n) for n in missing_numbers if int(n) > 0})
+
+    def _update_job(progress: int | None = None, status: str | None = None, error: str | None = None):
+        if not job_id:
+            return
+        data: dict[str, object] = {}
+        if progress is not None:
+            data["progress"] = progress
+        if status:
+            data["status"] = status
+        if error is not None:
+            data["error_log"] = error
+        if data:
+            try:
+                sb.table("jobs").update(data).eq("id", job_id).execute()
+            except Exception:
+                pass
+
+    if not missing_numbers:
+        _update_job(progress=100, status="completed", error="No missing question numbers detected.")
+        return {"recovered": 0, "inserted": 0, "missing_numbers": []}
+
+    print(f"\n{'='*60}")
+    print(f"🩹 Missing-question recovery | {exam_name} ({exam_year})")
+    print(f"🎯 Target numbers: {missing_numbers[:20]}{'...' if len(missing_numbers) > 20 else ''}")
+    print(f"{'='*60}\n")
+
+    _update_job(progress=5, status="processing", error=f"Recovering only missing question numbers: {missing_numbers[:20]}")
+
+    is_upsc = "upsc" in exam_name.lower()
+    pages = extract_text(pdf_path, tracker, skip_bilingual=is_upsc, job_id=job_id)
+    if not pages:
+        _update_job(status="failed", error="No text extracted from PDF during missing-question recovery.")
+        return {"recovered": 0, "inserted": 0, "missing_numbers": missing_numbers}
+
+    raw_pages = [p[1] for p in pages]
+    _update_job(progress=20)
+    page_map = detect_questions_llm(raw_pages, exam_name, tracker)
+
+    _update_job(progress=35, error=f"Running targeted recovery for missing numbers: {missing_numbers[:20]}")
+    recovered = _targeted_vision_recovery(pdf_path, missing_numbers, pages, tracker, page_nums=page_map)
+    if not recovered:
+        _update_job(progress=100, status="completed", error="Missing-question recovery finished, but no target questions were recovered.")
+        tracker.print_summary()
+        tracker.save_log(exam_name, exam_year, 0)
+        return {"recovered": 0, "inserted": 0, "missing_numbers": missing_numbers}
+
+    cleaned_questions = clean_and_dedupe_questions(recovered)
+    questions = filter_english(cleaned_questions, exam_name=exam_name)
+
+    if answer_key_map:
+        for q in questions:
+            qn = q.get("question_number")
+            if isinstance(qn, int) and qn in answer_key_map:
+                q["correct_answer"] = str(answer_key_map[qn]).strip().upper()[:1]
+
+    _update_job(progress=60)
+    questions = tag_questions(questions, exam_name, job_id, tracker)
+
+    _update_job(progress=85)
+    result = store_questions(
+        questions,
+        Path(pdf_path).name,
+        exam_name,
+        exam_year,
+        job_id=job_id,
+    )
+
+    expl_result = generate_explanations_bulk(exam_name, exam_year, job_id, tracker)
+    _update_job(progress=100, status="completed", error=f"Recovered {len(questions)} missing questions")
+
+    tracker.print_summary()
+    tracker.save_log(exam_name, exam_year, len(questions))
+
+    result.update({
+        "recovered": len(questions),
+        "missing_numbers": missing_numbers,
+        "generated_explanations": expl_result.get("generated", 0),
+    })
+    return result
+
+
+def process_missing_questions_job_background(
+    job_id: str,
+    pdf_path: str,
+    exam_name: str,
+    exam_year: int,
+    missing_numbers: list[int],
+    answer_key_map: Optional[dict] = None,
+):
+    """Background worker for re-upload repairs that should only fill numbering gaps."""
     try:
-        run_pipeline(pdf_path, exam_name, exam_year, job_id, answer_key_map=answer_key_map)
+        recover_missing_questions_only(
+            pdf_path,
+            exam_name,
+            exam_year,
+            missing_numbers=missing_numbers,
+            job_id=job_id,
+            answer_key_map=answer_key_map,
+        )
     except Exception as e:
-        print(f"Job {job_id} failed: {e}")
+        print(f"Missing-question job {job_id} failed: {e}")
         try:
+            from papers import mark_paper_lifecycle, paper_id_for_job
             get_supabase().table("jobs").update({
                 "status": "failed", "error_log": str(e)
             }).eq("id", job_id).execute()
+            mark_paper_lifecycle(
+                paper_id_for_job(job_id, sb=get_supabase()),
+                "failed",
+                last_job_id=job_id,
+                sb=get_supabase(),
+            )
+        except Exception:
+            pass
+    finally:
+        if os.path.exists(pdf_path):
+            os.unlink(pdf_path)
+
+
+def process_job_background(job_id: str, pdf_path: str, exam_name: str, exam_year: int, answer_key_map: Optional[dict] = None, expected_count: int = 150):
+    """Background worker entry point."""
+    try:
+        run_pipeline(pdf_path, exam_name, exam_year, job_id, answer_key_map=answer_key_map, expected_count=expected_count)
+    except Exception as e:
+        print(f"Job {job_id} failed: {e}")
+        try:
+            from papers import mark_paper_lifecycle, paper_id_for_job
+            get_supabase().table("jobs").update({
+                "status": "failed", "error_log": str(e)
+            }).eq("id", job_id).execute()
+            mark_paper_lifecycle(
+                paper_id_for_job(job_id, sb=get_supabase()),
+                "failed",
+                last_job_id=job_id,
+                sb=get_supabase(),
+            )
         except Exception:
             pass
     finally:
@@ -1932,13 +3472,6 @@ def detect_year_boundaries(pdf_path: str) -> dict[int, list[int]]:
     Works for scanned PDFs where each year's paper has a watermark like
     "2024", "2023 Series", "UPSC 2019" at the bottom of every page.
     """
-    try:
-        from PIL import Image as PILImage
-        import pytesseract
-        import io as _io
-    except ImportError:
-        raise RuntimeError("Pillow and pytesseract are required: pip install pillow pytesseract")
-
     doc = fitz.open(pdf_path)
     total = len(doc)
     year_map: dict[int, Optional[int]] = {}  # page_idx → year (None = not yet detected)
@@ -2001,7 +3534,6 @@ def run_pipeline_multi_year(pdf_path: str, exam_name: str) -> dict:
     Usage:
         python pipeline.py multi <pdf_path> "UPSC Prelims"
     """
-    import tempfile
 
     src = Path(pdf_path)
     if not src.exists():

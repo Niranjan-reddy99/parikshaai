@@ -72,11 +72,11 @@ export function CommissionView({
       </div>
 
       {/* Exam list */}
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, overflow: 'hidden' }}>
+      <div className="glass-panel" style={{ borderRadius: 20, overflow: 'hidden' }}>
         {/* Column header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 160px 80px 180px', gap: 12, padding: '10px 20px', background: C.bg, borderBottom: `1px solid ${C.border}`, alignItems: 'center' }}>
-          {['Exam', 'Questions', 'Years', 'Difficulty', ''].map((h, i) => (
-            <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: i >= 3 ? 'center' : 'left' }}>{h}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 160px 80px 180px', gap: 12, padding: '16px 24px', borderBottom: `1px solid ${C.border}`, alignItems: 'center' }}>
+          {['Exam Paper', 'Questions', 'Years Available', 'Difficulty Mix', ''].map((h, i) => (
+            <div key={h} style={{ fontSize: 11, fontWeight: 700, color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: i >= 3 ? 'center' : 'left' }}>{h}</div>
           ))}
         </div>
 
@@ -86,10 +86,10 @@ export function CommissionView({
             <div key={examType}
               style={{
                 display: 'grid', gridTemplateColumns: '1fr 80px 160px 80px 180px',
-                gap: 12, padding: '14px 20px', alignItems: 'center',
+                gap: 12, padding: '16px 24px', alignItems: 'center',
                 borderBottom: idx < examTypes.length - 1 ? `1px solid ${C.border}` : 'none',
-                background: hovered ? 'var(--c-surface2)' : 'transparent',
-                transition: 'background 0.12s', cursor: 'pointer',
+                background: hovered ? C.surface2 : 'transparent',
+                transition: 'background 0.2s', cursor: 'pointer',
               }}
               onMouseEnter={() => setHoveredRow(examType)}
               onMouseLeave={() => setHoveredRow(null)}

@@ -33,26 +33,27 @@ from pathlib import Path
 from typing import Optional
 
 import fitz  # PyMuPDF
+from ai_models import EXTRACTION_MODEL, get_genai_client
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google.genai import types
+from extraction_cleanup import clean_and_dedupe_questions
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY required in .env")
+_CLIENT = get_genai_client()
 
-genai.configure(api_key=GEMINI_API_KEY)
-
-VISION_MODEL = genai.GenerativeModel("gemini-2.5-flash-lite")
+# Use the same known-good Vertex model family as the universal extractor.
+# The old 1.5-flash-002 publisher path is not available in this project and
+# causes page-by-page 404s that surface as "No questions extracted from PDF".
+VISION_MODEL = EXTRACTION_MODEL
 
 CACHE_DIR = Path(__file__).parent.parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
 USD_TO_INR = 84
-# gemini-1.5-flash pricing (no thinking mode)
-_VISION_INPUT_PER_1M  = 0.075   # USD
-_VISION_OUTPUT_PER_1M = 0.30    # USD
+# gemini-2.0-flash pricing
+_VISION_INPUT_PER_1M  = 0.10    # USD
+_VISION_OUTPUT_PER_1M = 0.40    # USD
 
 
 # ── Cost tracker (mirrors pipeline.py CostTracker) ───────────────────────────
@@ -113,34 +114,37 @@ class _VisionCostTracker:
         print(f"  📋 Cost log saved → cache/cost_log.json")
 
 
-# DPI for page rendering — 150 DPI keeps image tokens low while preserving readability
-# Increase to 200 if box detection misses (adds ~50% tokens, still cheap)
-RENDER_DPI = 150
+# DPI for page rendering — bumped to 250 DPI for APPSC Boxed (dense Telugu + English + Match the Following)
+# This significantly drops hallucination/missing option rates on complex tables
+RENDER_DPI = 250
 MAT = fitz.Matrix(RENDER_DPI / 72, RENDER_DPI / 72)
 
 
 # ── Prompt ────────────────────────────────────────────────────────────────────
 
-EXTRACTION_PROMPT = """You are extracting questions from an APPSC exam paper (Final Key / Answer Key version).
+EXTRACTION_PROMPT = """You are an expert AI data extractor parsing an APPSC exam paper (Final / Answer Key).
 
-CRITICAL RULES:
-1. Extract questions in ENGLISH ONLY. Skip the Telugu text entirely.
-2. Options are numbered (1)(2)(3)(4) — some papers also use (A)(B)(C)(D).
-3. The CORRECT ANSWER is visually indicated by a RECTANGLE or BOX drawn around one option number. Find it carefully.
-4. IGNORE: watermarks, page numbers, booklet codes (like "Series A", "Booklet No. 262501"), instruction text, headers/footers.
-5. If the page only consists of "ROUGH WORK" or is entirely blank, return an empty array []. DO NOT hallucinate or make up questions!
-6. ONLY extract questions that are physically printed on the page. If a question is not printed, do not include it.
-7. For "Match the following" questions: Ensure each option strictly contains only its own matching text (e.g., "A-I, B-II, C-III, D-IV"). Do NOT mix or combine multiple options into option 4.
-8. For "Assertion (A) and Reason (R)" questions: Pay close attention to the letters "A" and "R" in the options. Do NOT drop the letter "A" from the text. Options must read exactly as printed, for example: "Both A and R are true and R is the correct explanation of A".
-9. If a question has an image/diagram, still extract its text and mark has_image=true.
-10. If you cannot clearly identify which option is boxed, set "correct": null and "needs_review": true.
-11. FATAL ERROR WARNING for "Match the Following": You must extract EXACTLY 4 distinct options. Do NOT combine Option 3 and Option 4 together. Do NOT drop any pairings. Ensure JSON keys '1', '2', '3', '4' strictly and individually map to the four printed option lines.
+CRITICAL RULES - FAILURE IS NOT AN OPTION:
+1. Extract questions in ENGLISH ONLY. Strictly skip all Telugu/regional text.
+2. The CORRECT ANSWER is physically indicated by a RECTANGLE or BOX drawn around one option number. You must select it.
+3. If the page is blank, "ROUGH WORK", or an instruction page, return an empty array []. DO NOT hallucinate.
+4. "MATCH THE FOLLOWING" FATAL ERROR PREVENTION: You MUST extract EXACTLY 4 distinct, separate options. 
+   - Never combine Option 3 and Option 4.
+   - Never drop pairings. Options must look exactly like "1) A-I, B-II, C-III, D-IV".
+   - Under no circumstances should an option be missing or truncated.
+5. "ASSERTION (A) AND REASON (R)": 
+   - Ensure the text for A and R is completely extracted.
+   - Do not drop the prefix labels.
+   - Ensure the options are kept distinct and complete.
+6. CONTINUATION HANDLING: Do not hallucinate questions that are cut off. Only extract questions whose text AND options are fully visible on this page.
+7. NEVER invent extra questions. The number of JSON objects MUST exactly match the number of printed English questions on this page.
+8. If an option spans multiple lines of printed text, join it seamlessly into a single line.
 
-Return ONLY a valid JSON array — no markdown, no explanation, just raw JSON.
+Return ONLY a valid JSON array — no markdown, no explanation, no backticks.
 Schema for each question:
 {
-  "q_num": <integer>,
-  "question": "<English question text, multi-line joined into one string>",
+  "q_num": <integer printed before the question>,
+  "question": "<English question text, joined into one string>",
   "options": {
     "1": "<option 1 text>",
     "2": "<option 2 text>",
@@ -160,7 +164,7 @@ If no questions are on this page (e.g. it's a cover page or instructions page), 
 
 def _page_cache_key(pdf_path: str, page_idx: int) -> str:
     pdf_hash = hashlib.sha256(Path(pdf_path).read_bytes()).hexdigest()[:16]
-    return f"vision_{pdf_hash}_p{page_idx:04d}.json"
+    return f"vision_v2_{pdf_hash}_p{page_idx:04d}.json"
 
 
 def _load_page_cache(pdf_path: str, page_idx: int) -> Optional[list]:
@@ -168,7 +172,15 @@ def _load_page_cache(pdf_path: str, page_idx: int) -> Optional[list]:
     cache_file = CACHE_DIR / key
     if cache_file.exists():
         try:
-            return json.loads(cache_file.read_text())
+            data = json.loads(cache_file.read_text())
+            if isinstance(data, list):
+                for item in data:
+                    if not isinstance(item, dict):
+                        continue
+                    q_text = str(item.get("question") or "")
+                    if "EXTRACTION_FAILED" in q_text or item.get("q_num") == -1:
+                        return None
+            return data
         except Exception:
             return None
     return None
@@ -209,14 +221,19 @@ def _extract_page(
         return cached
 
     png_bytes = _render_page_png(page)
-    image_part = {"mime_type": "image/png", "data": png_bytes}
+    image_part = types.Part.from_bytes(data=png_bytes, mime_type="image/png")
 
     last_err = None
     for attempt in range(retries):
         try:
-            resp = VISION_MODEL.generate_content(
-                [EXTRACTION_PROMPT, image_part],
-                generation_config=_GENERATION_CONFIG,
+            resp = _CLIENT.models.generate_content(
+                model=VISION_MODEL,
+                contents=[EXTRACTION_PROMPT, image_part],
+                config=types.GenerateContentConfig(
+                    temperature=0.0,
+                    max_output_tokens=4096,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
             )
             if tracker:
                 tracker.record(f"Vision p{page_idx + 1}", resp)
@@ -255,9 +272,8 @@ def _extract_page(
             print(f"  [warn] page {page_idx + 1} error (attempt {attempt + 1}): {e}")
             time.sleep(2 ** attempt)
 
-    # All retries failed — insert stub with needs_review
+    # All retries failed — do not poison cache with fake placeholder questions.
     print(f"  [error] page {page_idx + 1} failed after {retries} attempts: {last_err}")
-    _save_page_cache(pdf_path, page_idx, [{"q_num": -1, "question": f"PAGE_{page_idx+1}_EXTRACTION_FAILED", "options": {"1":"","2":"","3":"","4":""}, "correct": None, "has_image": False, "needs_review": True}])
     return []
 
 
@@ -349,7 +365,7 @@ def extract_with_vision(
     end_page = end_page or total_pages
 
     print(f"\n[vision] {exam_name} {year} — {total_pages} pages total, processing {start_page+1}–{end_page}")
-    print(f"[vision] Model: {VISION_MODEL.model_name} | DPI: {RENDER_DPI} | Thinking: OFF")
+    print(f"[vision] Model: {VISION_MODEL} | DPI: {RENDER_DPI} | Thinking: OFF")
 
     all_questions: list[dict] = []
 
@@ -372,12 +388,7 @@ def extract_with_vision(
 
     doc.close()
 
-    # Deduplicate by question number (keep last occurrence, which tends to be cleaner)
-    seen: dict[int, dict] = {}
-    for q in all_questions:
-        qn = q.get("question_number") or 0
-        seen[qn] = q
-    deduped = sorted(seen.values(), key=lambda q: q.get("question_number") or 0)
+    deduped = clean_and_dedupe_questions(all_questions)
 
     needs_review_count = sum(1 for q in deduped if q.get("needs_review"))
     no_answer_count = sum(1 for q in deduped if not q.get("correct_answer"))
@@ -407,6 +418,7 @@ def process_vision_job_background(
 
     try:
         from config import supabase  # type: ignore
+        from papers import mark_paper_lifecycle, paper_id_for_job
         from pipeline import tag_questions, store_questions  # type: ignore
         from typing import Optional, Callable
     except ImportError as e:
@@ -449,6 +461,13 @@ def process_vision_job_background(
         _update("processing", 60, "Vision extraction complete.")
         print(f"[vision-job] Vision extracted {len(questions)} questions")
 
+        # Hard sanity gate: a large exam paper should never "successfully"
+        # complete with only a tiny handful of extracted rows.
+        if total_pages >= 20 and len(questions) < 20:
+            _update("failed", 0, f"Suspiciously low extraction count: {len(questions)} questions from {total_pages} pages")
+            print(f"[vision-job] FAILED — suspiciously low extraction count ({len(questions)} from {total_pages} pages)")
+            return
+
         if not questions:
             _update("failed", 0, "No questions extracted from PDF")
             print(f"[vision-job] FAILED — no questions found in PDF")
@@ -463,19 +482,50 @@ def process_vision_job_background(
 
         # --- DB insert ---
         print(f"\n[vision-job] Inserting {len(tagged)} questions to Supabase...")
-        result = store_questions(tagged, pdf_path, exam_name, exam_year)
+        result = store_questions(tagged, pdf_path, exam_name, exam_year, job_id=job_id)
         inserted = result.get("inserted", 0)
         skipped = result.get("skipped", 0)
         print(f"[vision-job] Done — inserted: {inserted}, skipped: {skipped}")
         tracker.save_log(exam_name, exam_year, inserted, extra_steps=tag_tracker.steps)
 
-        _update("completed", 100)
+        # ── Detect missing question numbers and report in admin dashboard ─────
+        missing_log = ""
+        try:
+            stored_res = supabase.table("questions").select("question_number").eq("exam_name", exam_name).eq("exam_year", exam_year).execute()
+            all_qns = [r["question_number"] for r in (stored_res.data or []) if isinstance(r.get("question_number"), int)]
+            if all_qns:
+                max_qn = max(all_qns)
+                if max_qn > 0:
+                    extracted_set = set(all_qns)
+                    missing_nums = [str(i) for i in range(1, max_qn + 1) if i not in extracted_set]
+                    if missing_nums:
+                        missing_log = f"Missing questions ({len(missing_nums)}): {', '.join(missing_nums)}"
+                        print(f"[vision-job] ⚠️ {missing_log}")
+        except Exception as _me:
+            print(f"[vision-job] Missing-Q check failed (non-fatal): {_me}")
+
+        _update("completed", 100, missing_log)
+        mark_paper_lifecycle(
+            paper_id_for_job(job_id, sb=supabase),
+            "ingested",
+            last_job_id=job_id,
+            sb=supabase,
+        )
         print(f"[vision-job] ✅ Job {job_id[:12]} COMPLETED — {inserted} questions stored")
 
     except Exception as e:
         tb = traceback.format_exc()
         print(f"[vision-job] ❌ Job {job_id[:12]} CRASHED:\n{tb}")
         _update("failed", 0, f"{type(e).__name__}: {str(e)[:200]}")
+        try:
+            mark_paper_lifecycle(
+                paper_id_for_job(job_id, sb=supabase),
+                "failed",
+                last_job_id=job_id,
+                sb=supabase,
+            )
+        except Exception:
+            pass
     finally:
         if os.path.exists(pdf_path):
             os.unlink(pdf_path)

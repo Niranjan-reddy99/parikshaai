@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, Loader2, LogOut, Upload, DollarSign, Moon, Sun, ShieldCheck } from 'lucide-react';
+import { ChevronRight, ChevronDown, Eye, FileText, Loader2, LogOut, Upload, DollarSign, Moon, Sun, ShieldCheck } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { C } from '../lib/tokens';
@@ -24,6 +24,9 @@ interface NavbarProps {
   openExam: (examName: string, commission: string, examType: string) => void;
   openCostModal: () => void;
   openUploadModal: () => void;
+  openPatternDebug: () => void;
+  openPatternIngestion: () => void;
+  openPatternPractice: () => void;
   toggleAdmin: () => void;
   handleLogout: () => void;
   darkMode: boolean;
@@ -35,7 +38,7 @@ export function Navbar({
   examDropdownOpen, setExamDropdownOpen,
   dropdownHoveredCommission, setDropdownHoveredCommission,
   selectedCommission,
-  setView, openCommission, openExam, openCostModal, openUploadModal, toggleAdmin, handleLogout,
+  setView, openCommission, openExam, openCostModal, openUploadModal, openPatternDebug, openPatternIngestion, openPatternPractice, toggleAdmin, handleLogout,
   darkMode, toggleDarkMode,
 }: NavbarProps) {
   const [examsOpen, setExamsOpen] = useState(false);
@@ -49,12 +52,12 @@ export function Navbar({
 
   const itemStyle = (active: boolean, hovered: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 10,
-    padding: '7px 12px', borderRadius: 6, cursor: 'pointer',
-    fontSize: 13, fontWeight: active ? 500 : 400,
-    color: active ? C.text : C.textSec,
-    background: active ? C.surface : hovered ? 'var(--c-surface2)' : 'transparent',
-    border: `1px solid ${active ? C.border : 'transparent'}`,
-    marginBottom: 1, userSelect: 'none' as const,
+    padding: '11px 12px', borderRadius: 12, cursor: 'pointer',
+    fontSize: 13, fontWeight: active ? 700 : 500,
+    color: active ? C.headingEm : C.textSec,
+    background: active ? C.accentDim : hovered ? C.surface2 : 'transparent',
+    border: `1px solid ${active ? 'rgba(15,118,110,0.24)' : 'transparent'}`,
+    marginBottom: 3, userSelect: 'none' as const,
     transition: 'all 0.15s',
     position: 'relative' as const,
   });
@@ -66,45 +69,50 @@ export function Navbar({
   );
 
   return (
-    <aside style={{ background: 'var(--c-surface)', borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 20, height: '100vh' }}>
+    <aside style={{ background: C.surface2, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 20, height: '100vh', backdropFilter: 'blur(20px)' }}>
 
       {/* Top section: brand + user card + streak */}
-      <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+      <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${C.border}`, flexShrink: 0, background: `linear-gradient(180deg, ${C.surface2}, ${C.surface})` }}>
         {/* Brand */}
-        <div onClick={() => setView('dashboard')} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, cursor: 'pointer' }}>
-          <div style={{ width: 28, height: 28, border: `1.5px solid ${C.accent}40`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div onClick={() => setView('dashboard')} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, cursor: 'pointer' }} className="hover-lift">
+          <div style={{ width: 38, height: 38, border: `1px solid rgba(15,118,110,0.18)`, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'var(--c-shadow-glow)', background: 'linear-gradient(135deg, rgba(15,118,110,0.14), rgba(202,138,4,0.08))' }}>
             <svg viewBox="0 0 14 14" fill="none" width="14" height="14">
-              <path d="M7 1L12.5 4.25V10.75L7 14L1.5 10.75V4.25L7 1Z" stroke="#2dd4bf" strokeWidth="1.2" strokeLinejoin="round"/>
-              <path d="M7 4L9.6 5.5V8.5L7 10L4.4 8.5V5.5L7 4Z" fill="#2dd4bf" opacity=".5"/>
+              <rect x="2" y="2" width="10" height="10" rx="3" stroke="var(--c-text)" strokeWidth="1.2" />
+              <path d="M5 7h4m-2-2v4" stroke="var(--c-accent)" strokeWidth="1.2" strokeLinecap="round" />
             </svg>
           </div>
-          <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 17, fontWeight: 600, color: C.text, letterSpacing: '-0.2px' }}>
-            Parik<em style={{ fontStyle: 'italic', color: C.headingEm }}>sha</em>
-          </span>
+          <div>
+            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 22, fontWeight: 500, color: C.headingEm, letterSpacing: '-0.5px', lineHeight: 1 }}>
+              Pariksha<span style={{ color: C.accent }}>.</span>
+            </div>
+            <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.textTert, marginTop: 4 }}>
+              PYQ Intelligence
+            </div>
+          </div>
         </div>
 
         {/* User card */}
-        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
+        <div className="glass-panel" style={{ borderRadius: 18, padding: '14px 16px', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #1a4a42 0%, #0f2d28 100%)', border: `1.5px solid ${C.accent}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: C.accent, flexShrink: 0, fontFamily: "'DM Mono', monospace", overflow: 'hidden' }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: C.surface3, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: C.text, flexShrink: 0, fontFamily: "'DM Mono', monospace", overflow: 'hidden' }}>
               {user.photoURL
                 ? <img src={user.photoURL} style={{ width: 32, height: 32, borderRadius: '50%' }} alt="" />
                 : firstName}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
               <div style={{ fontSize: 11, color: C.textTert, fontFamily: "'DM Mono', monospace", marginTop: 1 }}>
-                {dataLoading ? 'Loading...' : `${commissions.length} exams`}
+                {dataLoading ? 'Loading...' : `${commissions.length} commissions live`}
               </div>
             </div>
-            {dataLoading && <Loader2 style={{ width: 14, height: 14, color: C.accent, flexShrink: 0 }} className="animate-spin" />}
+            {dataLoading && <Loader2 style={{ width: 14, height: 14, color: C.textTert, flexShrink: 0 }} className="animate-spin" />}
           </div>
           {/* XP bar (decorative) */}
-          <div style={{ fontSize: 10, color: C.textTert, fontFamily: "'DM Mono', monospace", display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span>Progress</span><span>{isAdmin ? 'Admin' : 'User'}</span>
+          <div style={{ fontSize: 10, color: C.textTert, display: 'flex', justifyContent: 'space-between', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span>Workspace</span><span style={{ color: C.accent }}>{isAdmin ? 'Admin' : 'Student'}</span>
           </div>
-          <div style={{ height: 2, background: 'var(--c-surface3)', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: '60%', background: C.accent, borderRadius: 2 }} />
+          <div style={{ height: 2, background: C.border, borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: '60%', background: `linear-gradient(90deg, rgba(15,118,110,0.25), ${C.accent})`, borderRadius: 2 }} />
           </div>
         </div>
 
@@ -119,7 +127,7 @@ export function Navbar({
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '16px 12px' }}>
+      <nav style={{ flex: 1, overflowY: 'auto', padding: '18px 12px 10px' }}>
 
         {/* Overview */}
         {navLabel('Overview')}
@@ -225,6 +233,18 @@ export function Navbar({
               </div>
             );
           })}
+
+          {/* Pattern Practice — visible to all users */}
+          <div
+            onClick={openPatternPractice}
+            onMouseEnter={() => setHoveredItem('pattern-practice')}
+            onMouseLeave={() => setHoveredItem(null)}
+            style={itemStyle(view === 'pattern-practice', hoveredItem === 'pattern-practice')}
+          >
+            {view === 'pattern-practice' && <div style={{ position: 'absolute', left: -1, top: '25%', bottom: '25%', width: 2, background: '#f59e0b', borderRadius: '0 2px 2px 0' }} />}
+            <span style={{ width: 16, textAlign: 'center', flexShrink: 0, opacity: view === 'pattern-practice' || hoveredItem === 'pattern-practice' ? 1 : 0.6, fontSize: 13 }}>📈</span>
+            Pattern Practice
+          </div>
         </div>
 
         {/* Progress */}
@@ -253,13 +273,13 @@ export function Navbar({
       </nav>
 
       {/* Footer */}
-      <div style={{ padding: '12px', borderTop: `1px solid ${C.border}`, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ padding: '14px 12px 18px', borderTop: `1px solid ${C.border}`, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4, background: C.surface2, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
         {/* Dark mode toggle */}
         <div
           onClick={toggleDarkMode}
           onMouseEnter={() => setHoveredItem('darkmode')}
           onMouseLeave={() => setHoveredItem(null)}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.textSec, background: hoveredItem === 'darkmode' ? 'var(--c-surface2)' : 'transparent', transition: 'all 0.15s' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', fontSize: 13, color: C.textSec, background: hoveredItem === 'darkmode' ? C.surface3 : 'transparent', transition: 'all 0.15s' }}
         >
           {darkMode
             ? <Sun style={{ width: 15, height: 15 }} />
@@ -275,15 +295,31 @@ export function Navbar({
               onClick={openUploadModal}
               onMouseEnter={() => setHoveredItem('upload')}
               onMouseLeave={() => setHoveredItem(null)}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.textSec, background: hoveredItem === 'upload' ? 'var(--c-surface2)' : 'transparent', transition: 'all 0.15s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', fontSize: 13, color: C.textSec, background: hoveredItem === 'upload' ? C.surface3 : 'transparent', transition: 'all 0.15s' }}
             >
               <Upload style={{ width: 15, height: 15 }} /> Upload PDF
+            </div>
+            <div
+              onClick={openPatternIngestion}
+              onMouseEnter={() => setHoveredItem('pattern-ingestion')}
+              onMouseLeave={() => setHoveredItem(null)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', fontSize: 13, color: view === 'pattern-ingestion' ? C.accent : C.textSec, background: view === 'pattern-ingestion' ? C.accentDim : (hoveredItem === 'pattern-ingestion' ? C.surface3 : 'transparent'), transition: 'all 0.15s' }}
+            >
+              <FileText style={{ width: 15, height: 15 }} /> Scanned Book Lab
+            </div>
+            <div
+              onClick={openPatternDebug}
+              onMouseEnter={() => setHoveredItem('pattern-debug')}
+              onMouseLeave={() => setHoveredItem(null)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', fontSize: 13, color: view === 'pattern-debug' ? C.accent : C.textSec, background: view === 'pattern-debug' ? C.accentDim : (hoveredItem === 'pattern-debug' ? C.surface3 : 'transparent'), transition: 'all 0.15s' }}
+            >
+              <Eye style={{ width: 15, height: 15 }} /> Pattern Debug
             </div>
             <div
               onClick={openCostModal}
               onMouseEnter={() => setHoveredItem('cost')}
               onMouseLeave={() => setHoveredItem(null)}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.textSec, background: hoveredItem === 'cost' ? 'var(--c-surface2)' : 'transparent', transition: 'all 0.15s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', fontSize: 13, color: C.textSec, background: hoveredItem === 'cost' ? C.surface3 : 'transparent', transition: 'all 0.15s' }}
             >
               <DollarSign style={{ width: 15, height: 15 }} /> Cost Log
             </div>
@@ -293,7 +329,7 @@ export function Navbar({
           onClick={toggleAdmin}
           onMouseEnter={() => setHoveredItem('admin')}
           onMouseLeave={() => setHoveredItem(null)}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: isAdmin ? C.warn : C.textSec, background: isAdmin ? C.warnDim : (hoveredItem === 'admin' ? 'var(--c-surface2)' : 'transparent'), transition: 'all 0.15s' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: isAdmin ? 700 : 500, color: isAdmin ? C.warn : C.textSec, background: isAdmin ? C.warnDim : (hoveredItem === 'admin' ? C.surface3 : 'transparent'), border: `1px solid ${isAdmin ? `${C.warn}40` : 'transparent'}`, transition: 'all 0.15s' }}
         >
           <ShieldCheck style={{ width: 15, height: 15 }} /> {isAdmin ? 'Admin ON' : 'Admin'}
         </div>
@@ -301,7 +337,7 @@ export function Navbar({
           onClick={handleLogout}
           onMouseEnter={() => setHoveredItem('logout')}
           onMouseLeave={() => setHoveredItem(null)}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: C.textSec, background: hoveredItem === 'logout' ? 'var(--c-surface2)' : 'transparent', transition: 'all 0.15s' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', fontSize: 13, color: C.textSec, background: hoveredItem === 'logout' ? C.surface3 : 'transparent', transition: 'all 0.15s' }}
         >
           <LogOut style={{ width: 15, height: 15 }} /> Sign out
         </div>

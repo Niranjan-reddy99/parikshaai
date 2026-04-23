@@ -15,54 +15,68 @@ Usage:
 """
 from __future__ import annotations
 
+import concurrent.futures as _cf
+import json
+import os
 import re
 import sys
-import json
 import time
-import hashlib
-from pathlib import Path
 
 from dotenv import load_dotenv
 load_dotenv()
 
-import os
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from supabase import create_client
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
+# ── Config ────────────────────────────────────────────────────────────────────
+_CLIENT = genai.Client(
+    vertexai=True,
+    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+    location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
+)
+_EXECUTOR = _cf.ThreadPoolExecutor(max_workers=2, thread_name_prefix="repair-expl")
 
+sb = create_client(
+    os.getenv("SUPABASE_URL", ""),
+    os.getenv("SUPABASE_SERVICE_KEY", ""),
+)
+
+MODEL   = "publishers/google/models/gemini-2.5-flash"
 DRY_RUN = "--dry-run" in sys.argv
-MODEL = genai.GenerativeModel("gemini-2.5-flash-lite")
 
-# Options that indicate a "consider the following" style question
 _CONSIDER_OPTS = re.compile(
     r'\b(A only|B only|C only|both a and b|neither a nor b|all of the above)\b',
-    re.IGNORECASE
+    re.IGNORECASE,
 )
+
+PROMPT_TMPL = """You are an expert tutor for Indian government exams.
+
+For each question below, write a clear 2-3 sentence explanation of WHY the correct answer is right.
+The correct answer letter maps to the option shown. Be factual. Return ONLY a JSON array, no markdown.
+
+Format: [{{"id": 1, "explanation": "..."}} , ...]
+
+Questions:
+{questions_text}"""
 
 
 def _is_consider_type(q: dict) -> bool:
-    """True if question has statement-style options."""
     opts = " ".join([
-        q.get("option_a") or "",
-        q.get("option_b") or "",
-        q.get("option_c") or "",
-        q.get("option_d") or "",
+        q.get("option_a") or "", q.get("option_b") or "",
+        q.get("option_c") or "", q.get("option_d") or "",
     ])
     return bool(_CONSIDER_OPTS.search(opts))
 
 
 def fetch_affected() -> list[dict]:
     print("🔍 Fetching all questions to find affected ones...")
-    # Fetch in pages to avoid Supabase 1000-row limit
-    all_qs = []
+    all_qs: list[dict] = []
     offset = 0
     while True:
-        r = sb.table("questions").select(
-            "id, exam_name, exam_year, question_text, option_a, option_b, option_c, option_d, correct_answer"
-        ).eq("is_active", True).range(offset, offset + 999).execute()
-        batch = r.data or []
+        batch = sb.table("questions").select(
+            "id,exam_name,exam_year,question_text,option_a,option_b,option_c,option_d,correct_answer"
+        ).eq("is_active", True).range(offset, offset + 999).execute().data or []
         all_qs.extend(batch)
         if len(batch) < 1000:
             break
@@ -77,32 +91,66 @@ def fetch_affected() -> list[dict]:
 def delete_explanations(question_ids: list[str]) -> int:
     if not question_ids:
         return 0
-    r = sb.table("explanations").delete().in_("question_id", question_ids).execute()
-    return len(r.data or [])
+    deleted = 0
+    for i in range(0, len(question_ids), 100):
+        chunk = question_ids[i:i+100]
+        r = sb.table("explanations").delete().in_("question_id", chunk).execute()
+        deleted += len(r.data or [])
+    return deleted
+
+
+def _call_api(prompt: str) -> list[dict]:
+    for attempt in range(3):
+        try:
+            fut = _EXECUTOR.submit(
+                _CLIENT.models.generate_content,
+                model=MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.2,
+                    max_output_tokens=8192,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
+            )
+            try:
+                resp = fut.result(timeout=90)
+            except _cf.TimeoutError:
+                print(f"    ⚠️  Timed out after 90s (attempt {attempt+1})")
+                time.sleep(5)
+                continue
+            raw = (resp.text or "").strip()
+            if raw.startswith("```"):
+                raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
+            data = json.loads(raw)
+            if isinstance(data, list):
+                return data
+        except json.JSONDecodeError:
+            print(f"    ⚠️  JSON error attempt {attempt+1}, retrying...")
+            time.sleep(2 ** attempt)
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "quota" in err.lower():
+                wait = 60 * (attempt + 1)
+                print(f"    ⏳ Rate limited, waiting {wait}s...")
+                time.sleep(wait)
+            else:
+                print(f"    ❌ API error: {e}")
+                break
+    return []
 
 
 def regenerate(questions: list[dict]) -> int:
-    PROMPT_TMPL = """You are an expert tutor for Indian government exams.
-
-For each question below, write a clear 2-3 sentence explanation of WHY the correct answer is right.
-The correct answer letter maps to the option shown. Be factual. Return ONLY a JSON array, no markdown.
-
-Format: [{{"id": 1, "explanation": "..."}} , ...]
-
-Questions:
-{questions_text}"""
-
     BATCH = 15
     generated = 0
     batches = [questions[i:i+BATCH] for i in range(0, len(questions), BATCH)]
 
     for bn, batch in enumerate(batches, 1):
+        correct_letter_map = "abcd"
         qs_text = "\n\n".join(
             f"{i+1}. {q['question_text'][:300]}\n"
             f"   A) {q.get('option_a','')[:100]}  B) {q.get('option_b','')[:100]}\n"
             f"   C) {q.get('option_c','')[:100]}  D) {q.get('option_d','')[:100]}\n"
-            f"   Correct Answer: {q.get('correct_answer','A')} "
-            f"(= {q.get('option_' + 'abcd'[ord(q.get('correct_answer','A').upper()[0]) - ord('A')], '') if q.get('correct_answer') else ''})"
+            f"   Correct: {q.get('correct_answer','A')}"
             for i, q in enumerate(batch)
         )
         prompt = PROMPT_TMPL.format(questions_text=qs_text)
@@ -112,36 +160,18 @@ Questions:
             print("    [DRY RUN — skipping API call]")
             continue
 
-        for attempt in range(3):
-            try:
-                resp = MODEL.generate_content(
-                    prompt,
-                    generation_config=genai.GenerationConfig(temperature=0.2, max_output_tokens=8192),
-                    request_options={"timeout": 90},
-                )
-                raw = (resp.text or "").strip()
-                if raw.startswith("```"):
-                    import re as _re
-                    raw = _re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
-                data = json.loads(raw)
-                if isinstance(data, list):
-                    id_map = {e.get("id", i+1): e.get("explanation", "") for i, e in enumerate(data)}
-                    rows = []
-                    for i, q in enumerate(batch):
-                        text = id_map.get(i+1, "").strip()
-                        if text and len(text) > 10:
-                            rows.append({"question_id": q["id"], "explanation": text, "source": "repaired"})
-                    if rows:
-                        sb.table("explanations").upsert(rows, on_conflict="question_id").execute()
-                        generated += len(rows)
-                        print(f"    ✅ Saved {len(rows)} explanations")
-                    break
-            except json.JSONDecodeError:
-                print(f"    ⚠️  JSON error attempt {attempt+1}, retrying...")
-                time.sleep(2)
-            except Exception as e:
-                print(f"    ❌ Error: {e}")
-                break
+        data = _call_api(prompt)
+        if data:
+            id_map = {e.get("id", i+1): e.get("explanation", "") for i, e in enumerate(data)}
+            rows = [
+                {"question_id": q["id"], "explanation": id_map.get(i+1, "").strip(), "source": "repaired"}
+                for i, q in enumerate(batch)
+                if id_map.get(i+1, "").strip() and len(id_map.get(i+1, "").strip()) > 10
+            ]
+            if rows:
+                sb.table("explanations").upsert(rows, on_conflict="question_id").execute()
+                generated += len(rows)
+                print(f"    ✅ Saved {len(rows)} explanations")
 
         if bn < len(batches):
             time.sleep(1)
@@ -167,17 +197,16 @@ def main():
         print(f"   {exam}: {count} questions")
 
     cost_est = len(affected) * 0.0018
-    print(f"\n💰 Estimated regeneration cost: ₹{cost_est:.4f} (~{len(affected)} questions)")
+    print(f"\n💰 Estimated cost: ₹{cost_est:.4f} (~{len(affected)} questions)")
 
     if not DRY_RUN:
-        confirm = input("\nProceed? (y/N): ").strip().lower()
-        if confirm != "y":
+        if input("\nProceed? (y/N): ").strip().lower() != "y":
             print("Aborted.")
             return
 
-    ids = [q["id"] for q in affected]
-    print(f"\n🗑️  Deleting {len(ids)} bad explanations...")
     if not DRY_RUN:
+        ids = [q["id"] for q in affected]
+        print(f"\n🗑️  Deleting {len(ids)} stale explanations...")
         deleted = delete_explanations(ids)
         print(f"  Deleted: {deleted}")
 

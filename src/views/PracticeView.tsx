@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { ArrowLeft, ChevronRight, RotateCcw, Loader2, Brain, Pencil } from 'lucide-react';
 import { motion } from 'motion/react';
 import { C, diffColor, diffBg } from '../lib/tokens';
-import { type Question, type View } from '../types';
+import { QuestionText } from '../lib/QuestionText';
+import { type Question, type QuestionMeta, type View } from '../types';
 
 interface PracticeViewProps {
   practiceQueue: Question[];
@@ -10,12 +11,16 @@ interface PracticeViewProps {
   practiceAnswered: boolean;
   practiceSelectedOption: string | null;
   practiceAnswerLoading: boolean;
+  practiceExplanationLoading: boolean;
+  practiceInitLoading: boolean;
+  practiceInitMessage: string;
+  practiceLoadProgress: { loaded: number; total: number | null };
   practiceSubject: string;
   practiceTopic: string;
   selectedExamName: string;
   selectedExamType: string;
   selectedYear: number;
-  questions: Question[];
+  questions: QuestionMeta[];
   currentPracticeQ: Question | null;
   isAdmin: boolean;
   sessionAnswers: (null | { selected: string; correct: boolean })[];
@@ -26,22 +31,44 @@ interface PracticeViewProps {
   startPractice: (examName: string, year: number, subject?: string, topic?: string) => void;
   setView: (v: View) => void;
   setEditQuestion: (q: Question) => void;
+  backView: View;
 }
 
 export function PracticeView({
   practiceQueue, practiceIndex, practiceAnswered, practiceSelectedOption, practiceAnswerLoading,
+  practiceExplanationLoading,
+  practiceInitLoading, practiceInitMessage, practiceLoadProgress,
   practiceSubject, practiceTopic,
   selectedExamName, selectedExamType, selectedYear, questions,
   currentPracticeQ, isAdmin, sessionAnswers, handleAnswerSelect, nextPracticeQuestion, prevPracticeQuestion,
-  jumpToPracticeQuestion, startPractice, setView, setEditQuestion,
+  jumpToPracticeQuestion, startPractice, setView, setEditQuestion, backView,
 }: PracticeViewProps) {
+
+  // Auto-scroll active question button into view in the side panel
+  const activeQRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    activeQRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [practiceIndex]);
+
+  if (practiceInitLoading && !practiceQueue.length) return (
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: '80px 16px', textAlign: 'center' }}>
+      <Loader2 style={{ width: 28, height: 28, margin: '0 auto 16px', color: C.accent, animation: 'spin 1s linear infinite' }} />
+      <h3 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 22, fontWeight: 400, color: C.text, marginBottom: 8 }}>Preparing practice set</h3>
+      <p style={{ fontSize: 13, color: C.textSec, marginBottom: 10 }}>{practiceInitMessage || 'Loading questions...'}</p>
+      <p style={{ fontSize: 12, color: C.textTert }}>
+        {practiceLoadProgress.total
+          ? `${practiceLoadProgress.loaded} of ${practiceLoadProgress.total} questions loaded`
+          : 'Building topic session from the server'}
+      </p>
+    </div>
+  );
 
   if (!practiceQueue.length) return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '80px 16px', textAlign: 'center' }}>
       <div style={{ fontSize: 40, marginBottom: 16 }}>📂</div>
       <h3 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 22, fontWeight: 400, color: C.text, marginBottom: 8 }}>No questions found</h3>
       <p style={{ fontSize: 13, color: C.textSec, marginBottom: 24 }}>Try adjusting your subject or topic filters.</p>
-      <button onClick={() => setView('exam-detail')}
+      <button onClick={() => setView(backView)}
         style={{ padding: '9px 18px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textSec, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
         <ArrowLeft style={{ width: 14, height: 14 }} /> Back
       </button>
@@ -74,8 +101,8 @@ export function PracticeView({
       <div>
 
       {/* ── Focus bar ─────────────────────────────────────────────────────────── */}
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: '12px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20 }}>
-        <button onClick={() => setView('exam-detail')}
+      <div className="glass-panel" style={{ borderRadius: 18, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20, border: `1px solid ${C.borderHover}` }}>
+        <button onClick={() => setView(backView)}
           style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.textSec, cursor: 'pointer', background: 'none', border: 'none', padding: '4px 0', fontFamily: "'DM Sans', system-ui, sans-serif", transition: 'color 0.15s', flexShrink: 0 }}
           onMouseEnter={e => e.currentTarget.style.color = C.text}
           onMouseLeave={e => e.currentTarget.style.color = C.textSec}>
@@ -85,14 +112,27 @@ export function PracticeView({
         <span style={{ fontSize: 12, fontFamily: "'DM Mono', monospace", color: C.textSec, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {practiceIndex + 1} of {practiceQueue.length}
         </span>
-        <div style={{ flex: 1, height: 4, background: 'var(--c-surface3)', borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{ flex: 1, height: 4, background: C.surface3, borderRadius: 4, overflow: 'hidden' }}>
           <motion.div style={{ height: '100%', background: C.accent, borderRadius: 4 }}
             initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.3 }} />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#34d399', flexShrink: 0 }}>
-          <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#34d399' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#34D399', flexShrink: 0 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34D399', boxShadow: '0 0 6px #34D39980' }} />
           Practice
         </div>
+        {practiceInitLoading && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: C.blue, flexShrink: 0 }}>
+            <Loader2 style={{ width: 12, height: 12, animation: 'spin 1s linear infinite' }} />
+            {practiceLoadProgress.total
+              ? `Loading more (${practiceLoadProgress.loaded}/${practiceLoadProgress.total})`
+              : 'Loading more'}
+          </div>
+        )}
+        {practiceInitLoading && practiceInitMessage && (
+          <div style={{ fontSize: 11, color: C.textTert, minWidth: 180 }}>
+            {practiceInitMessage}
+          </div>
+        )}
         {/* Filters */}
         <div style={{ display: 'flex', gap: 8, marginLeft: 4 }}>
           {[
@@ -109,7 +149,7 @@ export function PracticeView({
       </div>
 
       {/* ── Question card ─────────────────────────────────────────────────────── */}
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: '28px 28px', marginBottom: 16, transition: 'border-color 0.15s' }}>
+      <div className="glass-panel" style={{ borderRadius: 24, padding: '36px 36px', marginBottom: 16, transition: 'border-color 0.15s', border: `1px solid ${C.borderHover}` }}>
 
         {/* Tags + admin edit */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 20 }}>
@@ -141,25 +181,30 @@ export function PracticeView({
 
         {/* Passage */}
         {q.passage && (
-          <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.20)', marginBottom: 16 }}>
-            <p style={{ fontSize: 9, fontWeight: 700, color: C.blue, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Passage</p>
-            <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{q.passage}</p>
+          <div style={{ padding: '16px 20px', borderRadius: 12, background: C.surface3, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: C.textSec, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Passage</p>
+            <p style={{ fontSize: 14, color: C.textSec, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: "'Fraunces', Georgia, serif" }}>{q.passage}</p>
           </div>
         )}
 
         {/* Question text */}
-        <p style={{ fontSize: 15, fontWeight: 300, color: C.text, lineHeight: 1.8, marginBottom: 24, whiteSpace: 'pre-wrap' }}>{q.question}</p>
+        <div style={{ fontSize: 18, fontWeight: 400, color: C.text, marginBottom: 32, fontFamily: "'Fraunces', Georgia, serif" }}>
+          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
+            Question {practiceIndex + 1}
+          </div>
+          <QuestionText text={q.question} hasImage={q.has_image} imageUrl={q.image_url} style={{ fontSize: 18, fontWeight: 400, fontFamily: "'Fraunces', Georgia, serif" }} />
+        </div>
 
         {/* Options */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
           {Object.entries(q.options).map(([key, val]) => {
             const state = optionState(key);
             const styles: Record<string, React.CSSProperties> = {
-              idle:     { border: `1px solid ${C.border}`,           background: 'var(--c-bg)',  keyBg: 'var(--c-surface3)',  keyColor: C.textSec,  textColor: C.text } as any,
-              selected: { border: '1px solid rgba(45,212,191,0.40)', background: 'rgba(45,212,191,0.10)', keyBg: '#2dd4bf', keyColor: '#0a1a18', textColor: C.text } as any,
+              idle:     { border: `1px solid ${C.border}`,           background: 'transparent',  keyBg: C.surface3,  keyColor: C.textSec,  textColor: C.text } as any,
+              selected: { border: `1px solid ${C.accent}60`, background: C.accentDim, keyBg: C.accent, keyColor: '#0a1a18', textColor: C.text } as any,
               correct:  { border: '1px solid rgba(52,211,153,0.40)', background: 'rgba(52,211,153,0.10)', keyBg: '#34d399', keyColor: '#0a1a18', textColor: C.text } as any,
               wrong:    { border: '1px solid rgba(248,113,113,0.40)', background: 'rgba(248,113,113,0.10)', keyBg: '#f87171', keyColor: '#0a1a18', textColor: C.text } as any,
-              dim:      { border: `1px solid ${C.border}`,           background: 'transparent',  keyBg: 'var(--c-surface3)',  keyColor: C.textTert, textColor: C.textTert } as any,
+              dim:      { border: `1px solid ${C.borderLight}`,      background: 'transparent',  keyBg: C.surface3,  keyColor: C.textTert, textColor: C.textTert } as any,
             };
             const s = styles[state] as any;
             const isAnswerKey = practiceAnswered && q.answer === key;
@@ -184,7 +229,7 @@ export function PracticeView({
 
         {practiceAnswerLoading && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.blue, fontSize: 13, marginBottom: 16 }}>
-            <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} /> Checking...
+            <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} /> Verifying answer...
           </div>
         )}
 
@@ -209,7 +254,7 @@ export function PracticeView({
         {practiceAnswered && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
             {/* Result banner */}
-            <div style={{ padding: '10px 16px', borderRadius: 8, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 500,
+            <div style={{ padding: '11px 16px', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600,
               background: practiceSelectedOption === q.answer ? 'rgba(52,211,153,0.10)' : 'rgba(248,113,113,0.10)',
               color: practiceSelectedOption === q.answer ? '#34d399' : '#f87171',
               border: `1px solid ${practiceSelectedOption === q.answer ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}` }}>
@@ -219,17 +264,22 @@ export function PracticeView({
             </div>
 
             {/* Explanation */}
-            <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
+            <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
               <div style={{ padding: '10px 16px', background: 'var(--c-surface3)', borderBottom: `1px solid ${C.border}`, fontSize: 11, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em', color: C.textSec, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.accent }} />
                 Explanation
-                {practiceAnswerLoading && <Loader2 style={{ width: 10, height: 10, marginLeft: 4, animation: 'spin 1s linear infinite' }} />}
+                {practiceExplanationLoading && <Loader2 style={{ width: 10, height: 10, marginLeft: 4, animation: 'spin 1s linear infinite' }} />}
               </div>
               <div style={{ padding: '16px 20px', fontSize: 13, lineHeight: 1.75, color: C.textSec }}>
                 {q.explanation && q.explanation.length > 5 ? (
                   <><Brain style={{ width: 13, height: 13, display: 'inline', marginRight: 6, verticalAlign: 'middle', color: C.accent }} />{q.explanation}</>
+                ) : practiceExplanationLoading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: C.textSec }}>
+                    <Loader2 style={{ width: 14, height: 14, color: C.accent, animation: 'spin 1s linear infinite' }} />
+                    <span>Generating a verified explanation in the background...</span>
+                  </div>
                 ) : (
-                  <span style={{ color: C.textTert, fontStyle: 'italic' }}>No explanation available for this question.</span>
+                  <span style={{ color: C.textTert, fontStyle: 'italic' }}>Explanation is not ready yet. You can continue and come back without losing the answer.</span>
                 )}
               </div>
             </div>
@@ -264,11 +314,11 @@ export function PracticeView({
 
       {/* ── Q progress dots ───────────────────────────────────────────────────── */}
       {practiceQueue.length <= 30 && (
-        <div style={{ display: 'flex', gap: 5, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
           {practiceQueue.map((_, i) => (
-            <div key={i} style={{ height: 5, borderRadius: 99, transition: 'all 0.2s',
-              width: i === practiceIndex ? 18 : 5,
-              background: i === practiceIndex ? C.accent : i < practiceIndex ? 'rgba(45,212,191,0.40)' : 'var(--c-surface3)' }} />
+            <div key={i} style={{ height: 6, borderRadius: 99, transition: 'all 0.2s',
+              width: i === practiceIndex ? 20 : 6,
+              background: i === practiceIndex ? C.accent : i < practiceIndex ? C.accentDim : C.surface3 }} />
           ))}
         </div>
       )}
@@ -276,19 +326,27 @@ export function PracticeView({
 
       {/* ── Side panel ── */}
       {practiceQueue.length > 0 && (
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: '20px 16px', position: 'sticky', top: 0 }}>
+        <div className="glass-panel" style={{ borderRadius: 18, padding: '24px 20px', position: 'sticky', top: 0, border: `1px solid ${C.borderHover}` }}>
+          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', color: C.textTert, marginBottom: 14 }}>
+            Session Navigator
+          </div>
 
           {/* Q navigator */}
-          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em', color: C.textTert, marginBottom: 12 }}>Questions</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4, marginBottom: 20 }}>
+          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em', color: C.textTert, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Questions</span>
+            <span style={{ color: C.textTert }}>{practiceIndex + 1}/{practiceQueue.length}</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4, marginBottom: 20, maxHeight: 220, overflowY: 'auto', paddingRight: 2,
+            scrollbarWidth: 'thin', scrollbarColor: `${C.border} transparent` }}>
             {practiceQueue.map((_, i) => {
               const ans = sessionAnswers[i];
-              let bg = 'var(--c-surface3)', color = C.textSec, border = `1px solid ${C.border}`;
-              if (i === practiceIndex) { bg = '#2dd4bf'; color = '#0a1a18'; border = '1px solid #2dd4bf'; }
-              else if (ans?.correct) { bg = 'rgba(52,211,153,0.12)'; color = '#34d399'; border = '1px solid rgba(52,211,153,0.25)'; }
-              else if (ans && !ans.correct) { bg = 'rgba(248,113,113,0.12)'; color = '#f87171'; border = '1px solid rgba(248,113,113,0.25)'; }
+              let bg = C.surface3, color = C.textSec, border = `1px solid ${C.border}`;
+              if (i === practiceIndex) { bg = C.accent; color = '#0a1a18'; border = `1px solid ${C.accent}`; }
+              else if (ans?.correct) { bg = 'rgba(52,211,153,0.12)'; color = '#34D399'; border = '1px solid rgba(52,211,153,0.25)'; }
+              else if (ans && !ans.correct) { bg = 'rgba(248,113,113,0.12)'; color = '#F43F5E'; border = '1px solid rgba(248,113,113,0.25)'; }
               return (
-                <button key={i} onClick={() => jumpToPracticeQuestion(i)}
+                <button key={i} ref={i === practiceIndex ? activeQRef : undefined}
+                  onClick={() => jumpToPracticeQuestion(i)}
                   style={{ aspectRatio: '1', borderRadius: 6, background: bg, border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontFamily: "'DM Mono', monospace", color, cursor: 'pointer', transition: 'all 0.15s' }}>
                   {i + 1}
                 </button>
@@ -313,7 +371,7 @@ export function PracticeView({
               { label: 'Accuracy',  val: answered > 0 ? `${acc}%` : '—', cls: 'info' },
               { label: 'XP earned', val: `+${xpEarned}`,    cls: 'a'   },
             ].map(({ label, val, cls }) => {
-              const clsColor: Record<string, string> = { ok: '#34d399', err: '#f87171', info: '#60a5fa', a: '#2dd4bf' };
+              const clsColor: Record<string, string> = { ok: '#34D399', err: '#F43F5E', info: '#38BDF8', a: C.accent };
               return (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${C.border}`, fontSize: 12 }}>
                   <span style={{ color: C.textSec }}>{label}</span>

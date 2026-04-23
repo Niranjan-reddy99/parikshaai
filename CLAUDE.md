@@ -67,18 +67,25 @@ Firebase Authentication                       ← Google OAuth, JWT verification
 │   └── types/
 ├── server.ts
 ├── backend/
-│   ├── main.py
-│   ├── pipeline.py
+│   ├── main.py                        # FastAPI server — all REST endpoints
+│   ├── pipeline.py                    # PDF → questions pipeline (legacy path)
+│   ├── config.py                      # Supabase + Firebase clients
+│   ├── models.py                      # Pydantic schemas
+│   ├── schema.sql                     # Supabase table definitions
+│   ├── migration.sql                  # DB migrations
 │   ├── extractor/
-│   │   ├── ocr.py          # OCR + preprocessing
-│   │   ├── parser.py       # Question/option detection
-│   │   ├── layout.py       # Column/table/match detection
-│   │   └── validator.py    # Completeness validation
-│   ├── models.py
-│   ├── config.py
-│   ├── cache/              # SHA256-keyed extraction cache
-│   ├── schema.sql
-│   └── migration.sql
+│   │   ├── universal_extractor.py     # PRIMARY: vision-based extractor (all exam types)
+│   │   ├── answer_key_parser.py       # Parse standalone answer key PDFs
+│   │   └── vision_extractor.py        # Fallback vision extractor (called by pipeline.py)
+│   ├── generate_all_explanations.py   # Bulk generate missing explanations
+│   ├── repair_explanations.py         # Re-generate bad explanations for statement questions
+│   ├── parse_and_ingest.py            # Import clean text files → questions
+│   ├── inject_answers.py              # AI-infer missing correct answers
+│   ├── repair_missing.py              # Re-extract missing question numbers from PDF
+│   ├── fix_duplicate_options.py       # Strip options embedded in question_text
+│   ├── delete_pdf_questions.py        # CLI to delete all questions from a source PDF
+│   ├── cache/                         # SHA256-keyed extraction cache
+│   └── archive/                       # Dead/one-off scripts (do not import)
 ├── .env.local
 └── backend/.env
 ```
@@ -106,18 +113,28 @@ python repair_explanations.py [--dry-run]
 
 ```bash
 # .env.local (frontend + Express)
-GEMINI_API_KEY=
-APP_URL=
+GEMINI_API_KEY=         # Gemini API key (used by server.ts for report/chat)
+APP_URL=                # Public URL of the app (e.g. http://localhost:4000)
 
 # backend/.env
-SUPABASE_URL=
-SUPABASE_SERVICE_KEY=
-GEMINI_API_KEY=
-FIREBASE_PROJECT_ID=
+SUPABASE_URL=           # Supabase project URL
+SUPABASE_SERVICE_KEY=   # Supabase service-role key (bypasses RLS)
+FIREBASE_PROJECT_ID=    # Firebase project ID for auth token verification
 ADMIN_API_KEY=          # Required for all /admin/* FastAPI endpoints (X-Admin-Key header)
+
+# Vertex AI — required by ALL Gemini calls in Python backend
+GOOGLE_CLOUD_PROJECT=   # GCP project ID (e.g. my-project-123456)
+GOOGLE_CLOUD_LOCATION=  # GCP region (default: us-central1)
+GOOGLE_APPLICATION_CREDENTIALS=  # Path to GCP service account JSON key file
+
+# Unused in core pipeline (telegram_scraper.py only — optional)
+# TELEGRAM_API_ID=
+# TELEGRAM_API_HASH=
+# TELEGRAM_PHONE=
 ```
 
-Never hardcode these. Use `os.getenv()` in Python, `process.env` in Node.
+Never hardcode these. Always use `os.getenv("KEY")` in Python (never `os.environ["KEY"]`
+which raises `KeyError` if missing). Use `process.env.KEY` in Node/TypeScript.
 
 ## PDF Extraction Pipeline — Zero-Error Standard
 

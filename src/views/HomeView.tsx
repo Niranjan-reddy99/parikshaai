@@ -2,15 +2,16 @@ import React from 'react';
 import { BookOpen, Loader2, ChevronRight, FileText, Play, Brain, BarChart3, Zap, Target } from 'lucide-react';
 import { C } from '../lib/tokens';
 import { COMMISSION_FULL_NAMES } from '../lib/examUtils';
-import { type Question, type CommissionMap } from '../types';
+import { type QuestionMeta, type CommissionMap } from '../types';
 
 interface HomeViewProps {
-  questions: Question[];
+  questions: QuestionMeta[];
   commissionMap: CommissionMap;
   dataLoading: boolean;
   isAdmin: boolean;
+  reviewPapers: { exam_name: string; exam_year: number; question_count: number; reasons: string[] }[];
   openCommission: (c: string) => void;
-  openExam: (examName: string, commission: string, examType: string) => void;
+  openExam: (examName: string, commission: string, examType: string, preferredYear?: number) => void;
   startPractice: (examName: string, year: number, subject?: string, topic?: string) => void;
   startMockExam: (examName: string, year: number) => void;
   setSelectedExamName: (v: string) => void;
@@ -23,9 +24,9 @@ interface HomeViewProps {
 }
 
 const COMMISSION_THEME: Record<string, { accent: string; glow: string; emblemBg: string }> = {
-  UPSC:    { accent: '#F5A623', glow: 'rgba(245,166,35,0.18)',   emblemBg: 'rgba(245,166,35,0.10)' },
-  TSPSC:   { accent: '#7C6EF5', glow: 'rgba(124,110,245,0.18)',  emblemBg: 'rgba(124,110,245,0.10)' },
-  APPSC:   { accent: '#2BBFFF', glow: 'rgba(43,191,255,0.18)',   emblemBg: 'rgba(43,191,255,0.10)'  },
+  UPSC:    { accent: '#B45309', glow: 'rgba(180,83,9,0.18)',   emblemBg: 'rgba(180,83,9,0.08)' },
+  TSPSC:   { accent: '#0F766E', glow: 'rgba(15,118,110,0.18)',  emblemBg: 'rgba(15,118,110,0.08)' },
+  APPSC:   { accent: '#0369A1', glow: 'rgba(3,105,161,0.18)',   emblemBg: 'rgba(3,105,161,0.08)'  },
   UPPSC:   { accent: '#22c55e', glow: 'rgba(34,197,94,0.18)',    emblemBg: 'rgba(34,197,94,0.10)'   },
   SSC:     { accent: '#FF6B6B', glow: 'rgba(255,107,107,0.18)',  emblemBg: 'rgba(255,107,107,0.10)' },
   IBPS:    { accent: '#FF8C42', glow: 'rgba(255,140,66,0.18)',   emblemBg: 'rgba(255,140,66,0.10)'  },
@@ -74,7 +75,7 @@ function SubjectBar({ subjects }: { subjects: { subject: string; count: number }
 }
 
 export function HomeView({
-  questions, commissionMap, dataLoading, isAdmin,
+  questions, commissionMap, dataLoading, isAdmin, reviewPapers,
   openCommission, openExam, startPractice, startMockExam,
   setSelectedExamName, setSelectedExamType, setSelectedCommission, setSelectedYear,
   setRenameModal, setRenameValue, setDeleteExamTarget,
@@ -89,24 +90,80 @@ export function HomeView({
   });
   const totalExamPapers = Object.values(commissionMap).flatMap(e => Object.keys(e)).length;
   const totalYears = [...new Set(Object.values(commissionMap).flatMap(e => Object.values(e).flatMap(i => i.years)))].length;
+  const quickStartExam = React.useMemo(() => {
+    for (const exams of Object.values(commissionMap)) {
+      for (const info of Object.values(exams)) {
+        if (info.years?.[0]) return { examName: info.fullName, year: info.years[0] };
+      }
+    }
+    return null;
+  }, [commissionMap]);
+  const reviewPanel = isAdmin && reviewPapers.length > 0 ? (
+    <div className="glass-panel" style={{ marginBottom: 20, padding: '18px 20px', borderRadius: 20, border: `1px solid ${C.warn}35` }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 700, color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'DM Mono', monospace" }}>
+            Admin Review Papers
+          </p>
+          <p style={{ fontSize: 13, color: C.textSec, marginTop: 4 }}>
+            Blocked papers are shown here for cleanup only. They are hidden from aspirants.
+          </p>
+        </div>
+        <div style={{ padding: '6px 10px', borderRadius: 999, background: C.warnDim, color: C.warn, fontSize: 11, fontWeight: 700 }}>
+          {reviewPapers.length} blocked
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
+        {reviewPapers.map((paper) => (
+          <button
+            key={`${paper.exam_name}::${paper.exam_year}`}
+            onClick={() => {
+              const commission = paper.exam_name.trim().split(/\s+/)[0].toUpperCase();
+              const examType = paper.exam_name.replace(/^\S+\s*/, '').trim() || 'General';
+              setSelectedCommission(commission);
+              setSelectedExamName(paper.exam_name);
+              setSelectedExamType(examType);
+              setSelectedYear(paper.exam_year);
+              openExam(paper.exam_name, commission, examType, paper.exam_year);
+            }}
+            style={{ textAlign: 'left', padding: '12px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, cursor: 'pointer' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{paper.exam_name}</div>
+                <div style={{ fontSize: 11, color: C.textTert, marginTop: 3 }}>
+                  {paper.exam_year} · {paper.question_count} questions · {paper.reasons.join(', ')}
+                </div>
+              </div>
+              <ChevronRight style={{ width: 14, height: 14, color: C.textTert, flexShrink: 0 }} />
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div style={{ maxWidth: 1080, margin: '0 auto' }}>
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       {!dataLoading && commissions.length > 0 && (
-        <div style={{ marginBottom: 40, padding: '40px 36px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 24, position: 'relative', overflow: 'hidden' }}>
+        <div className="surface-card" style={{ marginBottom: 36, padding: '34px 36px 28px', borderRadius: 28, position: 'relative', overflow: 'hidden', border: `1px solid ${C.borderHover}` }}>
           {/* Background glow */}
-          <div style={{ position: 'absolute', top: -60, right: -60, width: 300, height: 300, background: 'radial-gradient(circle, rgba(45,212,191,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg, rgba(255,255,255,0.28), transparent)`, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -100, right: -100, width: 340, height: 340, background: `radial-gradient(circle, rgba(15,118,110,0.08) 0%, transparent 62%)`, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: 28, top: 16, fontSize: 10, color: C.textTert, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: "'DM Mono', monospace" }}>
+            Serious PYQ Infrastructure
+          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 28 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* Commission badges */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16, marginTop: 10 }}>
                 {['UPSC', 'APPSC', 'TSPSC'].filter(c => commissions.includes(c)).map(c => {
                   const theme = getTheme(c);
                   return (
-                    <span key={c} style={{ padding: '4px 12px', background: theme.accent + '18', border: `1px solid ${theme.accent}40`, borderRadius: 99, fontSize: 11, fontWeight: 700, color: theme.accent, fontFamily: "'DM Mono', monospace" }}>
+                    <span key={c} style={{ padding: '6px 12px', background: theme.accent + '14', border: `1px solid ${theme.accent}24`, borderRadius: 99, fontSize: 11, fontWeight: 700, color: theme.accent, fontFamily: "'DM Mono', monospace" }}>
                       {c}
                     </span>
                   );
@@ -118,45 +175,61 @@ export function HomeView({
                 )}
               </div>
 
-              <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 34, fontWeight: 400, color: C.text, lineHeight: 1.2, marginBottom: 12, letterSpacing: '-0.5px' }}>
-                Master PYQs with<br />
-                <em style={{ fontStyle: 'italic', color: C.headingEm }}>data-backed precision</em>
+              <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 34, fontWeight: 500, color: C.headingEm, lineHeight: 1.08, marginBottom: 14, letterSpacing: '-0.8px', maxWidth: 560 }}>
+                Build preparation on a
+                <span style={{ color: C.accent, display: 'block' }}>clean, searchable,</span>
+                trustworthy PYQ system.
               </h1>
-              <p style={{ fontSize: 14, color: C.textSec, lineHeight: 1.7, marginBottom: 24, maxWidth: 480 }}>
-                Practice previous year questions from UPSC, APPSC, and TSPSC with instant AI explanations, subject-wise analysis, and timed mock tests.
+              <p style={{ fontSize: 15, color: C.textSec, lineHeight: 1.65, marginBottom: 22, maxWidth: 500 }}>
+                Practice curated PYQs from UPSC, APPSC, and TSPSC with topic structure, answer-aligned explanations, and analytics that help aspirants revise without noise.
               </p>
 
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 22 }}>
+                <button
+                  onClick={() => openCommission(commissions[0])}
+                  style={{ padding: '11px 18px', borderRadius: 12, border: 'none', background: C.accent, color: '#fff', fontWeight: 700, cursor: 'pointer', boxShadow: 'var(--c-shadow-glow)' }}
+                >
+                  Explore Question Bank
+                </button>
+                <button
+                  onClick={() => quickStartExam && startPractice(quickStartExam.examName, quickStartExam.year)}
+                  disabled={!quickStartExam}
+                  style={{ padding: '11px 18px', borderRadius: 12, border: `1px solid ${C.border}`, background: C.surface2, color: C.headingEm, fontWeight: 700, cursor: quickStartExam ? 'pointer' : 'not-allowed', opacity: quickStartExam ? 1 : 0.6 }}
+                >
+                  Start Quick Practice
+                </button>
+              </div>
+
               {/* Stats inline */}
-              <div style={{ display: 'flex', gap: 24 }}>
+              <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap', borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
                 {[
                   { value: questions.length.toLocaleString(), label: 'Questions' },
                   { value: totalExamPapers.toString(), label: 'Exam Papers' },
                   { value: `${totalYears}+`, label: 'Years Covered' },
                   { value: commissions.length.toString(), label: 'Commissions' },
                 ].map(({ value, label }) => (
-                  <div key={label}>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: C.text, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>{value}</div>
-                    <div style={{ fontSize: 10, color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 4 }}>{label}</div>
+                  <div key={label} style={{ minWidth: 120, paddingRight: 18, marginRight: 18, borderRight: label !== 'Commissions' ? `1px solid ${C.border}` : 'none' }}>
+                    <div style={{ fontSize: 24, fontWeight: 500, color: C.headingEm, fontFamily: "'Fraunces', Georgia, serif", lineHeight: 1, letterSpacing: '-0.4px' }}>{value}</div>
+                    <div style={{ fontSize: 9, color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6, fontFamily: "'DM Mono', monospace" }}>{label}</div>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Value props column */}
-            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, minWidth: 240 }}>
+            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, minWidth: 260 }}>
               {[
-                { icon: <Brain style={{ width: 14, height: 14 }} />, title: 'AI Explanations', desc: 'Generated on first click, cached forever', color: C.accent },
-                { icon: <BarChart3 style={{ width: 14, height: 14 }} />, title: 'Subject Analytics', desc: 'Track accuracy across every subject', color: C.blue },
-                { icon: <Target style={{ width: 14, height: 14 }} />, title: 'Timed Mock Tests', desc: 'Full paper simulation with timer', color: '#f87171' },
-                { icon: <Zap style={{ width: 14, height: 14 }} />, title: 'Pattern Insights', desc: 'AI report on question patterns', color: C.warn },
+                { icon: <Brain style={{ width: 14, height: 14 }} />, title: 'Answer-Aligned Explanations', desc: 'Generated only after answer validation', color: C.accent },
+                { icon: <BarChart3 style={{ width: 14, height: 14 }} />, title: 'Topic-Level Revision', desc: 'Move from subject to topic to family cleanly', color: C.blue },
+                { icon: <Target style={{ width: 14, height: 14 }} />, title: 'Mock + Practice Modes', desc: 'Timed simulations and focused drills', color: '#f87171' },
               ].map(({ icon, title, desc, color }) => (
-                <div key={title} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: 8, background: color + '18', color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div key={title} className="surface-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 16 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 11, background: color + '12', color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     {icon}
                   </div>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{title}</div>
-                    <div style={{ fontSize: 11, color: C.textTert }}>{desc}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{title}</div>
+                    <div style={{ fontSize: 11, color: C.textSec, marginTop: 2, lineHeight: 1.45 }}>{desc}</div>
                   </div>
                 </div>
               ))}
@@ -172,24 +245,29 @@ export function HomeView({
           <span style={{ fontSize: 14 }}>Loading question bank...</span>
         </div>
       ) : commissions.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '80px 20px', background: C.surface, borderRadius: 20, border: `1px dashed ${C.border}` }}>
-          <BookOpen style={{ width: 40, height: 40, color: C.textTert, margin: '0 auto 16px' }} />
-          <h3 style={{ fontWeight: 700, color: C.textSec, marginBottom: 8, fontSize: 16 }}>No question bank yet</h3>
-          <p style={{ fontSize: 13, color: C.textTert }}>Upload exam PDFs via Admin → Upload Paper to populate the question bank.</p>
-        </div>
+        <>
+          {reviewPanel}
+          <div className="glass-panel" style={{ textAlign: 'center', padding: '80px 20px', borderRadius: 24 }}>
+            <BookOpen style={{ width: 48, height: 48, color: C.textTert, margin: '0 auto 20px' }} />
+            <h3 style={{ fontFamily: "'Fraunces', Georgia, serif", color: C.textSec, marginBottom: 12, fontSize: 22, fontWeight: 400 }}>No question bank yet</h3>
+            <p style={{ fontSize: 14, color: C.textTert }}>Upload exam PDFs via Admin → Upload Paper to populate the question bank.</p>
+          </div>
+        </>
       ) : (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          {reviewPanel}
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <p style={{ fontSize: 10, fontWeight: 700, color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'DM Mono', monospace" }}>
                 Select a Commission
               </p>
-              <p style={{ fontSize: 12, color: C.textTert, marginTop: 2 }}>Click a card to explore papers, or use Quick Practice / Mock Test buttons</p>
+              <p style={{ fontSize: 14, color: C.textSec, marginTop: 4 }}>Click a card to explore papers, or use Quick Practice / Mock Test buttons</p>
             </div>
           </div>
 
           {/* Commission cards — clean summary only, drill down via CommissionView */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginBottom: 40 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 18, marginBottom: 40 }}>
             {commissions.map(commission => {
               const exams = commissionMap[commission];
               const examEntries = Object.entries(exams).sort((a, b) => b[1].count - a[1].count);
@@ -208,31 +286,20 @@ export function HomeView({
               return (
                 <div key={commission}
                   onClick={() => openCommission(commission)}
+                  className="glass-panel hover-lift"
                   style={{
-                    background: C.surface,
-                    border: `1px solid ${isHighlighted ? theme.accent + '28' : C.border}`,
-                    borderRadius: 18, overflow: 'hidden', cursor: 'pointer',
-                    transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLDivElement).style.borderColor = theme.accent + '70';
-                    (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)';
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = `0 12px 36px ${theme.glow}`;
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLDivElement).style.borderColor = isHighlighted ? theme.accent + '28' : C.border;
-                    (e.currentTarget as HTMLDivElement).style.transform = 'none';
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+                    border: `1px solid ${isHighlighted ? theme.accent + '30' : C.border}`,
+                    borderRadius: 20, overflow: 'hidden', cursor: 'pointer',
                   }}>
                   <div style={{ height: 3, background: `linear-gradient(90deg, ${theme.accent}, ${theme.accent}22)` }} />
                   <div style={{ padding: '18px 18px 16px' }}>
 
                     {/* Header */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
                       <CommissionEmblem commission={commission} theme={theme} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                          <h2 style={{ fontSize: 18, fontWeight: 900, color: C.text, letterSpacing: '-0.02em', lineHeight: 1 }}>{commission}</h2>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <h2 style={{ fontSize: 20, fontFamily: "'Fraunces', Georgia, serif", color: C.text, letterSpacing: '-0.3px', lineHeight: 1 }}>{commission}</h2>
                           {allYears[0] && (
                             <span style={{ fontSize: 9, fontWeight: 700, color: theme.accent, background: theme.accent + '12', border: `1px solid ${theme.accent}30`, borderRadius: 5, padding: '2px 6px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
                               up to {allYears[0]}

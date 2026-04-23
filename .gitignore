@@ -1,8 +1,27 @@
 node_modules/
+frontend/node_modules/
 build/
 dist/
+cache/
+tmp/
+backend/cache/
+backend/extracted_text/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Local debug / preview artifacts
+page_19_preview.png
+debug_mismatch.py
+verify_vertex.py
+list_vertex_models.py
+
+# GCP service account keys — never commit
+gcp-key.json
+*-key.json
+*.service-account.json

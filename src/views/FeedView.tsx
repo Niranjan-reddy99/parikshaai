@@ -1,121 +1,320 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { C } from '../lib/tokens';
-import { type Question, type View } from '../types/index';
+import { type QuestionMeta, type View } from '../types/index';
+import {
+  cleanBucketLabel,
+  normalizeLooseLabel,
+  canonicalSubjectFamily,
+  canonicalConceptFamily,
+} from '../lib/topicTaxonomy';
 
 interface FeedViewProps {
-  questions: Question[];
+  questions: QuestionMeta[];
   setView: (v: View) => void;
   startPractice?: (examName: string, year: number, subject?: string, topic?: string) => void;
+  startTopicPractice?: (subject: string, topic: string) => void;
 }
 
-export function FeedView({ questions, setView, startPractice }: FeedViewProps) {
-  const feedItems = useMemo(() => {
-    // Count topic frequency across all years and exams
-    const topicMap: Record<string, {
-      subject: string;
-      count: number;
-      exams: Set<string>;
-      years: Set<number>;
-      latestExam: string;
-      latestYear: number;
-    }> = {};
+type SubtopicNode = {
+  subtopic: string;
+  count: number;
+  years: Set<number>;
+  latestExam: string;
+  latestYear: number;
+};
+
+type TopicNode = {
+  topic: string;
+  count: number;
+  years: Set<number>;
+  latestExam: string;
+  latestYear: number;
+  subtopics: Record<string, SubtopicNode>;
+};
+
+type SubjectNode = {
+  subject: string;
+  count: number;
+  exams: Set<string>;
+  years: Set<number>;
+  latestExam: string;
+  latestYear: number;
+  topics: Record<string, TopicNode>;
+};
+
+export function FeedView({ questions, setView, startPractice, startTopicPractice }: FeedViewProps) {
+  const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
+  const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>({});
+
+  const subjectFeed = useMemo(() => {
+    const subjectMap: Record<string, SubjectNode> = {};
 
     for (const q of questions) {
-      const key = `${q.subject}::${q.topic}`;
-      if (!topicMap[key]) {
-        topicMap[key] = { subject: q.subject, count: 0, exams: new Set(), years: new Set(), latestExam: q.exam, latestYear: q.year };
+      const rawSubject = cleanBucketLabel(q.subject, 'General Knowledge');
+      const topic = normalizeLooseLabel(cleanBucketLabel(q.topic, 'General'));
+      const rawSubtopic = cleanBucketLabel(q.subtopic, topic);
+      const family = canonicalConceptFamily(rawSubject, topic, rawSubtopic);
+      const subject = canonicalSubjectFamily(rawSubject, topic, rawSubtopic);
+      const subtopic = normalizeLooseLabel(rawSubtopic);
+
+      if (!subjectMap[subject]) {
+        subjectMap[subject] = {
+          subject,
+          count: 0,
+          exams: new Set(),
+          years: new Set(),
+          latestExam: q.exam,
+          latestYear: q.year,
+          topics: {},
+        };
       }
-      const entry = topicMap[key];
-      entry.count++;
-      entry.exams.add(q.exam.split(' ')[0]); // commission short name
-      entry.years.add(q.year);
-      if (q.year > entry.latestYear) { entry.latestYear = q.year; entry.latestExam = q.exam; }
+
+      const subjectNode = subjectMap[subject];
+      subjectNode.count++;
+      subjectNode.exams.add(q.exam.split(' ')[0]);
+      subjectNode.years.add(q.year);
+      if (q.year > subjectNode.latestYear) {
+        subjectNode.latestYear = q.year;
+        subjectNode.latestExam = q.exam;
+      }
+
+      if (!subjectNode.topics[family]) {
+        subjectNode.topics[family] = {
+          topic: family,
+          count: 0,
+          years: new Set(),
+          latestExam: q.exam,
+          latestYear: q.year,
+          subtopics: {},
+        };
+      }
+
+      const topicNode = subjectNode.topics[family];
+      topicNode.count++;
+      topicNode.years.add(q.year);
+      if (q.year > topicNode.latestYear) {
+        topicNode.latestYear = q.year;
+        topicNode.latestExam = q.exam;
+      }
+
+      if (!topicNode.subtopics[subtopic]) {
+        topicNode.subtopics[subtopic] = {
+          subtopic,
+          count: 0,
+          years: new Set(),
+          latestExam: q.exam,
+          latestYear: q.year,
+        };
+      }
+
+      const subtopicNode = topicNode.subtopics[subtopic];
+      subtopicNode.count++;
+      subtopicNode.years.add(q.year);
+      if (q.year > subtopicNode.latestYear) {
+        subtopicNode.latestYear = q.year;
+        subtopicNode.latestExam = q.exam;
+      }
     }
 
-    // Compute raw scores first, then normalize to 40–99 range
-    const rawItems = Object.entries(topicMap).map(([key, v]) => ({
-      topic: key.split('::')[1],
-      subject: v.subject,
-      appearances: v.count,
-      exams: [...v.exams].slice(0, 3),
-      examCount: v.exams.size,
-      yearCount: v.years.size,
-      latestExam: v.latestExam,
-      latestYear: v.latestYear,
-      raw: v.count * 4 + v.years.size * 6 + v.exams.size * 5,
-      trend: v.years.size >= 3 ? 'stable' : v.count >= 3 ? 'rising' : ('rising' as string),
-    }));
-
-    const maxRaw = Math.max(...rawItems.map(x => x.raw), 1);
-    const minRaw = Math.min(...rawItems.map(x => x.raw), 0);
-    const range = maxRaw - minRaw || 1;
-
-    return rawItems
-      .map(item => ({
-        ...item,
-        predictionScore: Math.round(40 + ((item.raw - minRaw) / range) * 59),
-      }))
-      .sort((a, b) => b.predictionScore - a.predictionScore)
-      .slice(0, 10);
+    return Object.values(subjectMap)
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        if (b.years.size !== a.years.size) return b.years.size - a.years.size;
+        return a.subject.localeCompare(b.subject);
+      })
+      .map(subject => ({
+        ...subject,
+        topicList: Object.values(subject.topics)
+          .sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            if (b.years.size !== a.years.size) return b.years.size - a.years.size;
+            return a.topic.localeCompare(b.topic);
+          })
+          .map(topic => ({
+            ...topic,
+            subtopicList: Object.values(topic.subtopics)
+              .sort((a, b) => {
+                if (b.count !== a.count) return b.count - a.count;
+                if (b.years.size !== a.years.size) return b.years.size - a.years.size;
+                return a.subtopic.localeCompare(b.subtopic);
+              }),
+          })),
+      }));
   }, [questions]);
 
-  const trendIcon: Record<string, string> = { rising: '↑', stable: '→', declining: '↓' };
-  const trendColor: Record<string, string> = { rising: C.accent, stable: C.textSec, declining: C.danger };
+  const totalQuestions = useMemo(
+    () => subjectFeed.reduce((sum, subject) => sum + subject.count, 0),
+    [subjectFeed]
+  );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: '16px 20px' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 2 }}>PYQ Intelligence Feed</div>
-        <div style={{ fontSize: 12, color: C.textSec }}>
-          Topics ranked by frequency, cross-exam appearances, and year spread — from your question bank
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 980, margin: '0 auto' }}>
+      <div className="glass-panel" style={{ borderRadius: 16, padding: '24px 28px', borderLeft: `4px solid ${C.accent}` }}>
+        <div style={{ fontSize: 18, fontFamily: "'Fraunces', Georgia, serif", color: C.text, marginBottom: 4, letterSpacing: '-0.3px' }}>
+          PYQ Intelligence Feed
+        </div>
+        <div style={{ fontSize: 13, color: C.textSec }}>
+          Subject-first view of your question bank with topic and subtopic drilldown across the full database
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+          <span style={{ fontSize: 11, color: C.textSec, background: C.bg, border: `1px solid ${C.border}`, padding: '4px 10px', borderRadius: 99 }}>
+            {subjectFeed.length} subjects
+          </span>
+          <span style={{ fontSize: 11, color: C.textSec, background: C.bg, border: `1px solid ${C.border}`, padding: '4px 10px', borderRadius: 99 }}>
+            {totalQuestions} tagged questions
+          </span>
         </div>
       </div>
 
-      {feedItems.length === 0 ? (
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 40, textAlign: 'center', color: C.textSec }}>
+      {subjectFeed.length === 0 ? (
+        <div className="glass-panel" style={{ borderRadius: 16, padding: 60, textAlign: 'center', color: C.textSec }}>
           No question data yet. Add exams to see the intelligence feed.
         </div>
-      ) : feedItems.map((item, i) => (
-        <div key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 14 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{item.topic}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: trendColor[item.trend] }}>{trendIcon[item.trend]}</span>
+      ) : (
+        <div className="glass-panel" style={{ borderRadius: 20, overflow: 'hidden' }}>
+          {subjectFeed.map((subject) => {
+            const subjectOpen = !!expandedSubjects[subject.subject];
+            return (
+              <div key={subject.subject} style={{ borderBottom: `1px solid ${C.border}` }}>
+                <button
+                  onClick={() => setExpandedSubjects(prev => ({ ...prev, [subject.subject]: !prev[subject.subject] }))}
+                  style={{
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '18px 22px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                  }}
+                >
+                  {subjectOpen ? <ChevronDown size={16} color={C.textTert} /> : <ChevronRight size={16} color={C.textTert} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{subject.subject}</span>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: C.accent, background: C.accentDim, border: `1px solid ${C.accent}30`, padding: '3px 10px', borderRadius: 99 }}>
+                          {subject.count}Q
+                        </span>
+                        <span style={{ fontSize: 11, color: C.textSec, background: C.bg, border: `1px solid ${C.border}`, padding: '3px 10px', borderRadius: 99 }}>
+                          {subject.years.size} year{subject.years.size !== 1 ? 's' : ''}
+                        </span>
+                        <span style={{ fontSize: 11, color: C.textSec, background: C.bg, border: `1px solid ${C.border}`, padding: '3px 10px', borderRadius: 99 }}>
+                          {Object.keys(subject.topics).length} topics
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, color: C.textSec }}>
+                      Last seen in {subject.latestYear} · {Array.from(subject.exams).slice(0, 4).join(' · ')}
+                    </div>
+                  </div>
+                </button>
+
+                {subjectOpen && (
+                  <div style={{ padding: '0 22px 18px 44px', display: 'grid', gap: 10 }}>
+                    {subject.topicList.map((topic) => {
+                      const topicKey = `${subject.subject}::${topic.topic}`;
+                      const topicOpen = !!expandedTopics[topicKey];
+                      return (
+                        <div key={topicKey} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14 }}>
+                          <button
+                            onClick={() => setExpandedTopics(prev => ({ ...prev, [topicKey]: !prev[topicKey] }))}
+                            style={{
+                              width: '100%',
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '14px 16px',
+                              textAlign: 'left',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 12,
+                            }}
+                          >
+                            {topicOpen ? <ChevronDown size={15} color={C.textTert} /> : <ChevronRight size={15} color={C.textTert} />}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 3 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{topic.topic}</span>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: C.blue, background: C.blueDim, border: `1px solid ${C.blue}30`, padding: '3px 8px', borderRadius: 99 }}>
+                                    {topic.count}Q
+                                  </span>
+                                  <span style={{ fontSize: 10, color: C.textSec, background: C.bg, border: `1px solid ${C.border}`, padding: '3px 8px', borderRadius: 99 }}>
+                                    {topic.subtopicList.length} subtopics
+                                  </span>
+                                </div>
+                              </div>
+                              <div style={{ fontSize: 10, color: C.textSec }}>
+                                Last seen in {topic.latestYear}
+                              </div>
+                            </div>
+                            {(startTopicPractice || startPractice) && (
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (startTopicPractice) {
+                                    startTopicPractice(subject.subject, topic.topic);
+                                    return;
+                                  }
+                                  startPractice?.(topic.latestExam, topic.latestYear, subject.subject, topic.topic);
+                                }}
+                                style={{
+                                  padding: '7px 10px',
+                                  background: C.accentDim,
+                                  border: `1px solid ${C.accent}40`,
+                                  borderRadius: 10,
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  color: C.accentText,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                Practice
+                              </span>
+                            )}
+                          </button>
+
+                          {topicOpen && (
+                            <div style={{ padding: '0 16px 14px 43px', display: 'grid', gap: 8 }}>
+                              {topic.subtopicList.map((subtopic) => (
+                                <div
+                                  key={`${topicKey}::${subtopic.subtopic}`}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: 12,
+                                    padding: '10px 12px',
+                                    background: C.bg,
+                                    border: `1px solid ${C.border}`,
+                                    borderRadius: 10,
+                                  }}
+                                >
+                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 2 }}>
+                                      {subtopic.subtopic}
+                                    </div>
+                                    <div style={{ fontSize: 10, color: C.textSec }}>
+                                      {subtopic.count}Q · {subtopic.years.size} year{subtopic.years.size !== 1 ? 's' : ''} · last {subtopic.latestYear}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <div style={{ fontSize: 11, color: C.textSec }}>{item.subject}</div>
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: C.accent, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>{item.predictionScore}</div>
-              <div style={{ fontSize: 10, color: C.textSec }}>prediction score</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-            {item.exams.map(e => (
-              <span key={e} style={{ fontSize: 10, fontWeight: 600, color: C.blue, background: C.blueDim, border: `1px solid ${C.blue}30`, padding: '3px 10px', borderRadius: 99 }}>{e}</span>
-            ))}
-            <span style={{ fontSize: 10, color: C.textSec, background: C.bg, border: `1px solid ${C.border}`, padding: '3px 10px', borderRadius: 99 }}>
-              {item.appearances}× across {item.yearCount} year{item.yearCount !== 1 ? 's' : ''}
-            </span>
-            <span style={{ fontSize: 10, color: C.textTert, background: C.bg, border: `1px solid ${C.border}`, padding: '3px 10px', borderRadius: 99 }}>
-              Last: {item.latestYear}
-            </span>
-          </div>
-
-          <div style={{ height: 4, background: C.border, borderRadius: 99, marginBottom: 12 }}>
-            <div style={{ height: '100%', width: `${item.predictionScore}%`, background: `linear-gradient(90deg, ${C.accent}, #00FFAA)`, borderRadius: 99 }} />
-          </div>
-
-          {startPractice && (
-            <button
-              onClick={() => startPractice(item.latestExam, item.latestYear, item.subject, item.topic)}
-              style={{ padding: '9px 18px', background: C.accentDim, border: `1px solid ${C.accent}30`, borderRadius: 10, fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer' }}>
-              Practice this topic →
-            </button>
-          )}
+            );
+          })}
         </div>
-      ))}
+      )}
     </div>
   );
 }

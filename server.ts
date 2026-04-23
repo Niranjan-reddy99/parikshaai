@@ -109,8 +109,6 @@ async function startServer() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error("CRITICAL: GEMINI_API_KEY is not set in the environment.");
-  } else {
-    console.log("GEMINI_API_KEY is present (length: " + apiKey.length + ")");
   }
   const ai = new GoogleGenAI({ apiKey: apiKey || "missing-key" });
 

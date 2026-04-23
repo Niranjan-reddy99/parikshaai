@@ -6,6 +6,7 @@ import {
 import { motion } from 'motion/react';
 import { C } from '../lib/tokens';
 import { formatTime } from '../lib/utils';
+import { API_BASE } from '../lib/api';
 import { type ExamSession, type View } from '../types';
 
 interface ResultsViewProps {
@@ -72,7 +73,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
     if (!qId || loadingExp.has(qId)) return;
     setLoadingExp(prev => new Set(prev).add(qId));
     try {
-      const res = await fetch(`http://localhost:8000/explanation/${qId}`);
+      const res = await fetch(`${API_BASE}/explanation/${qId}`);
       if (res.ok) {
         const d = await res.json();
         setExplanations(prev => ({ ...prev, [qId]: d.explanation || 'No explanation available.' }));

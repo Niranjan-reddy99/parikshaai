@@ -1,0 +1,6 @@
+[providers]
+python = "3.13"
+
+[phases.setup]
+aptPkgs = ["tesseract-ocr"]
+
