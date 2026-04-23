@@ -1,0 +1,16 @@
+.git
+.gitignore
+node_modules
+dist
+build
+.DS_Store
+frontend/node_modules
+backend/__pycache__
+backend/cache
+backend/extracted_text
+backend/venv
+backend/*.session
+*.log
+.env
+.env.*
+!.env.example
