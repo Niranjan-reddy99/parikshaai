@@ -1,137 +1,80 @@
 import React from 'react';
-import { Clock, ArrowLeft, ChevronRight } from 'lucide-react';
-import { C, diffColor, diffBg } from '../lib/tokens';
-import { formatTime } from '../lib/utils';
 import { type ExamSession } from '../types';
+import { MockQuestionPalette } from './mock/MockQuestionPalette';
+import { MockQuestionPanel } from './mock/MockQuestionPanel';
+import { MockTopBar } from './mock/MockTopBar';
+import { getMockAnsweredCount, getMockTimerState, getMockTotalCount } from './mock/mockUtils';
 
 interface MockViewProps {
   examSession: ExamSession;
   setExamSession: (s: ExamSession) => void;
   examTimer: number;
   finishExam: () => void;
+  loadMoreQuestions: () => void;
+  loadingMoreQuestions: boolean;
 }
 
-export function MockView({ examSession, setExamSession, examTimer, finishExam }: MockViewProps) {
-  const q = examSession.questions[examSession.currentIndex];
-  const answered = Object.keys(examSession.answers).length;
-  const total = examSession.questions.length;
-  const timerCritical = examTimer < 300;
-  const timerWarn = examTimer < 600;
+export function MockView({ examSession, setExamSession, examTimer, finishExam, loadMoreQuestions, loadingMoreQuestions }: MockViewProps) {
+  // =========================
+  // SECTION: Derived Data
+  // =========================
+  const currentQuestion = examSession.questions[examSession.currentIndex];
+  const answered = getMockAnsweredCount(examSession.answers);
+  const loaded = examSession.questions.length;
+  const total = getMockTotalCount(examSession.totalCount, loaded);
+  const { timerCritical, timerColor } = getMockTimerState(examTimer);
 
+  // =========================
+  // SECTION: Event Handlers
+  // =========================
   const selectAnswer = (key: string) =>
     setExamSession({ ...examSession, answers: { ...examSession.answers, [examSession.currentIndex]: key } });
 
   const goTo = (i: number) =>
     setExamSession({ ...examSession, currentIndex: i });
 
-  const timerColor = timerCritical ? C.danger : timerWarn ? C.warn : C.text;
+  const handleSubmitExam = () => {
+    if (window.confirm('Submit exam? This cannot be undone.')) finishExam();
+  };
 
+  // =========================
+  // SECTION: Render Mock UI
+  // =========================
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-      {/* ── Top Bar ─────────────────────────────────────────────────────────── */}
-      <div className="glass-panel" style={{ borderRadius: 16, padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          {/* Timer */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Clock style={{ width: 18, height: 18, color: timerColor }} />
-            <span style={{ fontSize: 22, fontWeight: 800, fontFamily: "'DM Mono', monospace", color: timerColor, animation: timerCritical ? 'pulse 1s infinite' : 'none' }}>
-              {formatTime(examTimer)}
-            </span>
-          </div>
-          <div style={{ width: 1, height: 24, background: C.border }} />
-          <span style={{ fontSize: 13, color: C.textSec }}>
-            <span style={{ fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>{answered}</span>/{total} answered
-          </span>
-          <div style={{ width: 1, height: 24, background: C.border }} />
-          <span style={{ fontSize: 13, color: C.textSec }}>
-            Q <span style={{ fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>{examSession.currentIndex + 1}</span>/{total}
-          </span>
-        </div>
-        <button onClick={() => { if (window.confirm('Submit exam? This cannot be undone.')) finishExam(); }}
-          style={{ padding: '9px 20px', background: C.dangerDim, border: `1px solid ${C.danger}40`, borderRadius: 10, fontSize: 13, fontWeight: 700, color: C.danger, cursor: 'pointer' }}>
-          Submit Exam
-        </button>
-      </div>
+      <MockTopBar
+        examTimer={examTimer}
+        timerColor={timerColor}
+        timerCritical={timerCritical}
+        answered={answered}
+        total={total}
+        currentIndex={examSession.currentIndex}
+        hasMore={!!examSession.hasMore}
+        onSubmit={handleSubmitExam}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 20, alignItems: 'start' }}>
-        {/* ── Question Panel ───────────────────────────────────────────────── */}
-        <div className="glass-panel" style={{ borderRadius: 20, padding: '36px 36px' }}>
-          {/* Tags */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
-            <span style={{ padding: '4px 12px', background: C.blueDim, color: C.blue, fontSize: 10, fontWeight: 700, borderRadius: 99, textTransform: 'uppercase' }}>{q.subject}</span>
-            <span style={{ padding: '4px 12px', background: diffBg[q.difficulty] || C.bg, color: diffColor[q.difficulty] || C.textSec, fontSize: 10, fontWeight: 700, borderRadius: 99 }}>{q.difficulty}</span>
-            {q.subtopic && <span style={{ padding: '4px 12px', background: C.bg, color: C.textTert, fontSize: 10, borderRadius: 99, border: `1px solid ${C.border}` }}>{q.subtopic}</span>}
-          </div>
+        <MockQuestionPanel
+          question={currentQuestion}
+          currentIndex={examSession.currentIndex}
+          loadedCount={loaded}
+          hasMore={!!examSession.hasMore}
+          loadingMoreQuestions={loadingMoreQuestions}
+          selectedAnswer={examSession.answers[examSession.currentIndex]}
+          onSelectAnswer={selectAnswer}
+          onPrevious={() => goTo(examSession.currentIndex - 1)}
+          onNext={() => goTo(examSession.currentIndex + 1)}
+          onLoadMoreQuestions={loadMoreQuestions}
+        />
 
-          {/* Passage */}
-          {q.passage && (
-            <div style={{ padding: '16px 20px', borderRadius: 12, background: C.surface3, border: `1px solid ${C.border}`, marginBottom: 20 }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: C.textSec, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Passage</p>
-              <p style={{ fontSize: 14, color: C.textSec, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: "'Fraunces', Georgia, serif" }}>{q.passage}</p>
-            </div>
-          )}
-
-          {/* Question */}
-          <p style={{ fontSize: 18, fontWeight: 400, color: C.text, lineHeight: 1.7, marginBottom: 32, whiteSpace: 'pre-wrap', fontFamily: "'Fraunces', Georgia, serif" }}>{q.question}</p>
-
-          {/* Options */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32 }}>
-            {Object.entries(q.options).map(([key, val]) => {
-              const selected = examSession.answers[examSession.currentIndex] === key;
-              return (
-                <button key={key} onClick={() => selectAnswer(key)}
-                  style={{ width: '100%', padding: '16px 20px', borderRadius: 14, border: `1.5px solid ${selected ? C.blue : C.border}`, background: selected ? C.blueDim : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', transition: 'all 0.15s' }}
-                  onMouseEnter={e => { if (!selected) e.currentTarget.style.borderColor = C.blue + '60'; }}
-                  onMouseLeave={e => { if (!selected) e.currentTarget.style.borderColor = C.border; }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: selected ? C.blue + '30' : C.surface3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 12, color: selected ? C.blue : C.textSec, flexShrink: 0, fontFamily: "'DM Mono', monospace" }}>{key}</div>
-                  <span style={{ flex: 1, fontSize: 14, fontWeight: 400, color: selected ? C.text : C.textSec, lineHeight: 1.5 }}>{val}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Navigation */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
-            <button disabled={examSession.currentIndex === 0} onClick={() => goTo(examSession.currentIndex - 1)}
-              style={{ padding: '9px 18px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: C.textSec, cursor: examSession.currentIndex === 0 ? 'not-allowed' : 'pointer', opacity: examSession.currentIndex === 0 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ArrowLeft style={{ width: 14, height: 14 }} /> Previous
-            </button>
-            <button disabled={examSession.currentIndex === total - 1} onClick={() => goTo(examSession.currentIndex + 1)}
-              style={{ padding: '9px 18px', background: C.accent, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, color: '#0a1a18', cursor: examSession.currentIndex === total - 1 ? 'not-allowed' : 'pointer', opacity: examSession.currentIndex === total - 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-              Next <ChevronRight style={{ width: 14, height: 14 }} />
-            </button>
-          </div>
-        </div>
-
-        {/* ── Question Palette ─────────────────────────────────────────────── */}
-        <div className="glass-panel" style={{ borderRadius: 16, padding: '24px 20px', position: 'sticky', top: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.textSec, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Navigator</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5, marginBottom: 14 }}>
-            {examSession.questions.map((_, i) => {
-              const isCurrent = examSession.currentIndex === i;
-              const isAnswered = !!examSession.answers[i];
-              return (
-                <button key={i} onClick={() => goTo(i)}
-                  style={{ aspectRatio: '1', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: isCurrent ? `2px solid ${C.blue}` : '1px solid transparent', transition: 'all 0.1s',
-                    background: isCurrent ? C.blueDim : isAnswered ? 'rgba(52,211,153,0.12)' : C.surface3,
-                    color: isCurrent ? C.blue : isAnswered ? '#34D399' : C.textTert, fontFamily: "'DM Mono', monospace" }}>
-                  {i + 1}
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {[
-              { color: '#34d399', bg: 'rgba(52,211,153,0.12)', label: `Answered (${answered})` },
-              { color: C.textTert, bg: 'var(--c-surface3)', label: `Skipped (${total - answered})` },
-            ].map(({ color, bg, label }) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, fontWeight: 600, color: C.textTert }}>
-                <div style={{ width: 12, height: 12, borderRadius: 3, background: bg, border: `1px solid ${color}40` }} />
-                {label}
-              </div>
-            ))}
-          </div>
-        </div>
+        <MockQuestionPalette
+          loadedCount={examSession.questions.length}
+          currentIndex={examSession.currentIndex}
+          answered={answered}
+          total={total}
+          answers={examSession.answers}
+          onGoTo={goTo}
+        />
       </div>
     </div>
   );

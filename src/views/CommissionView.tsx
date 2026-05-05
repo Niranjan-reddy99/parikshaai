@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Play, ShieldCheck, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Play, ShieldCheck, ChevronRight, Lock } from 'lucide-react';
 import { C } from '../lib/tokens';
 import { COMMISSION_FULL_NAMES } from '../lib/examUtils';
 import { type CommissionMap, type View } from '../types';
@@ -14,12 +14,15 @@ interface CommissionViewProps {
   setSelectedExamName: (v: string) => void;
   setSelectedExamType: (v: string) => void;
   setSelectedYear: (v: number) => void;
+  isLocked: (examName: string, year: number, commission?: string) => boolean;
+  onLockedClick: () => void;
 }
 
 export function CommissionView({
   selectedCommission, commissionMap, setView,
   openExam, startPractice, startMockExam,
   setSelectedExamName, setSelectedExamType, setSelectedYear,
+  isLocked, onLockedClick,
 }: CommissionViewProps) {
   const exams = commissionMap[selectedCommission] || {};
   const examTypes = Object.entries(exams).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }));
@@ -113,18 +116,21 @@ export function CommissionView({
 
               {/* Year chips (max 4, then +N) */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {info.years.slice(0, 4).map(y => (
-                  <span key={y}
-                    onClick={e => { e.stopPropagation(); setSelectedExamName(info.fullName); setSelectedExamType(examType); setSelectedYear(y); setView('exam-detail'); }}
-                    style={{ padding: '2px 8px', background: C.bg, border: `1px solid ${C.border}`, color: C.textSec, fontSize: 10, fontWeight: 600, borderRadius: 6, fontFamily: "'DM Mono', monospace", cursor: 'pointer', transition: 'all 0.1s' }}
-                    onMouseEnter={e => { e.stopPropagation(); e.currentTarget.style.borderColor = C.accent + '60'; e.currentTarget.style.color = C.accent; }}
-                    onMouseLeave={e => { e.stopPropagation(); e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSec; }}>
-                    {y}
-                  </span>
-                ))}
+                {info.years.slice(0, 4).map(y => {
+                  const locked = isLocked(info.fullName, y, selectedCommission);
+                  return (
+                    <span key={y}
+                      onClick={e => { e.stopPropagation(); if (locked) { onLockedClick(); return; } setSelectedExamName(info.fullName); setSelectedExamType(examType); setSelectedYear(y); setView('exam-detail'); }}
+                      style={{ padding: '2px 8px', background: locked ? C.bg : C.bg, border: `1px solid ${C.border}`, color: locked ? C.textTert : C.textSec, fontSize: 10, fontWeight: 600, borderRadius: 6, fontFamily: "'DM Mono', monospace", cursor: 'pointer', transition: 'all 0.1s', display: 'inline-flex', alignItems: 'center', gap: 3, opacity: locked ? 0.6 : 1 }}
+                      onMouseEnter={e => { e.stopPropagation(); if (!locked) { e.currentTarget.style.borderColor = C.accent + '60'; e.currentTarget.style.color = C.accent; } }}
+                      onMouseLeave={e => { e.stopPropagation(); e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = locked ? C.textTert : C.textSec; }}>
+                      {locked && <Lock style={{ width: 8, height: 8 }} />}{y}
+                    </span>
+                  );
+                })}
                 {info.years.length > 4 && (
                   <span style={{ padding: '2px 6px', background: C.bg, border: `1px solid ${C.border}`, color: C.textTert, fontSize: 10, borderRadius: 6 }}>
-                    +{info.years.length - 4}
+                    +{info.years.length - 4} locked
                   </span>
                 )}
               </div>
@@ -136,20 +142,26 @@ export function CommissionView({
 
               {/* Actions */}
               <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
-                <button
-                  onClick={() => { setSelectedExamName(info.fullName); setSelectedExamType(examType); setSelectedYear(info.years[0]); startPractice(info.fullName, info.years[0]); }}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 0', background: C.accentDim, border: `1px solid ${C.accent}30`, borderRadius: 8, fontSize: 11, fontWeight: 700, color: C.accent, cursor: 'pointer', transition: 'all 0.12s' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = C.accent + '28'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = C.accentDim; }}>
-                  <Play style={{ width: 10, height: 10 }} /> Practice
-                </button>
-                <button
-                  onClick={() => { setSelectedExamName(info.fullName); setSelectedExamType(examType); setSelectedYear(info.years[0]); startMockExam(info.fullName, info.years[0]); }}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 0', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 11, fontWeight: 700, color: C.textSec, cursor: 'pointer', transition: 'all 0.12s' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--c-border-l)'; e.currentTarget.style.color = C.text; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSec; }}>
-                  <ShieldCheck style={{ width: 10, height: 10 }} /> Mock
-                </button>
+                {(() => {
+                  const latestYear = info.years[0];
+                  const locked = isLocked(info.fullName, latestYear, selectedCommission);
+                  return (
+                    <>
+                      <button
+                        onClick={() => { if (locked) { onLockedClick(); return; } setSelectedExamName(info.fullName); setSelectedExamType(examType); setSelectedYear(latestYear); startPractice(info.fullName, latestYear); }}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 0', background: locked ? C.surface : C.accentDim, border: `1px solid ${locked ? C.border : C.accent + '30'}`, borderRadius: 8, fontSize: 11, fontWeight: 700, color: locked ? C.textTert : C.accent, cursor: 'pointer', transition: 'all 0.12s' }}>
+                        {locked ? <Lock style={{ width: 10, height: 10 }} /> : <Play style={{ width: 10, height: 10 }} />}
+                        {locked ? 'Premium' : 'Practice'}
+                      </button>
+                      <button
+                        onClick={() => { if (locked) { onLockedClick(); return; } setSelectedExamName(info.fullName); setSelectedExamType(examType); setSelectedYear(latestYear); startMockExam(info.fullName, latestYear); }}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 0', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 11, fontWeight: 700, color: locked ? C.textTert : C.textSec, cursor: 'pointer', transition: 'all 0.12s' }}>
+                        {locked ? <Lock style={{ width: 10, height: 10 }} /> : <ShieldCheck style={{ width: 10, height: 10 }} />}
+                        {locked ? 'Locked' : 'Mock'}
+                      </button>
+                    </>
+                  );
+                })()}
                 <button
                   onClick={() => openExam(info.fullName, selectedCommission, examType)}
                   style={{ width: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0 }}

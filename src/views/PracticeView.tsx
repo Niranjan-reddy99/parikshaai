@@ -1,9 +1,16 @@
 import React, { useRef, useEffect } from 'react';
-import { ArrowLeft, ChevronRight, RotateCcw, Loader2, Brain, Pencil } from 'lucide-react';
-import { motion } from 'motion/react';
-import { C, diffColor, diffBg } from '../lib/tokens';
-import { QuestionText } from '../lib/QuestionText';
-import { type Question, type QuestionMeta, type View } from '../types';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { QuestionCardSkeleton } from '../components/skeletons/QuestionCardSkeleton';
+import { C } from '../lib/tokens';
+import { type ExamOutline, type Question, type View } from '../types';
+import { PracticeFocusBar } from './practice/PracticeFocusBar';
+import { PracticeQuestionCard } from './practice/PracticeQuestionCard';
+import { PracticeSessionSidebar } from './practice/PracticeSessionSidebar';
+import {
+  getAvailablePracticeSubjects,
+  getAvailablePracticeTopics,
+  getPracticeProgress,
+} from './practice/practiceUtils';
 
 interface PracticeViewProps {
   practiceQueue: Question[];
@@ -20,7 +27,7 @@ interface PracticeViewProps {
   selectedExamName: string;
   selectedExamType: string;
   selectedYear: number;
-  questions: QuestionMeta[];
+  examOutline: ExamOutline | null;
   currentPracticeQ: Question | null;
   isAdmin: boolean;
   sessionAnswers: (null | { selected: string; correct: boolean })[];
@@ -29,8 +36,15 @@ interface PracticeViewProps {
   prevPracticeQuestion: () => void;
   jumpToPracticeQuestion: (i: number) => void;
   startPractice: (examName: string, year: number, subject?: string, topic?: string) => void;
+  retryLoadMore: () => void;
+  hasMoreQuestions: boolean;
+  loadingMoreQuestions: boolean;
+  loadMoreError: string | null;
   setView: (v: View) => void;
   setEditQuestion: (q: Question) => void;
+  onFlagQuestion: (q: Question) => void;
+  bookmarkedIds: Set<string>;
+  onToggleBookmark: (q: Question) => void;
   backView: View;
 }
 
@@ -39,21 +53,31 @@ export function PracticeView({
   practiceExplanationLoading,
   practiceInitLoading, practiceInitMessage, practiceLoadProgress,
   practiceSubject, practiceTopic,
-  selectedExamName, selectedExamType, selectedYear, questions,
+  selectedExamName, selectedExamType, selectedYear, examOutline,
   currentPracticeQ, isAdmin, sessionAnswers, handleAnswerSelect, nextPracticeQuestion, prevPracticeQuestion,
-  jumpToPracticeQuestion, startPractice, setView, setEditQuestion, backView,
+  jumpToPracticeQuestion, startPractice, setView, setEditQuestion, onFlagQuestion, backView,
+  retryLoadMore, hasMoreQuestions, loadingMoreQuestions, loadMoreError,
+  bookmarkedIds, onToggleBookmark,
 }: PracticeViewProps) {
-
-  // Auto-scroll active question button into view in the side panel
+  // =========================
+  // SECTION: State Management
+  // =========================
   const activeQRef = useRef<HTMLButtonElement>(null);
+
+  // =========================
+  // SECTION: Effects
+  // =========================
   useEffect(() => {
     activeQRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [practiceIndex]);
 
+  // =========================
+  // SECTION: Render Loading States
+  // =========================
   if (practiceInitLoading && !practiceQueue.length) return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '80px 16px', textAlign: 'center' }}>
       <Loader2 style={{ width: 28, height: 28, margin: '0 auto 16px', color: C.accent, animation: 'spin 1s linear infinite' }} />
-      <h3 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 22, fontWeight: 400, color: C.text, marginBottom: 8 }}>Preparing practice set</h3>
+      <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: 22, fontWeight: 400, color: C.text, marginBottom: 8 }}>Preparing practice set</h3>
       <p style={{ fontSize: 13, color: C.textSec, marginBottom: 10 }}>{practiceInitMessage || 'Loading questions...'}</p>
       <p style={{ fontSize: 12, color: C.textTert }}>
         {practiceLoadProgress.total
@@ -66,321 +90,117 @@ export function PracticeView({
   if (!practiceQueue.length) return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '80px 16px', textAlign: 'center' }}>
       <div style={{ fontSize: 40, marginBottom: 16 }}>📂</div>
-      <h3 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 22, fontWeight: 400, color: C.text, marginBottom: 8 }}>No questions found</h3>
+      <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: 22, fontWeight: 400, color: C.text, marginBottom: 8 }}>No questions found</h3>
       <p style={{ fontSize: 13, color: C.textSec, marginBottom: 24 }}>Try adjusting your subject or topic filters.</p>
       <button onClick={() => setView(backView)}
-        style={{ padding: '9px 18px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textSec, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+        style={{ padding: '9px 18px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textSec, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: "inherit" }}>
         <ArrowLeft style={{ width: 14, height: 14 }} /> Back
       </button>
     </div>
   );
 
-  const q = currentPracticeQ!;
-  const progress = ((practiceIndex + 1) / practiceQueue.length) * 100;
-  const allExamQs = questions.filter(x => x.exam === selectedExamName && x.year === selectedYear);
-  const availSubjects = [...new Set(allExamQs.map(x => x.subject))].sort();
-  const availTopics = practiceSubject === 'All'
-    ? [...new Set(allExamQs.map(x => x.topic))].sort()
-    : [...new Set(allExamQs.filter(x => x.subject === practiceSubject).map(x => x.topic))].sort();
+  if (!currentPracticeQ) return (
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: '80px 16px', textAlign: 'center' }}>
+      <Loader2 style={{ width: 28, height: 28, margin: '0 auto 16px', color: C.accent, animation: 'spin 1s linear infinite' }} />
+      <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: 22, fontWeight: 400, color: C.text, marginBottom: 8 }}>Refreshing practice session</h3>
+      <p style={{ fontSize: 13, color: C.textSec, marginBottom: 24 }}>
+        The question set changed after your edit, so we’re re-aligning the current practice queue.
+      </p>
+      <button onClick={() => setView(backView)}
+        style={{ padding: '9px 18px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textSec, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: "inherit" }}>
+        <ArrowLeft style={{ width: 14, height: 14 }} /> Back
+      </button>
+    </div>
+  );
 
-  const optionState = (key: string) => {
-    if (!practiceAnswered) return practiceSelectedOption === key ? 'selected' : 'idle';
-    if (q.answer === key) return 'correct';
-    if (practiceSelectedOption === key) return 'wrong';
-    return 'dim';
-  };
+  // =========================
+  // SECTION: Derived Data
+  // =========================
+  const currentQuestion = currentPracticeQ;
+  const progress = getPracticeProgress(practiceIndex, practiceQueue.length);
+  const availableSubjects = getAvailablePracticeSubjects(examOutline);
+  const availableTopics = getAvailablePracticeTopics(examOutline, practiceSubject);
 
-  const diffClass: Record<string, { bg: string; color: string }> = {
-    Easy:   { bg: 'rgba(52,211,153,0.12)',  color: '#34d399' },
-    Medium: { bg: 'rgba(251,191,36,0.12)',  color: C.warn },
-    Hard:   { bg: 'rgba(248,113,113,0.12)', color: C.danger },
-  };
-
+  // =========================
+  // SECTION: Render Practice UI
+  // =========================
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 20, alignItems: 'start' }}>
       <div>
+        <PracticeFocusBar
+          practiceIndex={practiceIndex}
+          practiceQueueLength={practiceQueue.length}
+          progress={progress}
+          practiceInitLoading={practiceInitLoading}
+          practiceInitMessage={practiceInitMessage}
+          practiceLoadProgress={practiceLoadProgress}
+          practiceSubject={practiceSubject}
+          practiceTopic={practiceTopic}
+          availableSubjects={availableSubjects}
+          availableTopics={availableTopics}
+          selectedExamName={selectedExamName}
+          selectedYear={selectedYear}
+          backViewLabel={backView}
+          onBack={() => setView(backView)}
+          startPractice={startPractice}
+        />
 
-      {/* ── Focus bar ─────────────────────────────────────────────────────────── */}
-      <div className="glass-panel" style={{ borderRadius: 18, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20, border: `1px solid ${C.borderHover}` }}>
-        <button onClick={() => setView(backView)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.textSec, cursor: 'pointer', background: 'none', border: 'none', padding: '4px 0', fontFamily: "'DM Sans', system-ui, sans-serif", transition: 'color 0.15s', flexShrink: 0 }}
-          onMouseEnter={e => e.currentTarget.style.color = C.text}
-          onMouseLeave={e => e.currentTarget.style.color = C.textSec}>
-          <ArrowLeft style={{ width: 14, height: 14 }} /> Back
-        </button>
-        <div style={{ width: 1, height: 20, background: C.border }} />
-        <span style={{ fontSize: 12, fontFamily: "'DM Mono', monospace", color: C.textSec, whiteSpace: 'nowrap', flexShrink: 0 }}>
-          {practiceIndex + 1} of {practiceQueue.length}
-        </span>
-        <div style={{ flex: 1, height: 4, background: C.surface3, borderRadius: 4, overflow: 'hidden' }}>
-          <motion.div style={{ height: '100%', background: C.accent, borderRadius: 4 }}
-            initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.3 }} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#34D399', flexShrink: 0 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34D399', boxShadow: '0 0 6px #34D39980' }} />
-          Practice
-        </div>
-        {practiceInitLoading && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: C.blue, flexShrink: 0 }}>
-            <Loader2 style={{ width: 12, height: 12, animation: 'spin 1s linear infinite' }} />
-            {practiceLoadProgress.total
-              ? `Loading more (${practiceLoadProgress.loaded}/${practiceLoadProgress.total})`
-              : 'Loading more'}
-          </div>
-        )}
-        {practiceInitLoading && practiceInitMessage && (
-          <div style={{ fontSize: 11, color: C.textTert, minWidth: 180 }}>
-            {practiceInitMessage}
-          </div>
-        )}
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: 8, marginLeft: 4 }}>
-          {[
-            { val: practiceSubject, onChange: (v: string) => startPractice(selectedExamName, selectedYear, v, 'All'), options: ['All', ...availSubjects], placeholder: 'All Subjects' },
-            { val: practiceTopic, onChange: (v: string) => startPractice(selectedExamName, selectedYear, practiceSubject, v), options: ['All', ...availTopics], placeholder: 'All Topics' },
-          ].map((sel, i) => (
-            <select key={i} value={sel.val} onChange={e => sel.onChange(e.target.value)}
-              style={{ fontSize: 11, background: 'var(--c-surface3)', border: `1px solid ${C.border}`, borderRadius: 6, padding: '5px 10px', color: C.textSec, cursor: 'pointer', maxWidth: 120, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-              <option value="All">{sel.placeholder}</option>
-              {sel.options.filter(o => o !== 'All').map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          ))}
-        </div>
-      </div>
+        <PracticeQuestionCard
+          question={currentQuestion}
+          practiceIndex={practiceIndex}
+          practiceQueueLength={practiceQueue.length}
+          practiceAnswered={practiceAnswered}
+          practiceSelectedOption={practiceSelectedOption}
+          practiceAnswerLoading={practiceAnswerLoading}
+          practiceExplanationLoading={practiceExplanationLoading}
+          isAdmin={isAdmin}
+          bookmarkedIds={bookmarkedIds}
+          hasMoreQuestions={hasMoreQuestions}
+          onToggleBookmark={onToggleBookmark}
+          onFlagQuestion={onFlagQuestion}
+          setEditQuestion={setEditQuestion}
+          handleAnswerSelect={handleAnswerSelect}
+          nextPracticeQuestion={nextPracticeQuestion}
+          prevPracticeQuestion={prevPracticeQuestion}
+          retryLoadMore={retryLoadMore}
+          startPractice={startPractice}
+          setView={setView}
+          selectedExamName={selectedExamName}
+          selectedYear={selectedYear}
+          practiceSubject={practiceSubject}
+          practiceTopic={practiceTopic}
+        />
 
-      {/* ── Question card ─────────────────────────────────────────────────────── */}
-      <div className="glass-panel" style={{ borderRadius: 24, padding: '36px 36px', marginBottom: 16, transition: 'border-color 0.15s', border: `1px solid ${C.borderHover}` }}>
-
-        {/* Tags + admin edit */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ padding: '3px 10px', background: 'rgba(96,165,250,0.12)', color: C.blue, fontSize: 10, fontWeight: 700, borderRadius: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {q.subject}
-            </span>
-            <span style={{ padding: '3px 10px', background: 'var(--c-surface3)', color: C.textSec, fontSize: 10, borderRadius: 8 }}>
-              {q.topic}
-            </span>
-            {q.subtopic && (
-              <span style={{ padding: '3px 10px', background: 'var(--c-surface3)', color: C.textTert, fontSize: 10, borderRadius: 8 }}>
-                {q.subtopic}
-              </span>
-            )}
-            <span style={{ padding: '3px 10px', background: diffBg[q.difficulty] || 'var(--c-surface3)', color: diffColor[q.difficulty] || C.textSec, fontSize: 10, fontWeight: 600, borderRadius: 8 }}>
-              {q.difficulty}
-            </span>
-          </div>
-          {isAdmin && (
-            <button onClick={() => setEditQuestion(q)}
-              style={{ padding: 7, background: 'var(--c-surface3)', border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer', color: C.textTert, display: 'flex', flexShrink: 0, transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textTert; }}>
-              <Pencil style={{ width: 13, height: 13 }} />
-            </button>
-          )}
-        </div>
-
-        {/* Passage */}
-        {q.passage && (
-          <div style={{ padding: '16px 20px', borderRadius: 12, background: C.surface3, border: `1px solid ${C.border}`, marginBottom: 20 }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: C.textSec, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Passage</p>
-            <p style={{ fontSize: 14, color: C.textSec, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: "'Fraunces', Georgia, serif" }}>{q.passage}</p>
-          </div>
-        )}
-
-        {/* Question text */}
-        <div style={{ fontSize: 18, fontWeight: 400, color: C.text, marginBottom: 32, fontFamily: "'Fraunces', Georgia, serif" }}>
-          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-            Question {practiceIndex + 1}
-          </div>
-          <QuestionText text={q.question} hasImage={q.has_image} imageUrl={q.image_url} style={{ fontSize: 18, fontWeight: 400, fontFamily: "'Fraunces', Georgia, serif" }} />
-        </div>
-
-        {/* Options */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-          {Object.entries(q.options).map(([key, val]) => {
-            const state = optionState(key);
-            const styles: Record<string, React.CSSProperties> = {
-              idle:     { border: `1px solid ${C.border}`,           background: 'transparent',  keyBg: C.surface3,  keyColor: C.textSec,  textColor: C.text } as any,
-              selected: { border: `1px solid ${C.accent}60`, background: C.accentDim, keyBg: C.accent, keyColor: '#0a1a18', textColor: C.text } as any,
-              correct:  { border: '1px solid rgba(52,211,153,0.40)', background: 'rgba(52,211,153,0.10)', keyBg: '#34d399', keyColor: '#0a1a18', textColor: C.text } as any,
-              wrong:    { border: '1px solid rgba(248,113,113,0.40)', background: 'rgba(248,113,113,0.10)', keyBg: '#f87171', keyColor: '#0a1a18', textColor: C.text } as any,
-              dim:      { border: `1px solid ${C.borderLight}`,      background: 'transparent',  keyBg: C.surface3,  keyColor: C.textTert, textColor: C.textTert } as any,
-            };
-            const s = styles[state] as any;
-            const isAnswerKey = practiceAnswered && q.answer === key;
-            const isWrongKey = practiceAnswered && practiceSelectedOption === key && q.answer !== key;
-            return (
-              <button key={key}
-                disabled={practiceAnswered || practiceAnswerLoading}
-                onClick={() => handleAnswerSelect(key)}
-                style={{ width: '100%', padding: '14px 16px', borderRadius: 10, border: s.border, background: s.background, cursor: practiceAnswered ? 'default' : 'pointer', display: 'flex', alignItems: 'flex-start', gap: 14, textAlign: 'left', transition: 'all 0.15s', userSelect: 'none' }}
-                onMouseEnter={e => { if (!practiceAnswered && state === 'idle') e.currentTarget.style.borderColor = 'var(--c-border-l)'; }}
-                onMouseLeave={e => { if (!practiceAnswered && state === 'idle') e.currentTarget.style.borderColor = C.border; }}>
-                <div style={{ width: 26, height: 26, borderRadius: 6, background: s.keyBg, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 500, fontSize: 11, fontFamily: "'DM Mono', monospace", color: s.keyColor, flexShrink: 0, marginTop: 1, transition: 'all 0.15s' }}>
-                  {key}
-                </div>
-                <span style={{ flex: 1, fontSize: 14, fontWeight: 300, color: s.textColor, lineHeight: 1.6, paddingTop: 2 }}>{val}</span>
-                {isAnswerKey && <span style={{ fontSize: 14, flexShrink: 0, paddingTop: 2 }}>✓</span>}
-                {isWrongKey && <span style={{ fontSize: 14, flexShrink: 0, paddingTop: 2 }}>✗</span>}
-              </button>
-            );
-          })}
-        </div>
-
-        {practiceAnswerLoading && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.blue, fontSize: 13, marginBottom: 16 }}>
-            <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} /> Verifying answer...
-          </div>
-        )}
-
-        {/* Skip when unanswered */}
-        {!practiceAnswered && !practiceAnswerLoading && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            {practiceIndex < practiceQueue.length - 1 ? (
-              <button onClick={nextPracticeQuestion}
-                style={{ padding: '8px 16px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 500, color: C.textSec, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-                Skip <ChevronRight style={{ width: 14, height: 14 }} />
-              </button>
-            ) : (
-              <button onClick={() => setView('exam-detail')}
-                style={{ padding: '8px 16px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 500, color: C.textSec, cursor: 'pointer', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-                Done
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Answer reveal + explanation */}
-        {practiceAnswered && (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            {/* Result banner */}
-            <div style={{ padding: '11px 16px', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600,
-              background: practiceSelectedOption === q.answer ? 'rgba(52,211,153,0.10)' : 'rgba(248,113,113,0.10)',
-              color: practiceSelectedOption === q.answer ? '#34d399' : '#f87171',
-              border: `1px solid ${practiceSelectedOption === q.answer ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}` }}>
-              {practiceSelectedOption === q.answer
-                ? <><span>✓</span> Correct!</>
-                : <><span>✗</span> Incorrect — correct answer is <strong>{q.answer}</strong></>}
-            </div>
-
-            {/* Explanation */}
-            <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
-              <div style={{ padding: '10px 16px', background: 'var(--c-surface3)', borderBottom: `1px solid ${C.border}`, fontSize: 11, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em', color: C.textSec, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.accent }} />
-                Explanation
-                {practiceExplanationLoading && <Loader2 style={{ width: 10, height: 10, marginLeft: 4, animation: 'spin 1s linear infinite' }} />}
-              </div>
-              <div style={{ padding: '16px 20px', fontSize: 13, lineHeight: 1.75, color: C.textSec }}>
-                {q.explanation && q.explanation.length > 5 ? (
-                  <><Brain style={{ width: 13, height: 13, display: 'inline', marginRight: 6, verticalAlign: 'middle', color: C.accent }} />{q.explanation}</>
-                ) : practiceExplanationLoading ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: C.textSec }}>
-                    <Loader2 style={{ width: 14, height: 14, color: C.accent, animation: 'spin 1s linear infinite' }} />
-                    <span>Generating a verified explanation in the background...</span>
-                  </div>
-                ) : (
-                  <span style={{ color: C.textTert, fontStyle: 'italic' }}>Explanation is not ready yet. You can continue and come back without losing the answer.</span>
-                )}
-              </div>
-            </div>
-
-            {/* Navigation */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button onClick={prevPracticeQuestion} disabled={practiceIndex === 0}
-                style={{ padding: '8px 16px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 500, color: C.textSec, cursor: practiceIndex === 0 ? 'not-allowed' : 'pointer', opacity: practiceIndex === 0 ? 0.3 : 1, display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-                ← Prev
-              </button>
-              {practiceIndex < practiceQueue.length - 1 ? (
-                <button onClick={nextPracticeQuestion}
-                  style={{ padding: '9px 20px', background: C.accent, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, color: '#0a1a18', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-                  Next Question →
-                </button>
-              ) : (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => startPractice(selectedExamName, selectedYear, practiceSubject, practiceTopic)}
-                    style={{ padding: '8px 16px', background: 'var(--c-surface3)', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 500, color: C.textSec, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-                    <RotateCcw style={{ width: 13, height: 13 }} /> Restart
-                  </button>
-                  <button onClick={() => setView('exam-detail')}
-                    style={{ padding: '8px 16px', background: C.accent, border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, color: '#0a1a18', cursor: 'pointer', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-                    Done
-                  </button>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </div>
-
-      {/* ── Q progress dots ───────────────────────────────────────────────────── */}
       {practiceQueue.length <= 30 && (
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
           {practiceQueue.map((_, i) => (
             <div key={i} style={{ height: 6, borderRadius: 99, transition: 'all 0.2s',
               width: i === practiceIndex ? 20 : 6,
-              background: i === practiceIndex ? C.accent : i < practiceIndex ? C.accentDim : C.surface3 }} />
+              background: i === practiceIndex ? '#2563eb' : i < practiceIndex ? '#dbeafe' : C.surface3 }} />
           ))}
+        </div>
+      )}
+      {loadingMoreQuestions && (
+        <div style={{ marginTop: 14 }}>
+          <QuestionCardSkeleton />
+        </div>
+      )}
+      {loadMoreError && (
+        <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, border: `1px solid ${C.warn}40`, background: C.warnDim, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ fontSize: 12, color: C.textSec }}>Could not load the next question batch.</div>
+          <button onClick={retryLoadMore} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, cursor: 'pointer', fontSize: 12 }}>Retry</button>
         </div>
       )}
       </div>
 
-      {/* ── Side panel ── */}
       {practiceQueue.length > 0 && (
-        <div className="glass-panel" style={{ borderRadius: 18, padding: '24px 20px', position: 'sticky', top: 0, border: `1px solid ${C.borderHover}` }}>
-          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', color: C.textTert, marginBottom: 14 }}>
-            Session Navigator
-          </div>
-
-          {/* Q navigator */}
-          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em', color: C.textTert, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>Questions</span>
-            <span style={{ color: C.textTert }}>{practiceIndex + 1}/{practiceQueue.length}</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4, marginBottom: 20, maxHeight: 220, overflowY: 'auto', paddingRight: 2,
-            scrollbarWidth: 'thin', scrollbarColor: `${C.border} transparent` }}>
-            {practiceQueue.map((_, i) => {
-              const ans = sessionAnswers[i];
-              let bg = C.surface3, color = C.textSec, border = `1px solid ${C.border}`;
-              if (i === practiceIndex) { bg = C.accent; color = '#0a1a18'; border = `1px solid ${C.accent}`; }
-              else if (ans?.correct) { bg = 'rgba(52,211,153,0.12)'; color = '#34D399'; border = '1px solid rgba(52,211,153,0.25)'; }
-              else if (ans && !ans.correct) { bg = 'rgba(248,113,113,0.12)'; color = '#F43F5E'; border = '1px solid rgba(248,113,113,0.25)'; }
-              return (
-                <button key={i} ref={i === practiceIndex ? activeQRef : undefined}
-                  onClick={() => jumpToPracticeQuestion(i)}
-                  style={{ aspectRatio: '1', borderRadius: 6, background: bg, border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontFamily: "'DM Mono', monospace", color, cursor: 'pointer', transition: 'all 0.15s' }}>
-                  {i + 1}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Divider */}
-          <div style={{ height: 1, background: C.border, margin: '0 0 16px' }} />
-
-          {/* Session stats */}
-          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em', color: C.textTert, marginBottom: 12 }}>Session</div>
-          {(() => {
-            const correct = sessionAnswers.filter(a => a?.correct).length;
-            const incorrect = sessionAnswers.filter(a => a && !a.correct).length;
-            const answered = correct + incorrect;
-            const acc = answered > 0 ? Math.round((correct / answered) * 100) : 0;
-            const xpEarned = correct * 10 + incorrect * 2;
-            return [
-              { label: 'Correct',   val: String(correct),   cls: 'ok'  },
-              { label: 'Incorrect', val: String(incorrect),  cls: 'err' },
-              { label: 'Accuracy',  val: answered > 0 ? `${acc}%` : '—', cls: 'info' },
-              { label: 'XP earned', val: `+${xpEarned}`,    cls: 'a'   },
-            ].map(({ label, val, cls }) => {
-              const clsColor: Record<string, string> = { ok: '#34D399', err: '#F43F5E', info: '#38BDF8', a: C.accent };
-              return (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${C.border}`, fontSize: 12 }}>
-                  <span style={{ color: C.textSec }}>{label}</span>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 500, color: clsColor[cls] || C.text }}>{val}</span>
-                </div>
-              );
-            });
-          })()}
-        </div>
+        <PracticeSessionSidebar
+          practiceIndex={practiceIndex}
+          practiceQueueLength={practiceQueue.length}
+          sessionAnswers={sessionAnswers}
+          activeQuestionRef={activeQRef}
+          jumpToPracticeQuestion={jumpToPracticeQuestion}
+        />
       )}
     </div>
   );
