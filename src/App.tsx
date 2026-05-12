@@ -424,12 +424,15 @@ function AppContent() {
   }, [practiceQueue, practiceIndex]);
 
   useEffect(() => {
-    fetchData();
+    if (!user) return;
+    void fetchData({ background: Boolean(catalogSummary && feedSummary) });
   }, [user]);
 
   // If meta never loaded (e.g. backend was down at login), retry whenever user navigates to a view that needs it.
   useEffect(() => {
-    if (user && (!catalogSummary || !feedSummary) && !dataLoading) fetchData();
+    if (user && (!catalogSummary || !feedSummary) && !dataLoading) {
+      void fetchData();
+    }
   }, [view]);
 
   useEffect(() => {
@@ -603,10 +606,14 @@ function AppContent() {
   const CATALOG_CACHE_KEY = "catalog_summary_v13_public";
   const FEED_CACHE_KEY = "feed_summary_v13_public";
 
-  const fetchData = async () => {
+  const fetchData = async (options?: { background?: boolean }) => {
     if (!user) return;
+    const background = options?.background === true;
+    const hasVisibleMeta = Boolean(catalogSummary && feedSummary);
 
-    setDataLoading(true);
+    if (!background) {
+      setDataLoading(true);
+    }
     try {
       const [catalogRes, feedRes] = await Promise.all([
         fetch(`${API_BASE}/meta/catalog`),
@@ -632,18 +639,19 @@ function AppContent() {
           );
         } catch {}
         setGlobalError(null);
-        setDataLoading(false);
       } else {
-        setGlobalError(
-          `Backend returned an error from ${API_BASE}.`
-        );
+        if (!background || !hasVisibleMeta) {
+          setGlobalError(`Backend returned an error from ${API_BASE}.`);
+        }
       }
     } catch {
-      setGlobalError(
-        `Cannot reach backend at ${API_BASE}.`
-      );
+      if (!background || !hasVisibleMeta) {
+        setGlobalError(`Cannot reach backend at ${API_BASE}.`);
+      }
     } finally {
-      setDataLoading(false);
+      if (!background) {
+        setDataLoading(false);
+      }
     }
   };
 
@@ -2990,7 +2998,9 @@ function AppContent() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
-                        onClick={fetchData}
+                        onClick={() => {
+                          void fetchData();
+                        }}
                         disabled={dataLoading}
                         className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
                       >
