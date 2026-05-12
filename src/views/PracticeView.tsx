@@ -29,7 +29,6 @@ interface PracticeViewProps {
   selectedYear: number;
   examOutline: ExamOutline | null;
   currentPracticeQ: Question | null;
-  isAdmin: boolean;
   sessionAnswers: (null | { selected: string; correct: boolean })[];
   handleAnswerSelect: (key: string) => void;
   nextPracticeQuestion: () => void;
@@ -41,7 +40,6 @@ interface PracticeViewProps {
   loadingMoreQuestions: boolean;
   loadMoreError: string | null;
   setView: (v: View) => void;
-  setEditQuestion: (q: Question) => void;
   onFlagQuestion: (q: Question) => void;
   bookmarkedIds: Set<string>;
   onToggleBookmark: (q: Question) => void;
@@ -54,8 +52,8 @@ export function PracticeView({
   practiceInitLoading, practiceInitMessage, practiceLoadProgress,
   practiceSubject, practiceTopic,
   selectedExamName, selectedExamType, selectedYear, examOutline,
-  currentPracticeQ, isAdmin, sessionAnswers, handleAnswerSelect, nextPracticeQuestion, prevPracticeQuestion,
-  jumpToPracticeQuestion, startPractice, setView, setEditQuestion, onFlagQuestion, backView,
+  currentPracticeQ, sessionAnswers, handleAnswerSelect, nextPracticeQuestion, prevPracticeQuestion,
+  jumpToPracticeQuestion, startPractice, setView, onFlagQuestion, backView,
   retryLoadMore, hasMoreQuestions, loadingMoreQuestions, loadMoreError,
   bookmarkedIds, onToggleBookmark,
 }: PracticeViewProps) {
@@ -153,12 +151,10 @@ export function PracticeView({
           practiceSelectedOption={practiceSelectedOption}
           practiceAnswerLoading={practiceAnswerLoading}
           practiceExplanationLoading={practiceExplanationLoading}
-          isAdmin={isAdmin}
           bookmarkedIds={bookmarkedIds}
           hasMoreQuestions={hasMoreQuestions}
           onToggleBookmark={onToggleBookmark}
           onFlagQuestion={onFlagQuestion}
-          setEditQuestion={setEditQuestion}
           handleAnswerSelect={handleAnswerSelect}
           nextPracticeQuestion={nextPracticeQuestion}
           prevPracticeQuestion={prevPracticeQuestion}

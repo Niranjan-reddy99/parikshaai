@@ -1,10 +1,19 @@
 import { C } from '../../lib/tokens';
+import {
+  formatAcceptedAnswerLabels,
+  isAcceptedAnswer,
+  isDeletedQuestion,
+} from '../../lib/questionAnswers';
 import { type ExamOutline, type Question } from '../../types';
 
 export const BLOCKED_EXPLANATION =
   'Explanation withheld until the correct answer is verified for this question.';
 export const UNAVAILABLE_EXPLANATION =
   'Explanation is not available for this question yet.';
+export const DELETED_QUESTION_NOTE =
+  'This question was deleted in the official final key.';
+export const MULTIPLE_ANSWERS_NOTE =
+  'The official key accepts more than one answer for this question.';
 
 export function getAvailablePracticeSubjects(examOutline: ExamOutline | null) {
   return (examOutline?.subjects || []).map((subjectItem) => subjectItem.subject).sort();
@@ -34,9 +43,19 @@ export function getPracticeOptionState(
     return practiceSelectedOption === optionKey ? 'selected' : 'idle';
   }
 
-  if (question.answer === optionKey) return 'correct';
+  if (isDeletedQuestion(question)) {
+    return practiceSelectedOption === optionKey ? 'selected' : 'dim';
+  }
+  if (isAcceptedAnswer(question, optionKey)) return 'correct';
   if (practiceSelectedOption === optionKey) return 'wrong';
   return 'dim';
+}
+
+export function getPracticeAnswerSummary(question: Question) {
+  if (isDeletedQuestion(question)) {
+    return DELETED_QUESTION_NOTE;
+  }
+  return formatAcceptedAnswerLabels(question) || '—';
 }
 
 export function getPracticeOptionStyles() {
@@ -79,9 +98,10 @@ export function getPracticeOptionStyles() {
   } as const;
 }
 
-export function getPracticeSessionStats(sessionAnswers: (null | { selected: string; correct: boolean })[]) {
-  const correct = sessionAnswers.filter((answer) => answer?.correct).length;
-  const incorrect = sessionAnswers.filter((answer) => answer && !answer.correct).length;
+export function getPracticeSessionStats(sessionAnswers: (null | { selected: string; correct: boolean; ignored?: boolean })[]) {
+  const scored = sessionAnswers.filter((answer) => answer && !answer.ignored);
+  const correct = scored.filter((answer) => answer?.correct).length;
+  const incorrect = scored.filter((answer) => answer && !answer.correct).length;
   const answered = correct + incorrect;
   const accuracy = answered > 0 ? Math.round((correct / answered) * 100) : 0;
   const xpEarned = correct * 10 + incorrect * 2;

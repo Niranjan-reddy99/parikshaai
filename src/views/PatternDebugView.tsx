@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Eye, FileText, RefreshCw } from 'lucide-react';
-import { API_BASE, adminHeaders } from '../lib/api';
+import { API_BASE, adminHeaders } from '../lib/adminApi';
 import { C } from '../lib/tokens';
 import {
   type PatternBookClassificationPage,

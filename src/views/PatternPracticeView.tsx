@@ -94,8 +94,9 @@ export function PatternPracticeView({ setView, backView = 'home' as View, adminT
       const data: PatternQuestion[] = await r.json();
       setAllQuestions(data);
       
-      // Discover unique patterns
-      const p = Array.from(new Set(data.map(q => q.pattern_tag))).filter(Boolean).sort();
+      // Discover unique patterns in first-appearance order so the chapter
+      // reads the same way the source book does.
+      const p = Array.from(new Set(data.map(q => q.pattern_tag))).filter(Boolean);
       setPatterns(['All Patterns', ...p]);
       
       setSelectedPattern('All Patterns');

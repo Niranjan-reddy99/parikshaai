@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
-import { API_BASE, adminHeaders } from "./lib/adminApi";
+import { API_BASE } from "./lib/api";
+import {
+  getAcceptedAnswers,
+  getPrimaryAcceptedAnswer,
+  isAcceptedAnswer,
+  isDeletedQuestion,
+} from "./lib/questionAnswers";
 import { motion, AnimatePresence } from "motion/react";
 import {
   signInWithPopup,
@@ -21,14 +27,8 @@ import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { Navbar } from "./components/Navbar";
 import { OnboardingModal } from "./components/OnboardingModal";
 import { QuestionModal } from "./components/QuestionModal";
-import { CostModal } from "./components/admin/CostModal";
-import { DeleteExamModal } from "./components/admin/DeleteExamModal";
-import { RenameModal } from "./components/admin/RenameModal";
-import { EditQuestionModal } from "./components/admin/EditQuestionModal";
-import { UploadPaperModal } from "./components/admin/UploadPaperModal";
 import { FlagQuestionModal } from "./components/FlagQuestionModal";
 import { PremiumGateModal } from "./components/PremiumGateModal";
-import { AdminFlagsModal } from "./components/admin/AdminFlagsModal";
 import { ToastProvider } from "./components/Toast";
 
 import { DashboardView } from "./views/DashboardView";
@@ -36,6 +36,9 @@ import { HomeView } from "./views/HomeView";
 import { CommissionView } from "./views/CommissionView";
 import { MockView } from "./views/MockView";
 import { ResultsView } from "./views/ResultsView";
+import { BrowseView } from "./views/BrowseView";
+import { LeaderboardView } from "./views/LeaderboardView";
+import { LandingPage } from "./views/LandingPage";
 
 const FeedView = lazy(() =>
   import("./views/FeedView").then((m) => ({ default: m.FeedView }))
@@ -43,32 +46,14 @@ const FeedView = lazy(() =>
 const BadgesView = lazy(() =>
   import("./views/BadgesView").then((m) => ({ default: m.BadgesView }))
 );
-const LeaderboardView = lazy(() =>
-  import("./views/LeaderboardView").then((m) => ({
-    default: m.LeaderboardView,
-  }))
-);
 const ExamDetailView = lazy(() =>
   import("./views/ExamDetailView").then((m) => ({ default: m.ExamDetailView }))
 );
 const PracticeView = lazy(() =>
   import("./views/PracticeView").then((m) => ({ default: m.PracticeView }))
 );
-const BrowseView = lazy(() =>
-  import("./views/BrowseView").then((m) => ({ default: m.BrowseView }))
-);
 const ReportView = lazy(() =>
   import("./views/ReportView").then((m) => ({ default: m.ReportView }))
-);
-const PatternDebugView = lazy(() =>
-  import("./views/PatternDebugView").then((m) => ({
-    default: m.PatternDebugView,
-  }))
-);
-const PatternBookIngestionView = lazy(() =>
-  import("./views/PatternBookIngestionView").then((m) => ({
-    default: m.PatternBookIngestionView,
-  }))
 );
 const PatternPracticeView = lazy(() =>
   import("./views/PatternPracticeView").then((m) => ({
@@ -102,6 +87,17 @@ import {
   type UserStats,
 } from "./lib/stats";
 import { C } from "./lib/tokens";
+import {
+  getCachedExamManifest,
+  getCachedExamOutline,
+  getCachedFirstPage,
+  setCachedFirstPage,
+  invalidateCachedExam,
+  getCachedTopicPage,
+  setCachedTopicPage,
+  setCachedExamManifest,
+  setCachedExamOutline,
+} from "./lib/questionCache";
 import {
   type CatalogSummary,
   type FeedSummary,
@@ -180,16 +176,14 @@ function AppContent() {
   const [authLoading, setAuthLoading] = useState(true);
   const [catalogSummary, setCatalogSummary] = useState<CatalogSummary | null>(() => {
     try {
-      const isAdmin = localStorage.getItem("pyq_admin") === "1";
-      const cached = localStorage.getItem(isAdmin ? "catalog_summary_v12_admin" : "catalog_summary_v12_public");
+      const cached = localStorage.getItem("catalog_summary_v13_public");
       if (cached) return JSON.parse(cached).data;
     } catch {}
     return null;
   });
   const [feedSummary, setFeedSummary] = useState<FeedSummary | null>(() => {
     try {
-      const isAdmin = localStorage.getItem("pyq_admin") === "1";
-      const cached = localStorage.getItem(isAdmin ? "feed_summary_v12_admin" : "feed_summary_v12_public");
+      const cached = localStorage.getItem("feed_summary_v13_public");
       if (cached) return JSON.parse(cached).data;
     } catch {}
     return null;
@@ -286,6 +280,8 @@ function AppContent() {
     useState("");
 
   // ── Browse ──────────────────────────────────────────────────────────────────
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState("");
+  const [browsePickerOpen, setBrowsePickerOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSubject, setFilterSubject] = useState("All");
   const [filterTopic, setFilterTopic] = useState("All");
@@ -319,7 +315,7 @@ function AppContent() {
   >(null);
   const [practiceBatchLoading, setPracticeBatchLoading] = useState(false);
   const [practiceSessionAnswers, setPracticeSessionAnswers] = useState<
-    (null | { selected: string; correct: boolean })[]
+    (null | { selected: string; correct: boolean; ignored?: boolean })[]
   >([]);
   const [practiceBackView, setPracticeBackView] = useState<View>("dashboard");
   const [practiceInitLoading, setPracticeInitLoading] = useState(false);
@@ -362,32 +358,7 @@ function AppContent() {
   const [examTimer, setExamTimer] = useState(0);
   const [mockBatchLoading, setMockBatchLoading] = useState(false);
 
-
-  // ── Admin ───────────────────────────────────────────────────────────────────
-  const [isAdmin, setIsAdmin] = useState(
-    () => localStorage.getItem("pyq_admin") === "1"
-  );
-  const [renameModal, setRenameModal] = useState<{
-    fullName: string;
-    year: number;
-  } | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [renameBusy, setRenameBusy] = useState(false);
-  const [deleteExamTarget, setDeleteExamTarget] = useState<{
-    fullName: string;
-    year: number;
-  } | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [costModal, setCostModal] = useState(false);
-  const [costLog, setCostLog] = useState<{
-    runs: any[];
-    total_inr: number;
-  } | null>(null);
-  const [costExpanded, setCostExpanded] = useState<number | null>(null);
-  const [editQuestion, setEditQuestion] = useState<Question | null>(null);
-  const [uploadModal, setUploadModal] = useState(false);
   const [flagQuestion, setFlagQuestion] = useState<Question | null>(null);
-  const [flagsModal, setFlagsModal] = useState(false);
 
   // ── Report / Chat ───────────────────────────────────────────────────────────
   const [reportData, setReportData] = useState<any | null>(null);
@@ -479,176 +450,11 @@ function AppContent() {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const toggleAdmin = () => {
-    const next = !isAdmin;
-    setIsAdmin(next);
-    localStorage.setItem("pyq_admin", next ? "1" : "0");
-  };
-
-  const openCostModal = async () => {
-    setCostModal(true);
-    setCostLog(null);
-    try {
-      const res = await fetch(`${API_BASE}/admin/cost-log`, {
-        headers: adminHeaders(),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      setCostLog(await res.json());
-    } catch {
-      setCostLog({ runs: [], total_inr: 0 });
-    }
-  };
-
   const invalidateMetaCache = () => {
     try {
-      localStorage.removeItem(`questions_meta_v1_admin`);
       localStorage.removeItem(`questions_meta_v1_public`);
     } catch {
       /* ignore */
-    }
-  };
-
-  const doRename = async () => {
-    if (!renameModal || !renameValue.trim()) return;
-    setRenameBusy(true);
-    try {
-      const params = new URLSearchParams({
-        old_name: renameModal.fullName,
-        new_name: renameValue.trim(),
-        exam_year: String(renameModal.year),
-      });
-      const res = await fetch(`${API_BASE}/admin/rename-exam?${params}`, {
-        method: "PATCH",
-        headers: adminHeaders(),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      invalidateMetaCache();
-      await fetchData();
-      setRenameModal(null);
-    } catch (e: any) {
-      alert("Rename failed: " + e.message);
-    } finally {
-      setRenameBusy(false);
-    }
-  };
-
-  const doDeleteExam = async () => {
-    if (!deleteExamTarget) return;
-    setDeleteBusy(true);
-    try {
-      const params = new URLSearchParams({
-        exam_name: deleteExamTarget.fullName,
-        exam_year: String(deleteExamTarget.year),
-      });
-      const res = await fetch(`${API_BASE}/admin/delete-exam?${params}`, {
-        method: "DELETE",
-        headers: adminHeaders(),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      alert(
-        `Deleted ${data.removed} questions for ${deleteExamTarget.fullName} ${deleteExamTarget.year}`
-      );
-      setDeleteExamTarget(null);
-      invalidateMetaCache();
-      await fetchData();
-    } catch (e: any) {
-      alert("Delete failed: " + e.message);
-    } finally {
-      setDeleteBusy(false);
-    }
-  };
-
-  const doAddBlankQuestion = async (
-    examName: string,
-    year: number,
-    forcedNum?: number
-  ) => {
-    try {
-      const existing = examCache[`${examName}::${year}`] ?? [];
-      const nextNum =
-        forcedNum ??
-        (existing.length
-          ? Math.max(...existing.map((q: Question) => q.question_number || 0)) +
-            1
-          : 1);
-
-      const newQ = {
-        exam_name: examName,
-        exam_year: year,
-        question_number: nextNum,
-        question_text: `[Placeholder for Question #${nextNum} - Missing Figure/Calculation]`,
-        option_a: "Option 1",
-        option_b: "Option 2",
-        option_c: "Option 3",
-        option_d: "Option 4",
-        correct_answer: "A",
-        is_active: true,
-        needs_review: true, // Mark as needing review so it shows up in Audit
-      };
-
-      const res = await fetch(`${API_BASE}/admin/add-blank-question`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...adminHeaders() },
-        body: JSON.stringify(newQ),
-      });
-      if (!res.ok) throw new Error(await res.text());
-
-      fetchData();
-    } catch (e: any) {
-      alert("Failed to add question: " + e.message);
-    }
-  };
-
-  const reloadExamAndMeta = async (examName: string, year: number) => {
-    const key = `${examName}::${year}`;
-    // Clear both in-memory and localStorage caches so fresh data is fetched.
-    try {
-      localStorage.removeItem(`exam_qs_v1_admin_${key}`);
-      localStorage.removeItem(`exam_qs_v1_pub_${key}`);
-    } catch {
-      /* ignore */
-    }
-    setExamCache((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
-    invalidateMetaCache();
-    await fetchData();
-    await loadExamQuestions(examName, year, true);
-  };
-
-  const updateExamCacheQuestion = (updated: Question) => {
-    const key = `${updated.exam}::${updated.year}`;
-    setExamCache((prev) => {
-      const existing = prev[key];
-      if (!existing) return prev;
-      return {
-        ...prev,
-        [key]: existing.map((q) =>
-          q.id === updated.id ? { ...q, ...updated } : q
-        ),
-      };
-    });
-  };
-
-  const doDeleteQuestion = async (questionId: string) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete this question? This cannot be undone."
-      )
-    )
-      return;
-    try {
-      const res = await fetch(`${API_BASE}/admin/questions/${questionId}`, {
-        method: "DELETE",
-        headers: adminHeaders(),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      await reloadExamAndMeta(selectedExamName, selectedYear);
-    } catch (e: any) {
-      alert("Failed to delete question: " + e.message);
     }
   };
 
@@ -680,33 +486,62 @@ function AppContent() {
     setUser(null);
   };
 
-  const mapQuestion = (q: any): Question => ({
-    id: q.id,
-    question: q.question_text ?? q.question ?? "",
-    question_number: q.question_number,
-    options: q.options ?? {
-      A: q.option_a ?? "",
-      B: q.option_b ?? "",
-      C: q.option_c ?? "",
-      D: q.option_d ?? "",
-    },
-    answer: q.correct_answer ?? q.answer ?? "",
-    explanation: q.explanation ?? "",
-    source: q.source ?? undefined,
-    flag_count: q.flag_count ?? undefined,
-    subject: normalizeSubject(q.subject ?? ""),
-    topic: q.topic ?? "",
-    subtopic: q.subtopic ?? "",
-    difficulty: q.difficulty ?? "Medium",
-    concept: q.concept ?? "",
-    type: q.question_type ?? q.type ?? "",
-    year: q.exam_year ?? q.year ?? 0,
-    exam: q.exam_name ?? q.exam ?? "",
-    passage: q.passage ?? "",
-    shift: q.shift_label ?? "",
-    has_image: q.has_image ?? false,
-    image_url: q.image_url ?? undefined,
-  });
+  const mapQuestion = (q: any): Question => {
+    const rawAnswers = Array.isArray(q.correct_answers)
+      ? q.correct_answers
+      : Array.isArray(q.answers)
+      ? q.answers
+      : [];
+    const answers: string[] = Array.from(
+      new Set(
+        rawAnswers
+          .map((item: unknown) => String(item || "").trim().toUpperCase())
+          .filter((item: string) => ["A", "B", "C", "D"].includes(item))
+      )
+    );
+    const singleAnswer = String(q.correct_answer ?? q.answer ?? "")
+      .trim()
+      .toUpperCase();
+    const primaryAnswer =
+      answers[0] ||
+      (["A", "B", "C", "D"].includes(singleAnswer) ? singleAnswer : "");
+    const examName = q.exam_name ?? q.exam ?? "";
+    const examYear = q.exam_year ?? q.year ?? 0;
+    const shiftLabel = q.shift_label ?? q.shift ?? "";
+    const fallbackSource = examName
+      ? `${examName}${examYear ? ` · ${examYear}` : ""}${shiftLabel ? ` · ${shiftLabel}` : ""}`
+      : undefined;
+
+    return {
+      id: q.id,
+      question: q.question_text ?? q.question ?? "",
+      question_number: q.question_number,
+      options: q.options ?? {
+        A: q.option_a ?? "",
+        B: q.option_b ?? "",
+        C: q.option_c ?? "",
+        D: q.option_d ?? "",
+      },
+      answer: primaryAnswer,
+      answers: answers.length ? answers : primaryAnswer ? [primaryAnswer] : [],
+      answerStatus: q.answer_status ?? q.answerStatus ?? undefined,
+      explanation: q.explanation ?? "",
+      source: q.source ?? fallbackSource,
+      flag_count: q.flag_count ?? undefined,
+      subject: normalizeSubject(q.subject ?? ""),
+      topic: q.topic ?? "",
+      subtopic: q.subtopic ?? "",
+      difficulty: q.difficulty ?? "Medium",
+      concept: q.concept ?? "",
+      type: q.question_type ?? q.type ?? "",
+      year: examYear,
+      exam: examName,
+      passage: q.passage ?? "",
+      shift: shiftLabel,
+      has_image: q.has_image ?? false,
+      image_url: q.image_url ?? undefined,
+    };
+  };
 
   const saveAttempt = async (attempt: {
     questionId: string;
@@ -751,7 +586,8 @@ function AppContent() {
       entries.map(async ([index, selected]) => {
         const question = session.questions[Number(index)];
         if (!question?.id || !selected) return;
-        const isCorrect = selected === question.answer;
+        if (isDeletedQuestion(question)) return;
+        const isCorrect = isAcceptedAnswer(question, selected);
         await saveAttempt({
           questionId: question.id,
           selectedAnswer: selected,
@@ -764,28 +600,17 @@ function AppContent() {
     );
   };
 
-  const CATALOG_CACHE_KEY = isAdmin
-    ? "catalog_summary_v12_admin"
-    : "catalog_summary_v12_public";
-  const FEED_CACHE_KEY = isAdmin
-    ? "feed_summary_v12_admin"
-    : "feed_summary_v12_public";
+  const CATALOG_CACHE_KEY = "catalog_summary_v13_public";
+  const FEED_CACHE_KEY = "feed_summary_v13_public";
 
   const fetchData = async () => {
     if (!user) return;
 
     setDataLoading(true);
     try {
-      const catalogUrl = isAdmin
-        ? `${API_BASE}/admin/meta/catalog`
-        : `${API_BASE}/meta/catalog`;
-      const feedUrl = isAdmin
-        ? `${API_BASE}/admin/meta/feed`
-        : `${API_BASE}/meta/feed`;
-      const adminOpts = isAdmin ? { headers: adminHeaders() } : undefined;
       const [catalogRes, feedRes] = await Promise.all([
-        fetch(catalogUrl, adminOpts),
-        fetch(feedUrl, adminOpts),
+        fetch(`${API_BASE}/meta/catalog`),
+        fetch(`${API_BASE}/meta/feed`),
       ]);
       if (catalogRes.ok && feedRes.ok) {
         const [catalogData, feedData] = await Promise.all([
@@ -831,6 +656,28 @@ function AppContent() {
     if (!forceReload && examPaperManifestCache[key]) {
       return examPaperManifestCache[key];
     }
+    if (!forceReload) {
+      const cached = getCachedExamManifest(examName, year);
+      if (cached) {
+        setExamPaperManifestCache((prev) => ({ ...prev, [key]: cached }));
+        void (async () => {
+          try {
+            const params = new URLSearchParams({
+              exam_name: examName,
+              exam_year: String(year),
+            });
+            const res = await fetch(`${API_BASE}/meta/exam-papers?${params}`);
+            if (!res.ok) return;
+            const fresh: ExamPaperManifest = await res.json();
+            setExamPaperManifestCache((prev) => ({ ...prev, [key]: fresh }));
+            setCachedExamManifest(examName, year, fresh);
+          } catch {
+            /* keep cached manifest */
+          }
+        })();
+        return cached;
+      }
+    }
     setExamPaperLoading(true);
     try {
       const params = new URLSearchParams({
@@ -861,6 +708,7 @@ function AppContent() {
       }
       const data: ExamPaperManifest = await res.json();
       setExamPaperManifestCache((prev) => ({ ...prev, [key]: data }));
+      setCachedExamManifest(examName, year, data);
       return data;
     } catch {
       return null;
@@ -916,6 +764,30 @@ function AppContent() {
       shiftLabel: selector?.shiftLabel,
     });
     if (!forceReload && examOutlineCache[key]) return examOutlineCache[key];
+    if (!forceReload) {
+      const cached = getCachedExamOutline(key);
+      if (cached) {
+        setExamOutlineCache((prev) => ({ ...prev, [key]: cached }));
+        void (async () => {
+          try {
+            const params = new URLSearchParams({
+              exam_name: examName,
+              exam_year: String(year),
+            });
+            if (selector?.paperId) params.set("paper_id", selector.paperId);
+            if (selector?.shiftLabel) params.set("shift_label", selector.shiftLabel);
+            const res = await fetch(`${API_BASE}/meta/exam-outline?${params}`);
+            if (!res.ok) return;
+            const fresh: ExamOutline = await res.json();
+            setExamOutlineCache((prev) => ({ ...prev, [key]: fresh }));
+            setCachedExamOutline(key, fresh);
+          } catch {
+            /* keep cached outline */
+          }
+        })();
+        return cached;
+      }
+    }
     try {
       const params = new URLSearchParams({
         exam_name: examName,
@@ -928,6 +800,7 @@ function AppContent() {
         throw new Error(`Failed to load exam outline (${res.status})`);
       const data: ExamOutline = await res.json();
       setExamOutlineCache((prev) => ({ ...prev, [key]: data }));
+      setCachedExamOutline(key, data);
       return data;
     } catch {
       return null;
@@ -980,13 +853,31 @@ function AppContent() {
       paperId: resolvedPaperId,
       shiftLabel: resolvedShiftLabel,
     });
-    const pageSize = opts?.pageSize ?? (!isAdmin ? 10 : 250);
+    const pageSize = opts?.pageSize ?? 50;
     const reset = opts?.reset ?? false;
     const currentPageState = examPageState[key];
     const nextCursor = reset ? null : currentPageState?.nextCursor || null;
     if (!reset && currentPageState?.loading) return examCache[key] || [];
     if (!reset && currentPageState && !currentPageState.hasMore)
       return examCache[key] || [];
+
+    // SWR: on first load, immediately show cached data while fetching fresh
+    if (reset && !opts?.forceReload) {
+      const cached = getCachedFirstPage(key);
+      if (cached) {
+        setExamCache((prev) => ({ ...prev, [key]: cached.questions }));
+        setExamPageState((prev) => ({
+          ...prev,
+          [key]: {
+            totalCount: cached.totalCount,
+            hasMore: cached.hasMore,
+            nextCursor: cached.nextCursor,
+            loading: true, // still refreshing in background
+            error: null,
+          },
+        }));
+      }
+    }
 
     setExamPageState((prev) => ({
       ...prev,
@@ -1032,6 +923,15 @@ function AppContent() {
           error: null,
         },
       }));
+      // Persist first page to localStorage for instant load on next visit
+      if (reset) {
+        setCachedFirstPage(key, {
+          questions: batch,
+          totalCount: data.total_count ?? data.total ?? batch.length,
+          hasMore: Boolean(data.has_more),
+          nextCursor: data.next_cursor ?? null,
+        });
+      }
       setGlobalError(null);
       return merged;
     } catch (e: any) {
@@ -1114,10 +1014,7 @@ function AppContent() {
       limit: String(pageSize),
       offset: String(pageOffset),
     });
-    const url = isAdmin
-      ? `${API_BASE}/admin/topic-questions?${params}`
-      : `${API_BASE}/topic-questions?${params}`;
-    const res = await fetch(url, isAdmin ? { headers: adminHeaders() } : undefined);
+    const res = await fetch(`${API_BASE}/topic-questions?${params}`);
     if (!res.ok) {
       throw new Error(`Failed to load topic questions (${res.status})`);
     }
@@ -1153,6 +1050,7 @@ function AppContent() {
       shiftLabel: resolvedShiftLabel,
     });
     if (forceReload) {
+      invalidateCachedExam(examName, year);
       setExamCache((prev) => ({ ...prev, [key]: [] }));
       setExamPageState((prev) => ({
         ...prev,
@@ -1167,13 +1065,13 @@ function AppContent() {
     }
     setExamLoading(true);
     try {
-      await loadExamOutline(examName, year, forceReload, {
+      void loadExamOutline(examName, year, forceReload, {
         paperId: resolvedPaperId,
         shiftLabel: resolvedShiftLabel,
       });
       return await fetchExamChunk(examName, year, {
         forceReload,
-        pageSize: !isAdmin ? 20 : 250,
+        pageSize: 20,
         reset: true,
         paperId: resolvedPaperId,
         shiftLabel: resolvedShiftLabel,
@@ -1216,7 +1114,7 @@ function AppContent() {
     let current =
       filters?.subject || filters?.topic || filters?.subtopic
         ? await fetchExamChunk(examName, year, {
-            pageSize: !isAdmin ? 20 : 250,
+            pageSize: 20,
             reset: true,
             ...filters,
           })
@@ -1246,12 +1144,7 @@ function AppContent() {
       examPageStateRef.current[key]?.hasMore &&
       guard < 100
     ) {
-      current = await loadMoreExamQuestions(
-        examName,
-        year,
-        !isAdmin ? 25 : 250,
-        filters
-      );
+      current = await loadMoreExamQuestions(examName, year, 25, filters);
       guard += 1;
     }
     return current;
@@ -1428,75 +1321,134 @@ function AppContent() {
     subject = "All",
     topic = "All"
   ) => {
-    topicPracticeRequestRef.current += 1;
+    const requestId = ++topicPracticeRequestRef.current;
     setPracticeInitLoading(false);
     setPracticeInitMessage("");
     setPracticeLoadProgress({ loaded: 0, total: null });
     const selector = await resolvePaperSelector(examName, year);
-    const outline = await loadExamOutline(examName, year, false, selector);
+    const outlinePromise = loadExamOutline(examName, year, false, selector);
     const filters = { subject, topic };
+    const key = buildQuestionSetKey(examName, year, {
+      ...filters,
+      paperId: selector.paperId,
+      shiftLabel: selector.shiftLabel,
+    });
+
+    const primePracticeSession = (
+      rows: Question[],
+      pageInfo: { hasMore: boolean; nextCursor: string | null; totalCount: number },
+      outlineTotal?: number | null
+    ) => {
+      let q = rows;
+      if (subject !== "All") q = q.filter((x) => x.subject === subject);
+      if (topic !== "All") q = q.filter((x) => x.topic === topic);
+      q = q.filter((x) => !bookmarkIdsRef.current.has(x.id));
+
+      const hasNums = q.some((x) => x.question_number);
+      const sorted = hasNums
+        ? [...q].sort(
+            (a, b) => (a.question_number ?? 999) - (b.question_number ?? 999)
+          )
+        : [...q].sort(() => Math.random() - 0.5);
+      const initialBatch = sorted.slice(0, 20);
+
+      setPracticeQueue(initialBatch);
+      setPracticeIndex(0);
+      setPracticeAnswered(false);
+      setPracticeSelectedOption(null);
+      setPracticeAnswerLoading(false);
+      setPracticeExplanationLoading(false);
+      setPracticeSubject(subject);
+      setPracticeTopic(topic);
+      setPracticePaperId(selector.paperId);
+      setPracticeShiftLabel(selector.shiftLabel);
+      setPracticeHasMore(pageInfo.hasMore);
+      setPracticeNextCursor(pageInfo.nextCursor);
+      setPracticeLoadMoreError(null);
+      setPracticeBatchLoading(false);
+      practiceStartRef.current = Date.now();
+      setPracticeSessionAnswers(new Array(initialBatch.length).fill(null));
+      setSelectedExamName(examName);
+      setSelectedYear(year);
+      setSelectedPaperId(selector.paperId);
+      setSelectedShiftLabel(selector.shiftLabel);
+      const { commission, examType } = parseExamName(examName);
+      setSelectedCommission(commission);
+      setSelectedExamType(examType);
+      setPracticeBackView(view);
+      setPracticeLoadProgress({
+        loaded: initialBatch.length,
+        total: outlineTotal || pageInfo.totalCount || sorted.length,
+      });
+      setView("practice");
+
+      const sessionId = ++prefetchSessionRef.current;
+      prefetchExplanations(initialBatch, sessionId);
+    };
+
+    const cached = getCachedFirstPage(key);
+    if (cached?.questions?.length) {
+      primePracticeSession(
+        cached.questions,
+        {
+          hasMore: cached.hasMore,
+          nextCursor: cached.nextCursor,
+          totalCount: cached.totalCount,
+        },
+        null
+      );
+
+      void requestExamPage(examName, year, {
+        pageSize: 20,
+        ...filters,
+        ...selector,
+      })
+        .then((fresh) => {
+          if (topicPracticeRequestRef.current !== requestId) return;
+          setCachedFirstPage(key, {
+            questions: fresh.rows,
+            totalCount: fresh.totalCount,
+            hasMore: fresh.hasMore,
+            nextCursor: fresh.nextCursor,
+          });
+        })
+        .catch(() => {
+          /* keep cached practice start silently */
+        });
+
+      void outlinePromise.then((outline) => {
+        if (topicPracticeRequestRef.current !== requestId || !outline) return;
+        setPracticeLoadProgress((prev) => ({
+          loaded: prev.loaded,
+          total: outline.total_count || prev.total,
+        }));
+      });
+      return;
+    }
+
     const firstPage = await requestExamPage(examName, year, {
       pageSize: 20,
       ...filters,
       ...selector,
     });
-    let q = firstPage.rows;
-    if (subject !== "All") q = q.filter((x) => x.subject === subject);
-    if (topic !== "All") q = q.filter((x) => x.topic === topic);
-    q = q.filter((x) => !bookmarkIdsRef.current.has(x.id));
-
-    // Sort by question_number to keep DI groups (bar graph Q142-146) together
-    // and preserve the paper's original sequence. Shuffle only when no
-    // question_number is available (cross-exam / legacy questions).
-    const hasNums = q.some((x) => x.question_number);
-    const sorted = hasNums
-      ? [...q].sort(
-          (a, b) => (a.question_number ?? 999) - (b.question_number ?? 999)
-        )
-      : [...q].sort(() => Math.random() - 0.5);
-    const initialBatch = sorted.slice(0, 20);
-
-    setPracticeQueue(initialBatch);
-    setPracticeIndex(0);
-    setPracticeAnswered(false);
-    setPracticeSelectedOption(null);
-    setPracticeAnswerLoading(false);
-    setPracticeExplanationLoading(false);
-    setPracticeSubject(subject);
-    setPracticeTopic(topic);
-    setPracticePaperId(selector.paperId);
-    setPracticeShiftLabel(selector.shiftLabel);
-    setPracticeHasMore(firstPage.hasMore);
-    setPracticeNextCursor(firstPage.nextCursor);
-    setPracticeLoadMoreError(null);
-    setPracticeBatchLoading(false);
-    practiceStartRef.current = Date.now();
-    setPracticeSessionAnswers(new Array(initialBatch.length).fill(null));
-    // Ensure exam context is set so Back → exam-detail always works
-    setSelectedExamName(examName);
-    setSelectedYear(year);
-    setSelectedPaperId(selector.paperId);
-    setSelectedShiftLabel(selector.shiftLabel);
-    const { commission, examType } = parseExamName(examName);
-    setSelectedCommission(commission);
-    setSelectedExamType(examType);
-    // Remember which view launched practice so Back can return there
-    setPracticeBackView(view);
-    setPracticeLoadProgress({
-      loaded: initialBatch.length,
-      total: outline?.total_count || firstPage.totalCount || sorted.length,
-    });
-    setView("practice");
-
-    // Start background explanation prefetch so they're ready before the student answers.
-    const sessionId = ++prefetchSessionRef.current;
-    prefetchExplanations(initialBatch, sessionId);
+    const outline = await outlinePromise;
+    primePracticeSession(
+      firstPage.rows,
+      {
+        hasMore: firstPage.hasMore,
+        nextCursor: firstPage.nextCursor,
+        totalCount: firstPage.totalCount,
+      },
+      outline?.total_count || null
+    );
   };
 
   const startTopicPractice = async (subject: string, topic: string) => {
     const requestId = ++topicPracticeRequestRef.current;
     const queueLabel = `${subject} :: ${topic}`;
     const initialPageSize = 20;
+
+    // ── Shared state reset ──────────────────────────────────────────────────
     setSelectedExamName(queueLabel);
     setSelectedYear(0);
     setPracticeSubject(subject);
@@ -1509,39 +1461,86 @@ function AppContent() {
     setPracticeAnswered(false);
     setPracticeSelectedOption(null);
     setPracticeAnswerLoading(false);
-      setPracticeExplanationLoading(false);
-      setPracticeSessionAnswers([]);
-      setPracticeInitLoading(true);
-      setPracticeInitMessage(`Preparing ${subject} -> ${topic} practice set...`);
-      setPracticeLoadProgress({ loaded: 0, total: null });
-      setPracticeHasMore(false);
-      setPracticeNextCursor(null);
-      setPracticeLoadMoreError(null);
-      setPracticeBatchLoading(false);
-      setGlobalError(null);
-      setView("practice");
+    setPracticeExplanationLoading(false);
+    setPracticeSessionAnswers([]);
+    setPracticeLoadMoreError(null);
+    setPracticeBatchLoading(false);
+    setGlobalError(null);
+    setView("practice");
+
+    // ── SWR: show cached questions immediately ──────────────────────────────
+    const cached = getCachedTopicPage(subject, topic);
+    if (cached && cached.questions.length > 0) {
+      const cachedRows = cached.questions.filter(
+        (q: Question) => !bookmarkIdsRef.current.has(q.id)
+      );
+      setPracticeQueue(cachedRows);
+      practiceStartRef.current = Date.now();
+      setPracticeSessionAnswers(new Array(cachedRows.length).fill(null));
+      setPracticeHasMore(cached.hasMore);
+      setPracticeNextCursor(cached.nextOffset !== null ? String(cached.nextOffset) : null);
+      setPracticeLoadProgress({ loaded: cachedRows.length, total: cached.total });
+      setPracticeInitLoading(false);
+      setPracticeInitMessage("");
+      // Revalidate in background — don't await, don't block UI
+      requestTopicPracticePage(subject, topic, { pageSize: initialPageSize, offset: 0 })
+        .then((fresh) => {
+          if (topicPracticeRequestRef.current !== requestId) return;
+          const freshRows = fresh.rows.filter(
+            (q: Question) => !bookmarkIdsRef.current.has(q.id)
+          );
+          setCachedTopicPage(subject, topic, {
+            questions: fresh.rows,
+            total: fresh.totalCount,
+            hasMore: fresh.hasMore,
+            nextOffset: fresh.nextOffset,
+          });
+          if (practiceIndex === 0 && !practiceAnswered) {
+            setPracticeQueue(freshRows);
+            setPracticeSessionAnswers(new Array(freshRows.length).fill(null));
+            setPracticeHasMore(fresh.hasMore);
+            setPracticeNextCursor(fresh.nextOffset !== null ? String(fresh.nextOffset) : null);
+            setPracticeLoadProgress({ loaded: freshRows.length, total: fresh.totalCount });
+          }
+        })
+        .catch(() => {/* silent — user already has cached data */});
+      return;
+    }
+
+    // ── Cold load (no cache) ────────────────────────────────────────────────
+    setPracticeInitLoading(true);
+    setPracticeInitMessage(`Loading ${subject} — ${topic}...`);
+    setPracticeLoadProgress({ loaded: 0, total: null });
+    setPracticeHasMore(false);
+    setPracticeNextCursor(null);
 
     try {
-      const slowLoadTimer = window.setTimeout(() => {
+      const slowTimer = window.setTimeout(() => {
         if (topicPracticeRequestRef.current === requestId) {
-          setPracticeInitMessage(
-            `Still loading ${subject} -> ${topic}... opening the first questions as soon as they arrive.`
-          );
+          setPracticeInitMessage(`Building topic session from the server...`);
         }
-      }, 800);
+      }, 600);
 
       const firstPage = await requestTopicPracticePage(subject, topic, {
         pageSize: initialPageSize,
         offset: 0,
       });
       if (topicPracticeRequestRef.current !== requestId) return;
-      window.clearTimeout(slowLoadTimer);
+      window.clearTimeout(slowTimer);
 
       const totalCount =
         typeof firstPage.totalCount === "number" ? firstPage.totalCount : null;
-      const initialRows = firstPage.rows
-        .filter((q: Question) => !bookmarkIdsRef.current.has(q.id));
-      const loadedCount = initialRows.length;
+      const initialRows = firstPage.rows.filter(
+        (q: Question) => !bookmarkIdsRef.current.has(q.id)
+      );
+
+      // Write to cache for instant repeat opens
+      setCachedTopicPage(subject, topic, {
+        questions: firstPage.rows,
+        total: firstPage.totalCount,
+        hasMore: firstPage.hasMore,
+        nextOffset: firstPage.nextOffset,
+      });
 
       setPracticeQueue(initialRows);
       practiceStartRef.current = Date.now();
@@ -1550,7 +1549,7 @@ function AppContent() {
       setPracticeNextCursor(
         firstPage.nextOffset !== null ? String(firstPage.nextOffset) : null
       );
-      setPracticeLoadProgress({ loaded: loadedCount, total: totalCount });
+      setPracticeLoadProgress({ loaded: initialRows.length, total: totalCount });
 
       if (!initialRows.length) {
         setPracticeInitLoading(false);
@@ -1562,16 +1561,14 @@ function AppContent() {
       setPracticeInitLoading(false);
       setPracticeInitMessage("");
       setPracticeLoadProgress({
-        loaded: loadedCount,
-        total: totalCount ?? loadedCount,
+        loaded: initialRows.length,
+        total: totalCount ?? initialRows.length,
       });
     } catch (e: any) {
       if (topicPracticeRequestRef.current !== requestId) return;
       setPracticeInitLoading(false);
       setGlobalError(
-        `Could not start practice for ${subject} → ${topic}: ${
-          e?.message || "unknown error"
-        }`
+        `Could not start practice for ${subject} → ${topic}: ${e?.message || "unknown error"}`
       );
     }
   };
@@ -1640,20 +1637,18 @@ function AppContent() {
     );
   };
 
-  const fetchQuestionAnswer = async (
+  const fetchQuestionAnswerMeta = async (
     questionId: string
-  ): Promise<string | null> => {
-    const questionUrl = isAdmin
-      ? `${API_BASE}/questions/${questionId}`
-      : `${API_BASE}/questions/${questionId}`;
-    const res = await fetch(questionUrl);
+  ): Promise<Partial<Question> | null> => {
+    const res = await fetch(`${API_BASE}/questions/${questionId}`);
     if (!res.ok) return null;
     const data = await res.json();
-    const answer = (data.correct_answer ?? data.answer ?? "")
-      .toString()
-      .trim()
-      .toUpperCase();
-    return ["A", "B", "C", "D"].includes(answer) ? answer : null;
+    const nextQuestion = mapQuestion(data);
+    return {
+      answer: getPrimaryAcceptedAnswer(nextQuestion),
+      answers: getAcceptedAnswers(nextQuestion),
+      answerStatus: nextQuestion.answerStatus,
+    };
   };
 
   const fetchExplanationForQuestion = async (
@@ -1695,6 +1690,11 @@ function AppContent() {
         const source = (data.source || "").toString();
         const explanation =
           typeof data.explanation === "string" ? data.explanation.trim() : "";
+        const verifiedAnswers = Array.isArray(data.verified_answers)
+          ? data.verified_answers
+              .map((item: unknown) => String(item || "").trim().toUpperCase())
+              .filter((item: string) => ["A", "B", "C", "D"].includes(item))
+          : [];
         const verifiedAnswer = (
           data.verified_answer ??
           options?.revealedAnswer ??
@@ -1704,10 +1704,17 @@ function AppContent() {
           .trim()
           .toUpperCase();
         const patch: Partial<Question> = {};
+        if (verifiedAnswers.length) patch.answers = verifiedAnswers;
+        if (data.answer_status) patch.answerStatus = String(data.answer_status);
         if (["A", "B", "C", "D"].includes(verifiedAnswer))
           patch.answer = verifiedAnswer;
         if (source === "blocked-unverified-answer") {
           patch.explanation = BLOCKED_EXPLANATION;
+        } else if (source === "deleted-question") {
+          patch.explanation = "This question was deleted in the official final key.";
+        } else if (source === "multiple-correct-answers") {
+          patch.explanation =
+            "The official key accepts more than one answer for this question.";
         } else if (
           source === "hidden-contradiction" ||
           source === "unavailable-error"
@@ -1742,21 +1749,27 @@ function AppContent() {
     const questionAtAnswerTime = currentPracticeQ;
     const answerIndex = practiceIndex;
     const startTime = practiceStartRef.current;
-    const knownAnswer = (questionAtAnswerTime.answer || "")
-      .toString()
-      .trim()
-      .toUpperCase();
-    const hasKnownAnswer = ["A", "B", "C", "D"].includes(knownAnswer);
+    const knownAnswers = getAcceptedAnswers(questionAtAnswerTime);
+    const hasKnownAnswer = isDeletedQuestion(questionAtAnswerTime) || knownAnswers.length > 0;
     setPracticeSelectedOption(key);
     setPracticeAnswerLoading(!hasKnownAnswer);
     setPracticeExplanationLoading(false);
     try {
-      const answer = hasKnownAnswer
-        ? knownAnswer
-        : (await fetchQuestionAnswer(questionId)) || knownAnswer;
-      if (answer) {
-        updatePracticeQuestion(questionId, { answer });
+      const answerMeta =
+        hasKnownAnswer
+          ? {
+              answer: getPrimaryAcceptedAnswer(questionAtAnswerTime),
+              answers: knownAnswers,
+              answerStatus: questionAtAnswerTime.answerStatus,
+            }
+          : (await fetchQuestionAnswerMeta(questionId)) || null;
+      if (answerMeta) {
+        updatePracticeQuestion(questionId, answerMeta);
       }
+      const resolvedQuestion: Question = {
+        ...questionAtAnswerTime,
+        ...(answerMeta || {}),
+      };
       // Check explanation cache BEFORE revealing the answer so loading state is set atomically.
       const cachedExplanation =
         explanationCacheRef.current[questionId] ||
@@ -1767,13 +1780,14 @@ function AppContent() {
       if (needsExplanationFetch) setPracticeExplanationLoading(true);
 
       // Track stats
-      const correct = key === answer;
+      const deleted = isDeletedQuestion(resolvedQuestion);
+      const correct = !deleted && isAcceptedAnswer(resolvedQuestion, key);
       setPracticeSessionAnswers((prev) => {
         const n = [...prev];
-        n[answerIndex] = { selected: key, correct };
+        n[answerIndex] = { selected: key, correct, ignored: deleted };
         return n;
       });
-      if (user) {
+      if (user && !deleted) {
         const newStats = updateStats(
           user.uid,
           questionAtAnswerTime.subject,
@@ -1784,20 +1798,22 @@ function AppContent() {
         );
         setUserStats(newStats);
       }
-      void saveAttempt({
-        questionId,
-        selectedAnswer: key,
-        isCorrect: correct,
-        timeTakenSeconds: Math.max(
-          1,
-          Math.round((Date.now() - startTime) / 1000)
-        ),
-        examName: questionAtAnswerTime.exam,
-        subject: questionAtAnswerTime.subject,
-      });
+      if (!deleted) {
+        void saveAttempt({
+          questionId,
+          selectedAnswer: key,
+          isCorrect: correct,
+          timeTakenSeconds: Math.max(
+            1,
+            Math.round((Date.now() - startTime) / 1000)
+          ),
+          examName: questionAtAnswerTime.exam,
+          subject: questionAtAnswerTime.subject,
+        });
+      }
       if (needsExplanationFetch) {
         void fetchExplanationForQuestion(questionId, {
-          revealedAnswer: answer,
+          revealedAnswer: answerMeta?.answer,
         }).finally(() => {
           setPracticeExplanationLoading((prev) =>
             currentPracticeQ?.id === questionId ? false : prev
@@ -2079,7 +2095,7 @@ function AppContent() {
 
   const startMockExam = async (examName: string, year: number) => {
     const selector = await resolvePaperSelector(examName, year);
-    const outline = await loadExamOutline(examName, year, false, selector);
+    const outlinePromise = loadExamOutline(examName, year, false, selector);
     const firstPage = await requestExamPage(examName, year, {
       pageSize: 20,
       paperId: selector.paperId,
@@ -2097,6 +2113,7 @@ function AppContent() {
     const { commission, examType } = parseExamName(examName);
     setSelectedCommission(commission);
     setSelectedExamType(examType);
+    const outline = await outlinePromise;
     const totalCount =
       outline?.total_count ||
       firstPage.totalCount ||
@@ -2251,9 +2268,25 @@ function AppContent() {
     topic = "All",
     subtopic = "All"
   ) => {
+    setBrowsePickerOpen(false);
     setFilterSubject(subject);
     setFilterTopic(topic);
     setFilterSubtopic(subtopic);
+    setSearchQuery("");
+    setView("browse");
+  };
+
+  const openQuestionBankHome = () => {
+    setCatalogSearchQuery("");
+    setBrowsePickerOpen(true);
+    setSelectedExamName("");
+    setSelectedExamType("");
+    setSelectedYear(0);
+    setSelectedPaperId(null);
+    setSelectedShiftLabel(null);
+    setFilterSubject("All");
+    setFilterTopic("All");
+    setFilterSubtopic("All");
     setSearchQuery("");
     setView("browse");
   };
@@ -2280,10 +2313,39 @@ function AppContent() {
     setSelectedYear(latestYear);
     setSelectedPaperId(null);
     setSelectedShiftLabel(null);
+    setBrowsePickerOpen(false);
     setFilterSubject("All");
     setSearchQuery("");
     setView("exam-detail");
+    void loadExamPapers(examName, latestYear);
+    void loadExamOutline(examName, latestYear);
   };
+
+  const topSearchConfig = useMemo(() => {
+    if (view === "browse" && (browsePickerOpen || !selectedYear)) {
+      return {
+        placeholder: "Search exams, commissions, or papers...",
+        value: catalogSearchQuery,
+        onChange: setCatalogSearchQuery,
+      };
+    }
+    if (view === "commission") {
+      return {
+        placeholder: selectedCommission
+          ? `Search papers in ${selectedCommission}...`
+          : "Search papers...",
+        value: catalogSearchQuery,
+        onChange: setCatalogSearchQuery,
+      };
+    }
+    return null;
+  }, [
+    browsePickerOpen,
+    catalogSearchQuery,
+    selectedCommission,
+    selectedYear,
+    view,
+  ]);
 
   // ── Computed ────────────────────────────────────────────────────────────────
 
@@ -2317,7 +2379,7 @@ function AppContent() {
   }, [commissionMap]);
 
   const isLocked = (examName: string, year: number, commission?: string) => {
-    if (isPremium || isAdmin) return false;
+    if (isPremium) return false;
     if (!commission) return false;
     const freePaper = freePaperByCommission[commission];
     if (!freePaper) return false;
@@ -2436,688 +2498,22 @@ function AppContent() {
       </div>
     );
 
+  const continueAsGuest = () =>
+    setUser({
+      uid: "guest",
+      displayName: "Guest User",
+      email: "guest@localhost",
+      photoURL: null,
+    } as any);
+
   if (!user)
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "var(--c-bg)",
-          fontFamily: "'Inter', sans-serif",
-          display: "flex",
-          flexDirection: "column",
-          color: "var(--c-text)",
-        }}
-      >
-        {/* Top nav */}
-        <header
-          style={{
-            borderBottom: `1px solid ${C.border}`,
-            padding: "0 32px",
-            height: 60,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexShrink: 0,
-            background: C.surface2,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: 7,
-              background: "linear-gradient(135deg, #1e3a8a, #2563eb)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "white", fontWeight: 800, fontSize: 14,
-            }}>P</div>
-            <span style={{ fontSize: 18, fontWeight: 700, color: C.text, letterSpacing: "-0.2px" }}>
-              Pariksha
-            </span>
-          </div>
-        </header>
-
-        {/* Hero */}
-        <main
-          style={{
-            flex: 1,
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) 420px",
-            gap: 42,
-            maxWidth: 1180,
-            margin: "0 auto",
-            padding: "42px 32px 32px",
-            alignItems: "start",
-            width: "100%",
-            boxSizing: "border-box",
-          }}
-        >
-          {/* Left: hero text */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <div
-              style={{
-                fontSize: 11,
-                fontFamily: "'DM Mono', monospace",
-                color: C.accent,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                marginBottom: 18,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span
-                style={{
-                  width: 28,
-                  height: 1,
-                  background: C.accent,
-                  display: "inline-block",
-                }}
-              />
-              India’s serious PYQ workspace
-            </div>
-            <h1
-              style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: 56,
-                fontWeight: 500,
-                lineHeight: 1.02,
-                letterSpacing: "-1.4px",
-                color: C.text,
-                marginBottom: 18,
-                maxWidth: 640,
-              }}
-            >
-              Previous year papers, structured for
-              <span style={{ color: C.accent, display: "block" }}>
-                serious preparation.
-              </span>
-            </h1>
-            <p
-              style={{
-                fontSize: 17,
-                color: C.textSec,
-                lineHeight: 1.65,
-                marginBottom: 22,
-                maxWidth: 600,
-              }}
-            >
-              Clean PYQ practice for UPSC, APPSC, and TSPSC with verified
-              explanations, timed mocks, and revision-first structure.
-            </p>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1.25fr 0.75fr",
-                gap: 16,
-                marginBottom: 26,
-                maxWidth: 760,
-              }}
-            >
-              <div
-                className="surface-card"
-                style={{ padding: "18px 18px", borderRadius: 18 }}
-              >
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: C.textTert,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.1em",
-                    fontFamily: "'DM Mono', monospace",
-                    marginBottom: 14,
-                  }}
-                >
-                  Why serious aspirants stay
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                    gap: 12,
-                  }}
-                >
-                  {[
-                    {
-                      icon: "PYQ",
-                      label: "Verified question bank",
-                      detail: "Structured papers from major commissions",
-                    },
-                    {
-                      icon: "AI",
-                      label: "Answer-aligned explanations",
-                      detail: "Generated only after answer checks",
-                    },
-                    {
-                      icon: "MOCK",
-                      label: "Timed exam simulation",
-                      detail: "Practice and mock workflows",
-                    },
-                    {
-                      icon: "DATA",
-                      label: "Performance intelligence",
-                      detail: "Track weak areas and progress",
-                    },
-                  ].map(({ icon, label, detail }) => (
-                    <div
-                      key={label}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 12,
-                      }}
-                    >
-                      <div
-                        style={{
-                          minWidth: 40,
-                          height: 40,
-                          borderRadius: 11,
-                          background: C.accentDim,
-                          border: `1px solid ${C.accent}26`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 10,
-                          fontWeight: 800,
-                          letterSpacing: "0.08em",
-                          color: C.accent,
-                          fontFamily: "'DM Mono', monospace",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {icon}
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: C.text,
-                          }}
-                        >
-                          {label}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: C.textTert,
-                            marginTop: 4,
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {detail}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div
-                className="surface-card"
-                style={{ padding: "18px 18px", borderRadius: 18 }}
-              >
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: C.textTert,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.1em",
-                    fontFamily: "'DM Mono', monospace",
-                    marginBottom: 14,
-                  }}
-                >
-                  Platform edge
-                </div>
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 12 }}
-                >
-                  {[
-                    [
-                      "Pattern-first",
-                      "Designed for revision, not browsing PDFs",
-                    ],
-                    [
-                      "Topic intelligence",
-                      "Move from subject to concept quickly",
-                    ],
-                    ["Clean delivery", "Broken rows stay out of learner view"],
-                  ].map(([label, detail]) => (
-                    <div
-                      key={label}
-                      style={{
-                        paddingBottom: 12,
-                        borderBottom: `1px solid ${C.border}`,
-                      }}
-                    >
-                      <div
-                        style={{ fontSize: 13, fontWeight: 700, color: C.text }}
-                      >
-                        {label}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: C.textTert,
-                          marginTop: 4,
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        {detail}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Stats strip */}
-            <div
-              style={{
-                display: "flex",
-                gap: 0,
-                paddingTop: 18,
-                borderTop: `1px solid ${C.border}`,
-                flexWrap: "wrap",
-              }}
-            >
-              {[
-                { num: "6,500+", label: "Questions" },
-                { num: "39", label: "Papers" },
-                { num: "6+", label: "Years covered" },
-                { num: "3", label: "Core commissions" },
-              ].map(({ num, label }) => (
-                <div
-                  key={label}
-                  style={{
-                    minWidth: 132,
-                    paddingRight: 18,
-                    marginRight: 18,
-                    borderRight:
-                      label !== "Core commissions"
-                        ? `1px solid ${C.border}`
-                        : "none",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 24,
-                      fontFamily: "'Inter', sans-serif",
-                      fontWeight: 500,
-                      color: C.text,
-                      letterSpacing: "-0.5px",
-                    }}
-                  >
-                    {num}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: C.textTert,
-                      fontFamily: "'DM Mono', monospace",
-                      marginTop: 4,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    {label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Right: sign-in card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-          >
-            <div
-              className="surface-card"
-              style={{
-                borderRadius: 24,
-                padding: 28,
-                boxShadow: "var(--c-shadow-subtle)",
-              }}
-            >
-              <div style={{ marginBottom: 26 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontFamily: "'DM Mono', monospace",
-                    color: C.accent,
-                    letterSpacing: "0.10em",
-                    textTransform: "uppercase",
-                    marginBottom: 10,
-                  }}
-                >
-                  Access your workspace
-                </div>
-                <div
-                  style={{
-                    fontSize: 26,
-                    fontFamily: "'Inter', sans-serif",
-                    fontWeight: 500,
-                    color: C.text,
-                    marginBottom: 8,
-                    letterSpacing: "-0.4px",
-                  }}
-                >
-                  Start your preparation hub
-                </div>
-                <div
-                  style={{ fontSize: 14, color: C.textSec, lineHeight: 1.6 }}
-                >
-                  Sign in to save progress, resume mocks, and build a long-term
-                  preparation record across papers.
-                </div>
-              </div>
-
-              <div
-                style={{
-                  padding: "14px 14px",
-                  borderRadius: 16,
-                  background: C.surface2,
-                  border: `1px solid ${C.border}`,
-                  marginBottom: 18,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 12,
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        color: C.textTert,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        fontFamily: "'DM Mono', monospace",
-                      }}
-                    >
-                      Workspace preview
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 15,
-                        color: C.text,
-                        fontWeight: 700,
-                        marginTop: 4,
-                      }}
-                    >
-                      Your preparation dashboard
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      padding: "5px 8px",
-                      borderRadius: 999,
-                      background: C.accentDim,
-                      color: C.accent,
-                      fontSize: 10,
-                      fontWeight: 700,
-                    }}
-                  >
-                    Live after sign-in
-                  </div>
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 10,
-                  }}
-                >
-                  {[
-                    ["Daily goal", "25Q"],
-                    ["Accuracy", "Tracked"],
-                    ["Mocks", "Resume"],
-                    ["Reports", "Ready"],
-                  ].map(([label, value]) => (
-                    <div
-                      key={label}
-                      style={{
-                        padding: "12px 12px",
-                        borderRadius: 12,
-                        background: C.surface,
-                        border: `1px solid ${C.border}`,
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: C.textTert,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.08em",
-                          fontFamily: "'DM Mono', monospace",
-                        }}
-                      >
-                        {label}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 16,
-                          color: C.text,
-                          fontWeight: 700,
-                          marginTop: 5,
-                        }}
-                      >
-                        {value}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div
-                  style={{
-                    marginTop: 12,
-                    paddingTop: 12,
-                    borderTop: `1px solid ${C.border}`,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
-                >
-                  {[
-                    "Daily goals and streaks stay synced",
-                    "Mock tests reopen from where you stopped",
-                    "Reports and history stay attached to your account",
-                  ].map((item) => (
-                    <div
-                      key={item}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        fontSize: 11,
-                        color: C.textSec,
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 5,
-                          height: 5,
-                          borderRadius: "50%",
-                          background: C.accent,
-                          display: "inline-block",
-                          flexShrink: 0,
-                        }}
-                      />
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                onClick={handleLogin}
-                style={{
-                  width: "100%",
-                  padding: "14px 0",
-                  background: C.accent,
-                  border: "none",
-                  borderRadius: 12,
-                  fontSize: 15,
-                  fontWeight: 700,
-                  color: "#0a1a18",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  marginBottom: 12,
-                  transition: "opacity 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-              >
-                <LogIn style={{ width: 16, height: 16 }} /> Continue with Google
-              </button>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  margin: "16px 0",
-                }}
-              >
-                <div style={{ flex: 1, height: 1, background: C.border }} />
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: C.textTert,
-                    fontFamily: "'DM Mono', monospace",
-                  }}
-                >
-                  or
-                </span>
-                <div style={{ flex: 1, height: 1, background: C.border }} />
-              </div>
-
-              <button
-                onClick={() =>
-                  setUser({
-                    uid: "guest",
-                    displayName: "Guest User",
-                    email: "guest@localhost",
-                    photoURL: null,
-                  } as any)
-                }
-                style={{
-                  width: "100%",
-                  padding: "13px 0",
-                  background: "transparent",
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 12,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: C.textSec,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "var(--c-border-l)";
-                  e.currentTarget.style.color = C.text;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = C.border;
-                  e.currentTarget.style.color = C.textSec;
-                }}
-              >
-                Continue in Guest Mode
-              </button>
-
-              <p
-                style={{
-                  fontSize: 12,
-                  color: C.textTert,
-                  textAlign: "center",
-                  marginTop: 18,
-                  lineHeight: 1.7,
-                }}
-              >
-                Guest mode is fine for exploration, but it won’t save streaks,
-                XP, reports, or long-term practice history.
-              </p>
-
-              <div
-                style={{
-                  marginTop: 18,
-                  paddingTop: 18,
-                  borderTop: `1px solid ${C.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
-                {[
-                  "Structured by subject, topic, and concept family",
-                  "Designed for revision, not just browsing PDFs",
-                  "Built for UPSC and state PSC aspirants",
-                ].map((item) => (
-                  <div
-                    key={item}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: 12,
-                      color: C.textSec,
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        background: C.accent,
-                        display: "inline-block",
-                        flexShrink: 0,
-                      }}
-                    />
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        </main>
-
-        {/* Footer strip */}
-        <footer
-          style={{
-            borderTop: `1px solid ${C.border}`,
-            padding: "14px 32px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexShrink: 0,
-            background: C.surface2,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 11,
-              color: C.textTert,
-              fontFamily: "'DM Mono', monospace",
-            }}
-          >
-            Pariksha · PYQ intelligence for serious exam prep
-          </span>
-          <span style={{ fontSize: 11, color: C.textTert }}>
-            Clean papers. Better revision. Stronger preparation.
-          </span>
-        </footer>
-      </div>
+      <LandingPage
+        onLogin={handleLogin}
+        onContinueGuest={continueAsGuest}
+        catalogSummary={catalogSummary}
+        feedSummary={feedSummary}
+      />
     );
 
   // ── Main Render ─────────────────────────────────────────────────────────────
@@ -3188,15 +2584,40 @@ function AppContent() {
 
           {/* Right side */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
-            {/* Search */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "6px 12px", background: "var(--bg-alt)",
-              borderRadius: 6, width: 220, color: "var(--text-tert)", fontSize: 13, cursor: "text",
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-              Search questions
-            </div>
+            {topSearchConfig && (
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "0 12px",
+                background: "var(--bg-alt)",
+                borderRadius: 8,
+                width: 320,
+                height: 38,
+                color: "var(--text-tert)",
+                border: "1px solid var(--border)",
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                  <circle cx="11" cy="11" r="7"/>
+                  <path d="m21 21-4.3-4.3"/>
+                </svg>
+                <input
+                  type="text"
+                  value={topSearchConfig.value}
+                  onChange={(event) => topSearchConfig.onChange(event.target.value)}
+                  placeholder={topSearchConfig.placeholder}
+                  style={{
+                    flex: 1,
+                    border: "none",
+                    background: "transparent",
+                    outline: "none",
+                    color: "var(--text)",
+                    fontSize: 13,
+                    fontFamily: "inherit",
+                  }}
+                />
+              </div>
+            )}
 
             {/* Streak */}
             {userStats.streak > 0 && (
@@ -3212,21 +2633,6 @@ function AppContent() {
             {/* Loading indicator */}
             {dataLoading && (
               <Loader2 style={{ width: 15, height: 15, color: C.accent }} className="animate-spin" />
-            )}
-
-            {/* Admin flagged button */}
-            {isAdmin && (
-              <button
-                onClick={() => setFlagsModal(true)}
-                style={{
-                  padding: "5px 11px", fontSize: 11, fontWeight: 600,
-                  background: "var(--warn-soft)", border: "1px solid #fbbf2440",
-                  borderRadius: 6, color: "#b45309", cursor: "pointer",
-                  display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit",
-                }}
-              >
-                🚩 Flagged
-              </button>
             )}
 
             {/* Premium pill */}
@@ -3261,7 +2667,6 @@ function AppContent() {
             view={view}
             commissionMap={commissionMap}
             dataLoading={dataLoading}
-            isAdmin={isAdmin}
             streak={userStats.streak}
             xp={userStats.xp}
             examDropdownOpen={examDropdownOpen}
@@ -3272,14 +2677,10 @@ function AppContent() {
             selectedExamType={selectedExamType}
             selectedYear={selectedYear}
             setView={setView}
+            openQuestionBankHome={openQuestionBankHome}
             openCommission={openCommission}
             openExam={openExam}
-            openCostModal={openCostModal}
-            openUploadModal={() => setUploadModal(true)}
-            openPatternDebug={() => setView("pattern-debug")}
-            openPatternIngestion={() => setView("pattern-ingestion")}
             openPatternPractice={() => setView("pattern-practice")}
-            toggleAdmin={toggleAdmin}
             handleLogout={handleLogout}
           />
 
@@ -3343,6 +2744,7 @@ function AppContent() {
                     startPractice={startPractice}
                     startMockExam={startMockExam}
                     setView={setView}
+                    openQuestionBankHome={openQuestionBankHome}
                     stats={userStats}
                     userDisplayName={user?.displayName ?? null}
                     userId={user?.uid ?? "guest"}
@@ -3352,6 +2754,7 @@ function AppContent() {
                   <CommissionView
                     selectedCommission={selectedCommission}
                     commissionMap={commissionMap}
+                    searchQuery={catalogSearchQuery}
                     setView={setView}
                     openExam={openExam}
                     startPractice={startPractice}
@@ -3390,13 +2793,6 @@ function AppContent() {
                       startMockExam={startMockExam}
                       browseWithFilters={browseWithFilters}
                       setView={setView}
-                      isAdmin={isAdmin}
-                      setRenameModal={setRenameModal}
-                      setRenameValue={setRenameValue}
-                      setDeleteExamTarget={setDeleteExamTarget}
-                      doAddBlankQuestion={doAddBlankQuestion}
-                      doDeleteQuestion={doDeleteQuestion}
-                      setEditQuestion={setEditQuestion}
                       isLocked={isLocked}
                       onLockedClick={() => setShowPremiumModal(true)}
                     />
@@ -3425,8 +2821,6 @@ function AppContent() {
                       selectedYear={selectedYear}
                       examOutline={examOutline}
                       currentPracticeQ={currentPracticeQ}
-                      isAdmin={isAdmin}
-                      setEditQuestion={setEditQuestion}
                       onFlagQuestion={setFlagQuestion}
                       handleAnswerSelect={handleAnswerSelect}
                       nextPracticeQuestion={nextPracticeQuestion}
@@ -3489,6 +2883,9 @@ function AppContent() {
                       selectedExamName={selectedExamName}
                       selectedExamType={selectedExamType}
                       selectedYear={selectedYear}
+                      showPicker={browsePickerOpen}
+                      setShowPicker={setBrowsePickerOpen}
+                      catalogSearchQuery={catalogSearchQuery}
                       filterSubject={filterSubject}
                       filterTopic={filterTopic}
                       filterSubtopic={filterSubtopic}
@@ -3499,10 +2896,8 @@ function AppContent() {
                       setFilterSubtopic={setFilterSubtopic}
                       setSelectedQuestion={setSelectedQuestion}
                       setView={setView}
-                      isAdmin={isAdmin}
                       commissionMap={commissionMap}
                       examLoading={examLoading}
-                      setEditQuestion={setEditQuestion}
                       onPickCommission={openCommission}
                       loadMoreQuestions={() => {
                         void loadMoreExamQuestions(
@@ -3538,24 +2933,6 @@ function AppContent() {
                       sendChatMessage={sendChatMessage}
                       setView={setView}
                     />
-                  </Suspense>
-                )}
-                {view === "pattern-debug" && isAdmin && (
-                  <Suspense
-                    fallback={
-                      <ViewLoadingFallback label="Loading pattern diagnostics..." />
-                    }
-                  >
-                    <PatternDebugView />
-                  </Suspense>
-                )}
-                {view === "pattern-ingestion" && isAdmin && (
-                  <Suspense
-                    fallback={
-                      <ViewLoadingFallback label="Loading ingestion console..." />
-                    }
-                  >
-                    <PatternBookIngestionView />
                   </Suspense>
                 )}
                 {view === "pattern-practice" && (
@@ -3656,74 +3033,12 @@ function AppContent() {
         </div>
         {/* end body grid */}
 
-        {/* Admin Modals */}
-        {costModal && (
-          <CostModal
-            costLog={costLog}
-            costExpanded={costExpanded}
-            setCostExpanded={setCostExpanded}
-            onClose={() => setCostModal(false)}
-          />
-        )}
-        {deleteExamTarget && (
-          <DeleteExamModal
-            target={deleteExamTarget}
-            busy={deleteBusy}
-            onConfirm={doDeleteExam}
-            onCancel={() => setDeleteExamTarget(null)}
-          />
-        )}
-        {renameModal && (
-          <RenameModal
-            modal={renameModal}
-            value={renameValue}
-            onChange={setRenameValue}
-            onConfirm={doRename}
-            onCancel={() => setRenameModal(null)}
-            busy={renameBusy}
-          />
-        )}
-        {editQuestion && (
-          <EditQuestionModal
-            question={editQuestion}
-            onClose={() => setEditQuestion(null)}
-            onSaved={async (updated) => {
-              updateExamCacheQuestion(updated);
-              await reloadExamAndMeta(updated.exam, updated.year);
-              setPracticeQueue((prev) =>
-                prev.map((q) => (q.id === updated.id ? updated : q))
-              );
-            }}
-            onDeleted={async (deletedQuestion) => {
-              await reloadExamAndMeta(
-                deletedQuestion.exam,
-                deletedQuestion.year
-              );
-              setPracticeQueue((prev) =>
-                prev.filter((q) => q.id !== deletedQuestion.id)
-              );
-              setEditQuestion(null);
-            }}
-          />
-        )}
-        {uploadModal && (
-          <UploadPaperModal
-            onClose={() => setUploadModal(false)}
-            onComplete={() => {
-              invalidateMetaCache();
-              fetchData();
-            }}
-          />
-        )}
         {flagQuestion && (
           <FlagQuestionModal
             question={flagQuestion}
             userId={user?.uid}
             onClose={() => setFlagQuestion(null)}
           />
-        )}
-        {flagsModal && isAdmin && (
-          <AdminFlagsModal onClose={() => setFlagsModal(false)} />
         )}
         {showPremiumModal && (
           <PremiumGateModal

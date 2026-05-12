@@ -1,4 +1,4 @@
-import { Pencil, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { QuestionCardSkeleton } from '../../components/skeletons/QuestionCardSkeleton';
 import { C, diffBg, diffColor } from '../../lib/tokens';
 import { type Question } from '../../types';
@@ -13,13 +13,11 @@ interface BrowseQuestionListProps {
   hasMore: boolean;
   loadingMore: boolean;
   loadError: string | null;
-  isAdmin: boolean;
   setSearchQuery: (value: string) => void;
   setFilterSubject: (value: string) => void;
   setFilterTopic: (value: string) => void;
   setFilterSubtopic: (value: string) => void;
   setSelectedQuestion: (question: Question | null) => void;
-  setEditQuestion: (question: Question) => void;
   loadMoreQuestions: () => void;
 }
 
@@ -33,13 +31,11 @@ export function BrowseQuestionList({
   hasMore,
   loadingMore,
   loadError,
-  isAdmin,
   setSearchQuery,
   setFilterSubject,
   setFilterTopic,
   setFilterSubtopic,
   setSelectedQuestion,
-  setEditQuestion,
   loadMoreQuestions,
 }: BrowseQuestionListProps) {
   const subjects = [...new Set(examYearQs.map((question) => question.subject))].sort();
@@ -329,36 +325,6 @@ export function BrowseQuestionList({
               </p>
               <p style={{ fontSize: 11, color: C.textTert }}>{question.topic}</p>
             </div>
-            {isAdmin && (
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setEditQuestion(question);
-                }}
-                title="Edit question"
-                style={{
-                  padding: 6,
-                  background: 'transparent',
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 7,
-                  cursor: 'pointer',
-                  color: C.textTert,
-                  display: 'flex',
-                  flexShrink: 0,
-                  transition: 'all 0.12s',
-                }}
-                onMouseEnter={(event) => {
-                  event.currentTarget.style.borderColor = C.accent;
-                  event.currentTarget.style.color = C.accent;
-                }}
-                onMouseLeave={(event) => {
-                  event.currentTarget.style.borderColor = C.border;
-                  event.currentTarget.style.color = C.textTert;
-                }}
-              >
-                <Pencil style={{ width: 13, height: 13 }} />
-              </button>
-            )}
           </div>
         ))
       )}

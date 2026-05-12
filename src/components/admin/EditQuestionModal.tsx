@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2, Crop as CropIcon, Trash, Upload } from 'lucide-react';
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 import { C } from '../../lib/tokens';
-import { API_BASE, adminHeaders } from '../../lib/api';
+import { API_BASE, adminHeaders } from '../../lib/adminApi';
 import { type Question } from '../../types';
 
 interface EditQuestionModalProps {
   question: Question;
   onClose: () => void;
-  onSaved: (updated: Question) => void;
-  onDeleted?: (questionId: string) => void;
+  onSaved: (updated: Question) => void | Promise<void>;
+  onDeleted?: (question: Question) => void;
 }
 
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
@@ -41,6 +43,7 @@ const labelStyle: React.CSSProperties = {
 
 export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: EditQuestionModalProps) {
   const [qText, setQText] = useState(question.question || '');
+  const [passage, setPassage] = useState(question.passage || '');
   const [optA, setOptA] = useState(question.options?.A || '');
   const [optB, setOptB] = useState(question.options?.B || '');
   const [optC, setOptC] = useState(question.options?.C || '');
@@ -49,9 +52,94 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
   const [subject, setSubject] = useState(question.subject || 'General Knowledge');
   const [topic, setTopic] = useState(question.topic || 'General');
   const [difficulty, setDifficulty] = useState(question.difficulty || 'Medium');
+  // Image handling
+  const [hasImage, setHasImage] = useState((question as any).has_image || false);
+  const [imageUrl, setImageUrl] = useState((question as any).image_url || undefined);
+  const [cropMode, setCropMode] = useState(false);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [savingImage, setSavingImage] = useState(false);
+  const [imageVersion, setImageVersion] = useState(() => Date.now());
+
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleDeleteImage = () => {
+    // Stage deletion. The server will save this change when 'handleSave' is called.
+    setHasImage(false);
+    setImageUrl(undefined);
+  };
+
+  const handleApplyCrop = async () => {
+    if (!completedCrop || !imgRef.current || !question.id || !imageUrl) return;
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 30_000);
+    try {
+      setSavingImage(true);
+      setError(null);
+
+      const img = imgRef.current;
+      const scaleX = img.naturalWidth / img.width;
+      const scaleY = img.naturalHeight / img.height;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No 2d context');
+
+      canvas.width = Math.max(1, completedCrop.width * scaleX);
+      canvas.height = Math.max(1, completedCrop.height * scaleY);
+
+      // Draw directly from the already-loaded <img> element (crossOrigin="anonymous" is set).
+      // This avoids a second network fetch which can hang if Supabase CORS headers
+      // weren't included in the browser's cached response.
+      ctx.drawImage(
+        img,
+        completedCrop.x * scaleX,
+        completedCrop.y * scaleY,
+        completedCrop.width * scaleX,
+        completedCrop.height * scaleY,
+        0, 0,
+        canvas.width, canvas.height,
+      );
+
+      let base64Image: string;
+      try {
+        base64Image = canvas.toDataURL('image/png');
+      } catch {
+        // Canvas tainted (image loaded without CORS before crossOrigin attr was set).
+        // Hard-reload the image fresh with CORS then retry the draw.
+        const blob = await fetch(imageUrl, { mode: 'cors', cache: 'reload', signal: abort.signal }).then(r => r.blob());
+        const bmp = await createImageBitmap(blob);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bmp, completedCrop.x * scaleX, completedCrop.y * scaleY, completedCrop.width * scaleX, completedCrop.height * scaleY, 0, 0, canvas.width, canvas.height);
+        base64Image = canvas.toDataURL('image/png');
+      }
+
+      const res = await fetch(`${API_BASE}/admin/questions/${question.id}/image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...adminHeaders() },
+        body: JSON.stringify({ base64_image: base64Image }),
+        signal: abort.signal,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setImageUrl(data.image_url);
+      setImageVersion(Date.now());
+      setHasImage(true);
+      setCropMode(false);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setError('Crop upload timed out. Check your connection and try again.');
+      } else {
+        setError(err.message || 'Crop upload failed');
+      }
+    } finally {
+      clearTimeout(timer);
+      setSavingImage(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!question.id) return;
@@ -64,7 +152,7 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
         headers: adminHeaders(),
       });
       if (!res.ok) throw new Error(await res.text());
-      if (onDeleted) onDeleted(question.id);
+      if (onDeleted) onDeleted(question);
       else onClose();
     } catch (e: any) {
       setError(e.message || 'Delete failed');
@@ -74,6 +162,8 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
 
   const handleSave = async () => {
     if (!question.id) { setError('Question has no ID'); return; }
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 30_000);
     setSaving(true);
     setError(null);
     try {
@@ -82,6 +172,7 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
         headers: { 'Content-Type': 'application/json', ...adminHeaders() },
         body: JSON.stringify({
           question_text: qText.trim(),
+          passage: passage.trim(),
           option_a: optA.trim(),
           option_b: optB.trim(),
           option_c: optC.trim(),
@@ -89,22 +180,38 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
           correct_answer: answer,
           subject: subject.trim(),
           topic: topic.trim(),
+          subtopic: question.subtopic || '',
           difficulty,
+          is_active: true,
+          needs_review: false,
+          has_image: hasImage,
+          image_url: imageUrl || null
         }),
+        signal: abort.signal,
       });
       if (!res.ok) throw new Error(await res.text());
-      onSaved({
+      await Promise.resolve(onSaved({
         ...question,
         question: qText.trim(),
+        passage: passage.trim() || undefined,
         options: { A: optA.trim(), B: optB.trim(), C: optC.trim(), D: optD.trim() },
         answer,
         subject: subject.trim(),
         topic: topic.trim(),
         difficulty,
-      });
+        needs_review: false,
+        has_image: hasImage,
+        image_url: imageUrl || undefined,
+      }));
+      onClose();
     } catch (e: any) {
-      setError(e.message || 'Save failed');
+      if (e.name === 'AbortError') {
+        setError('Save timed out after 30s. Check your connection and try again.');
+      } else {
+        setError(e.message || 'Save failed');
+      }
     } finally {
+      clearTimeout(timer);
       setSaving(false);
     }
   };
@@ -130,11 +237,58 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
 
         {/* Body */}
         <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Passage text */}
+          <div>
+            <label style={labelStyle}>Passage (Optional)</label>
+            <textarea value={passage} onChange={e => setPassage(e.target.value)} rows={3} style={inputStyle} placeholder="Reading comprehension passage text..." />
+          </div>
+
           {/* Question text */}
           <div>
             <label style={labelStyle}>Question Text</label>
             <textarea value={qText} onChange={e => setQText(e.target.value)} rows={4} style={inputStyle} />
           </div>
+
+          {/* Attached Image Section */}
+          {hasImage && imageUrl && (
+            <div>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                 <label style={{...labelStyle, marginBottom: 0}}>Attached Image</label>
+                 {!cropMode && (
+                   <div style={{ display: 'flex', gap: 6 }}>
+                     <button onClick={() => setCropMode(true)} style={{ background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 6, color: C.textSec, fontSize: 11, padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                       <CropIcon size={12} /> Crop
+                     </button>
+                     <button onClick={handleDeleteImage} style={{ background: 'transparent', border: `1px solid ${C.danger}40`, borderRadius: 6, color: C.danger, fontSize: 11, padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                       <Trash size={12} /> Delete
+                     </button>
+                   </div>
+                 )}
+               </div>
+               
+               <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, background: '#111', padding: 8, overflow: 'hidden' }}>
+                 {cropMode ? (
+                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                     <ReactCrop 
+                       crop={crop} 
+                       onChange={(_, percentCrop) => setCrop(percentCrop)}
+                       onComplete={(c) => setCompletedCrop(c)}
+                     >
+                       <img ref={imgRef} src={imageUrl} alt="crop src" style={{ maxHeight: 300, maxWidth: '100%' }} crossOrigin="anonymous"/>
+                     </ReactCrop>
+                     <div style={{ display: 'flex', gap: 8, width: '100%', justifyContent: 'flex-end' }}>
+                       <button onClick={() => setCropMode(false)} style={{ padding: '6px 12px', background: 'transparent', color: C.textSec, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+                       <button onClick={handleApplyCrop} disabled={savingImage || !completedCrop?.width} style={{ padding: '6px 12px', background: C.accent, color: '#000', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                         {savingImage ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />} Apply Crop
+                       </button>
+                     </div>
+                   </div>
+                 ) : (
+                   <img src={`${imageUrl}?v=${imageVersion}`} alt="Question" style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain', margin: '0 auto', display: 'block', borderRadius: 6 }} />
+                 )}
+               </div>
+            </div>
+          )}
 
           {/* Options */}
           <div>

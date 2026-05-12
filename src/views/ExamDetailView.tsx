@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { C } from '../lib/tokens';
 import { type Question, type CommissionMap, type ExamPaperManifest, type WeightageItem, type View } from '../types';
-import { ExamDetailAuditSection } from './exam-detail/ExamDetailAuditSection';
 import { ExamDetailControls } from './exam-detail/ExamDetailControls';
 import { ExamDetailHeader } from './exam-detail/ExamDetailHeader';
 import { ExamDetailModeCards } from './exam-detail/ExamDetailModeCards';
@@ -35,13 +34,6 @@ interface ExamDetailViewProps {
   startMockExam: (examName: string, year: number) => void;
   browseWithFilters: (subject?: string, topic?: string, subtopic?: string) => void;
   setView: (v: View) => void;
-  isAdmin: boolean;
-  setRenameModal: (v: { fullName: string; year: number } | null) => void;
-  setRenameValue: (v: string) => void;
-  setDeleteExamTarget: (v: { fullName: string; year: number } | null) => void;
-  doAddBlankQuestion?: (examName: string, year: number, forcedNum?: number) => void;
-  doDeleteQuestion?: (id: string) => void;
-  setEditQuestion?: (question: Question | null) => void;
   isLocked: (examName: string, year: number, commission?: string) => boolean;
   onLockedClick: () => void;
 }
@@ -51,36 +43,22 @@ export function ExamDetailView({
   commissionMap, examYearQs, examLoading, examPaperManifest, examPaperLoading,
   selectedPaperId, selectedShiftLabel, setSelectedPaperId, setSelectedShiftLabel, weightage, examQuestionCount,
   startPractice, startMockExam, browseWithFilters, setView,
-  isAdmin, setRenameModal, setRenameValue, setDeleteExamTarget, doAddBlankQuestion, doDeleteQuestion, setEditQuestion,
   isLocked, onLockedClick,
 }: ExamDetailViewProps) {
   // =========================
   // SECTION: State Management
   // =========================
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
-  const [showAudit, setShowAudit] = useState(false);
-
-  // =========================
-  // SECTION: Derived Data
-  // =========================
   const examInfo = getExamInfo(commissionMap, selectedCommission, selectedExamType);
   const availableYears = getAvailableYears(selectedYear, examInfo?.years);
   const examDuration = getExamDurationLabel(examQuestionCount);
   const availablePapers = getAvailablePapers(examPaperManifest);
-  const selectedPaperLabel = getSelectedPaperLabel(selectedShiftLabel, selectedPaperId);
+  const selectedPaperLabel = getSelectedPaperLabel(
+    availablePapers,
+    selectedShiftLabel,
+    selectedPaperId
+  );
   const yearLocked = isLocked(selectedExamName, selectedYear, selectedCommission);
-
-  // =========================
-  // SECTION: Event Handlers
-  // =========================
-  const handleRenameExam = () => {
-    setRenameValue(selectedExamName);
-    setRenameModal({ fullName: selectedExamName, year: selectedYear });
-  };
-
-  const handleDeleteExam = () => {
-    setDeleteExamTarget({ fullName: selectedExamName, year: selectedYear });
-  };
 
   // =========================
   // SECTION: Render Exam Detail
@@ -96,11 +74,7 @@ export function ExamDetailView({
         examQuestionCount={examQuestionCount}
         selectedPaperLabel={selectedPaperLabel}
         availablePaperCount={availablePapers.length}
-        isAdmin={isAdmin}
         onBack={() => setView('commission')}
-        onAddQuestion={() => doAddBlankQuestion?.(selectedExamName, selectedYear)}
-        onRenameExam={handleRenameExam}
-        onDeleteExam={handleDeleteExam}
       />
 
       <ExamDetailControls
@@ -119,19 +93,6 @@ export function ExamDetailView({
         selectedShiftLabel={selectedShiftLabel}
         setSelectedPaperId={setSelectedPaperId}
         setSelectedShiftLabel={setSelectedShiftLabel}
-      />
-
-      <ExamDetailAuditSection
-        isAdmin={isAdmin}
-        showAudit={showAudit}
-        setShowAudit={setShowAudit}
-        questions={examYearQs}
-        selectedExamName={selectedExamName}
-        selectedYear={selectedYear}
-        selectedCommission={selectedCommission}
-        doAddBlankQuestion={doAddBlankQuestion}
-        setEditQuestion={setEditQuestion}
-        doDeleteQuestion={doDeleteQuestion}
       />
 
       <ExamDetailModeCards

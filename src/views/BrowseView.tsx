@@ -16,11 +16,13 @@ interface BrowseViewProps {
   selectedExamName: string;
   selectedExamType: string;
   selectedYear: number;
+  showPicker: boolean;
+  setShowPicker: (value: boolean) => void;
+  catalogSearchQuery: string;
   filterSubject: string;
   filterTopic: string;
   filterSubtopic: string;
   searchQuery: string;
-  isAdmin: boolean;
   commissionMap: CommissionMap;
   examLoading: boolean;
   setSearchQuery: (v: string) => void;
@@ -28,7 +30,6 @@ interface BrowseViewProps {
   setFilterTopic: (v: string) => void;
   setFilterSubtopic: (v: string) => void;
   setSelectedQuestion: (q: Question | null) => void;
-  setEditQuestion: (q: Question) => void;
   loadMoreQuestions: () => void;
   setView: (v: View) => void;
   onPickCommission: (commission: string) => void;
@@ -37,15 +38,12 @@ interface BrowseViewProps {
 export function BrowseView({
   examYearQs, filteredQs, totalCount, hasMore, loadingMore, loadError,
   selectedExamName, selectedExamType, selectedYear,
-  filterSubject, filterTopic, filterSubtopic, searchQuery, isAdmin,
+  showPicker, setShowPicker, catalogSearchQuery,
+  filterSubject, filterTopic, filterSubtopic, searchQuery,
   commissionMap, examLoading,
   setSearchQuery, setFilterSubject, setFilterTopic, setFilterSubtopic,
-  setSelectedQuestion, setEditQuestion, loadMoreQuestions, setView, onPickCommission,
+  setSelectedQuestion, loadMoreQuestions, setView, onPickCommission,
 }: BrowseViewProps) {
-  // =========================
-  // SECTION: State Management
-  // =========================
-  const [showPicker, setShowPicker] = useState(!selectedYear);
   const [categoryTab, setCategoryTab] = useState<BrowseCategoryTab>('all');
 
   // =========================
@@ -83,6 +81,7 @@ export function BrowseView({
         categoryTab={categoryTab}
         commissionMap={commissionMap}
         commissions={commissions}
+        searchQuery={catalogSearchQuery}
         setCategoryTab={setCategoryTab}
         onPickCommission={onPickCommission}
       />
@@ -124,13 +123,11 @@ export function BrowseView({
         hasMore={hasMore}
         loadingMore={loadingMore}
         loadError={loadError}
-        isAdmin={isAdmin}
         setSearchQuery={setSearchQuery}
         setFilterSubject={setFilterSubject}
         setFilterTopic={setFilterTopic}
         setFilterSubtopic={setFilterSubtopic}
         setSelectedQuestion={setSelectedQuestion}
-        setEditQuestion={setEditQuestion}
         loadMoreQuestions={loadMoreQuestions}
       />
     </div>

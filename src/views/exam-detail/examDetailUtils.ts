@@ -1,5 +1,9 @@
 import { formatTime } from '../../lib/utils';
-import { type CommissionMap, type ExamPaperManifest } from '../../types';
+import {
+  type CommissionMap,
+  type ExamPaperManifest,
+  type ExamPaperManifestItem,
+} from '../../types';
 
 export function getExamInfo(commissionMap: CommissionMap, selectedCommission: string, selectedExamType: string) {
   return commissionMap[selectedCommission]?.[selectedExamType];
@@ -17,6 +21,28 @@ export function getAvailablePapers(examPaperManifest: ExamPaperManifest | null) 
   return examPaperManifest?.papers || [];
 }
 
-export function getSelectedPaperLabel(selectedShiftLabel: string | null, selectedPaperId: string | null) {
-  return selectedShiftLabel || selectedPaperId || 'Main Paper';
+export function getPaperDisplayLabel(
+  paper: ExamPaperManifestItem | null | undefined,
+  index = 0
+) {
+  if (!paper) return 'Main Paper';
+  return paper.shift_label || `Paper ${index + 1}`;
+}
+
+export function getSelectedPaperLabel(
+  availablePapers: ExamPaperManifestItem[],
+  selectedShiftLabel: string | null,
+  selectedPaperId: string | null
+) {
+  const selected = availablePapers.find(
+    (paper) =>
+      (paper.paper_id || null) === selectedPaperId &&
+      (paper.shift_label || null) === selectedShiftLabel
+  );
+  if (selected) {
+    return getPaperDisplayLabel(selected, availablePapers.indexOf(selected));
+  }
+  if (selectedShiftLabel) return selectedShiftLabel;
+  if (availablePapers.length === 1) return getPaperDisplayLabel(availablePapers[0], 0);
+  return 'Main Paper';
 }

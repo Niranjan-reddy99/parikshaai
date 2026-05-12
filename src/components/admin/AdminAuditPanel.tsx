@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, EyeOff, Image as ImageIcon, Info, LayoutGrid, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
 import { motion } from 'motion/react';
-import { API_BASE, adminHeaders } from '../../lib/api';
+import { API_BASE, adminHeaders } from '../../lib/adminApi';
 import { C } from '../../lib/tokens';
 import { type Question, type RepairQueueItem, type RepairQueuePaper } from '../../types';
 
@@ -58,21 +58,41 @@ export function AdminAuditPanel({
   const [queueError, setQueueError] = useState<string | null>(null);
 
   const stats = useMemo(() => {
-    const presentNumbers = new Set(questions.map(q => q.question_number).filter(n => n !== undefined) as number[]);
-    const gaps: number[] = [];
-    for (let i = 1; i <= expectedCount; i++) {
-      if (!presentNumbers.has(i)) gaps.push(i);
-    }
-    const suspicious = questions.filter(q =>
-      (q.question.length < 50) ||
-      q.needs_review ||
-      q.question.toLowerCase().includes('space for rough work') ||
-      q.question.toLowerCase().includes('missing number in the given table')
+    const loadedNumbers = new Set(
+      questions
+        .map(q => q.question_number)
+        .filter((n): n is number => typeof n === 'number')
     );
+    const queueMissingNumbers = Array.from(
+      new Set(
+        queue
+          .filter(item => item.issue_type === 'numbering/data repair' && !item.question_id && typeof item.question_number === 'number')
+          .map(item => item.question_number as number)
+      )
+    ).sort((a, b) => a - b);
+
+    const gaps =
+      loadedNumbers.size > 0
+        ? Array.from({ length: expectedCount }, (_, idx) => idx + 1).filter(num => !loadedNumbers.has(num))
+        : queueMissingNumbers;
+
+    const suspicious = questions.length > 0
+      ? questions.filter(q =>
+          (q.question.length < 50) ||
+          q.needs_review ||
+          q.question.toLowerCase().includes('space for rough work') ||
+          q.question.toLowerCase().includes('missing number in the given table')
+        )
+      : queue.filter(item => item.publish_blocker !== 'none');
+
     const coverage = ((expectedCount - gaps.length) / expectedCount) * 100;
-    const health = Math.max(0, coverage - (suspicious.length * 2));
+    const paperPenalty = (paper?.paper_blocker_count || 0) * 12;
+    const rowPenalty = (paper?.row_blocker_count || suspicious.length) * 2;
+    const health = Math.max(0, coverage - paperPenalty - rowPenalty);
     return { gaps, suspicious, health };
-  }, [questions, expectedCount]);
+  }, [questions, queue, paper, expectedCount]);
+
+  const repairSig = `${questions.length}:${questions.filter(q => q.needs_review).length}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +133,7 @@ export function AdminAuditPanel({
       cancelled = true;
       controller.abort();
     };
-  }, [examName, year]);
+  }, [examName, year, repairSig]);
 
   const groupedByIssue = useMemo(() => {
     const map = new Map<string, RepairQueueItem[]>();
@@ -127,6 +147,12 @@ export function AdminAuditPanel({
 
   const mapQueueItemToQuestion = (item: RepairQueueItem): Question | null => {
     if (!item.question_id) return null;
+    const canonical = questions.find(q => q.id === item.question_id);
+    if (canonical) return canonical;
+    if (typeof item.question_number === 'number') {
+      const visibleByNumber = questions.find(q => q.question_number === item.question_number);
+      if (visibleByNumber) return visibleByNumber;
+    }
     return {
       id: item.question_id,
       question: item.question_text || '',
@@ -153,8 +179,6 @@ export function AdminAuditPanel({
       image_url: item.image_url || undefined,
     };
   };
-
-  if (questions.length === 0) return null;
 
   return (
     <motion.div
@@ -271,6 +295,12 @@ export function AdminAuditPanel({
                       </div>
                       <div style={{ fontSize: 11, color: C.textSec, fontFamily: "'DM Mono', monospace" }}>{item.priority}</div>
                       <div style={{ gridColumn: '1 / -1', fontSize: 12, color: C.text, lineHeight: 1.55, background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px' }}>
+                        {item.passage && (
+                          <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px dashed ${C.border}` }}>
+                            <span style={{ display: 'block', fontSize: 9, fontWeight: 800, color: C.textTert, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Passage</span>
+                            <span style={{ color: C.textSec, fontFamily: "'Fraunces', Georgia, serif" }}>{item.passage}</span>
+                          </div>
+                        )}
                         {preview}
                         {(item.option_a || item.option_b || item.option_c || item.option_d) && (
                           <div style={{ display: 'grid', gap: 4, marginTop: 10, fontSize: 11, color: C.textSec }}>

@@ -15,7 +15,11 @@ export interface Question {
   question_number?: number;
   options: { A: string; B: string; C: string; D: string };
   answer?: string;
+  answers?: string[];
+  answerStatus?: string;
   explanation?: string;
+  source?: string;
+  flag_count?: number;
   subject: string;
   topic: string;
   subtopic: string;
@@ -31,7 +35,86 @@ export interface Question {
   image_url?: string;
 }
 
-export type View = 'dashboard' | 'home' | 'commission' | 'exam-detail' | 'practice' | 'mock' | 'results' | 'browse' | 'report' | 'feed' | 'badges' | 'leaderboard' | 'pattern-debug' | 'pattern-ingestion' | 'pattern-practice';
+export interface CatalogSummary {
+  total_questions: number;
+  commission_map: CommissionMap;
+}
+
+export interface FeedSubtopicSummary {
+  subtopic: string;
+  count: number;
+  year_count: number;
+  latest_exam: string;
+  latest_year: number;
+}
+
+export interface FeedTopicSummary {
+  topic: string;
+  count: number;
+  year_count: number;
+  latest_exam: string;
+  latest_year: number;
+  subtopics: FeedSubtopicSummary[];
+}
+
+export interface FeedSubjectSummary {
+  subject: string;
+  count: number;
+  year_count: number;
+  latest_exam: string;
+  latest_year: number;
+  topics: FeedTopicSummary[];
+}
+
+export interface FeedSummary {
+  subjects: FeedSubjectSummary[];
+  total_questions: number;
+}
+
+export interface ExamOutlineTopic {
+  topic: string;
+  count: number;
+  subtopics: { subtopic: string; count: number }[];
+}
+
+export interface ExamOutlineSubject {
+  subject: string;
+  count: number;
+  topics: ExamOutlineTopic[];
+}
+
+export interface ExamOutline {
+  exam_name: string;
+  exam_year: number;
+  total_count: number;
+  subjects: ExamOutlineSubject[];
+}
+
+export interface ExamPaperManifestItem {
+  paper_id: string | null;
+  shift_label: string | null;
+  question_count: number;
+  first_question_number: number | null;
+  last_question_number: number | null;
+}
+
+export interface ExamPaperManifest {
+  exam_name: string;
+  exam_year: number;
+  total_count: number;
+  papers: ExamPaperManifestItem[];
+}
+
+export interface PaginatedQuestionsResponse {
+  questions: any[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+  next_cursor?: string | null;
+}
+
+export type View = 'dashboard' | 'home' | 'commission' | 'exam-detail' | 'practice' | 'mock' | 'results' | 'browse' | 'report' | 'feed' | 'badges' | 'leaderboard' | 'pattern-practice' | 'profile' | 'bookmarks';
 
 export interface ExamSession {
   questions: Question[];
@@ -42,11 +125,17 @@ export interface ExamSession {
   isFinished: boolean;
   examName: string;
   year: number;
+  paperId?: string | null;
+  shiftLabel?: string | null;
+  totalCount?: number;
+  hasMore?: boolean;
+  nextCursor?: string | null;
 }
 
 export interface ExamInfo {
   years: number[];
   count: number;
+  yearCounts?: Record<string, number>;
   difficulty: Record<string, number>;
   fullName: string;
 }

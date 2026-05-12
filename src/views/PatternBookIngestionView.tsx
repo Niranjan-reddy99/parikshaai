@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { AlertCircle, FileText, RefreshCw, UploadCloud } from 'lucide-react';
-import { API_BASE, adminHeaders } from '../lib/api';
+import { API_BASE, adminHeaders } from '../lib/adminApi';
 import { C } from '../lib/tokens';
 import { type PatternStage12Question, type PatternStage12Report } from '../types';
 

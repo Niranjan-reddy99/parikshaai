@@ -4,10 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node --import tsx server.ts",
+    "dev": "vite --port 4000",
+    "dev:student": "vite --port 4000",
+    "dev:admin": "vite --config frontend/vite.config.ts --port 4001",
+    "server": "node --import tsx server.ts",
     "start": "NODE_ENV=production node --import tsx server.ts",
     "build": "vite build",
+    "build:student": "vite build",
+    "build:admin": "vite build --config frontend/vite.config.ts",
     "preview": "vite preview",
+    "preview:admin": "vite preview --config frontend/vite.config.ts --port 4001",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
@@ -27,6 +33,7 @@
     "pdf-parse": "^2.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-image-crop": "^11.0.10",
     "recharts": "^3.8.0",
     "tailwind-merge": "^3.5.0",
     "tesseract.js": "^7.0.0"

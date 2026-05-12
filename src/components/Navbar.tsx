@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileText, Eye, DollarSign, ShieldCheck, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { type View, type CommissionMap } from '../types/index';
 import { xpToLevel } from '../lib/stats';
@@ -9,7 +9,6 @@ interface NavbarProps {
   view: View;
   commissionMap: CommissionMap;
   dataLoading: boolean;
-  isAdmin: boolean;
   examDropdownOpen: boolean;
   setExamDropdownOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   dropdownHoveredCommission: string;
@@ -20,15 +19,10 @@ interface NavbarProps {
   streak: number;
   xp: number;
   setView: (v: View) => void;
+  openQuestionBankHome: () => void;
   openCommission: (c: string) => void;
   openExam: (examName: string, commission: string, examType: string) => void;
-  openCostModal: () => void;
-  openUploadModal: () => void;
-  openPatternDebug: () => void;
-  openPatternIngestion: () => void;
   openPatternPractice: () => void;
-  toggleAdmin: () => void;
-  showAdminToggle?: boolean;
   handleLogout: () => void;
 }
 
@@ -88,10 +82,8 @@ const MAIN_NAV: { id: SideView; icon: string; label: string; pro?: boolean }[] =
 ];
 
 export function Navbar({
-  user, view, xp, isAdmin,
-  setView, openPatternPractice, toggleAdmin, handleLogout,
-  showAdminToggle = true,
-  openCostModal, openUploadModal, openPatternDebug, openPatternIngestion,
+  user, view, xp,
+  setView, openQuestionBankHome, openPatternPractice, handleLogout,
 }: NavbarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const { level, levelName, xpNext } = xpToLevel(xp);
@@ -162,7 +154,13 @@ export function Navbar({
           return (
             <div
               key={item.id}
-              onClick={() => setView(item.id)}
+              onClick={() => {
+                if (item.id === 'browse') {
+                  openQuestionBankHome();
+                  return;
+                }
+                setView(item.id);
+              }}
               onMouseEnter={() => setHoveredItem(item.id)}
               onMouseLeave={() => setHoveredItem(null)}
               style={navItemStyle(active, hovered)}
@@ -242,43 +240,6 @@ export function Navbar({
             >
               Sign in with Google
             </button>
-          </div>
-        )}
-
-        {/* Admin tools */}
-        {isAdmin && (
-          <>
-            <div onClick={openUploadModal} onMouseEnter={() => setHoveredItem('upload')} onMouseLeave={() => setHoveredItem(null)} style={footerItemStyle(hoveredItem === 'upload')}>
-              <Upload style={{ width: 12, height: 12 }} /> Upload PDF
-            </div>
-            <div onClick={openPatternIngestion} onMouseEnter={() => setHoveredItem('ingestion')} onMouseLeave={() => setHoveredItem(null)} style={footerItemStyle(hoveredItem === 'ingestion')}>
-              <FileText style={{ width: 12, height: 12 }} /> Scanned Book Lab
-            </div>
-            <div onClick={openPatternDebug} onMouseEnter={() => setHoveredItem('debug')} onMouseLeave={() => setHoveredItem(null)} style={footerItemStyle(hoveredItem === 'debug')}>
-              <Eye style={{ width: 12, height: 12 }} /> Pattern Debug
-            </div>
-            <div onClick={openCostModal} onMouseEnter={() => setHoveredItem('cost')} onMouseLeave={() => setHoveredItem(null)} style={footerItemStyle(hoveredItem === 'cost')}>
-              <DollarSign style={{ width: 12, height: 12 }} /> Cost Log
-            </div>
-          </>
-        )}
-
-        {showAdminToggle && (
-          <div
-            onClick={toggleAdmin}
-            onMouseEnter={() => setHoveredItem('admin')}
-            onMouseLeave={() => setHoveredItem(null)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px',
-              borderRadius: 6, cursor: 'pointer', fontSize: 12,
-              fontWeight: isAdmin ? 700 : 500,
-              color: isAdmin ? '#d97706' : 'var(--text-tert)',
-              background: isAdmin ? '#fef3c7' : (hoveredItem === 'admin' ? 'var(--bg-alt)' : 'transparent'),
-              border: `1px solid ${isAdmin ? '#fbbf24' : 'transparent'}`,
-              transition: 'all 0.1s', marginBottom: 1,
-            }}
-          >
-            <ShieldCheck style={{ width: 12, height: 12 }} /> {isAdmin ? 'Admin ON' : 'Admin'}
           </div>
         )}
 

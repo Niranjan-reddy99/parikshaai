@@ -7,6 +7,7 @@ import { type CommissionMap, type View } from '../types';
 interface CommissionViewProps {
   selectedCommission: string;
   commissionMap: CommissionMap;
+  searchQuery: string;
   setView: (v: View) => void;
   openExam: (examName: string, commission: string, examType: string) => void;
   startPractice: (examName: string, year: number) => void;
@@ -19,13 +20,27 @@ interface CommissionViewProps {
 }
 
 export function CommissionView({
-  selectedCommission, commissionMap, setView,
+  selectedCommission, commissionMap, searchQuery, setView,
   openExam, startPractice, startMockExam,
   setSelectedExamName, setSelectedExamType, setSelectedYear,
   isLocked, onLockedClick,
 }: CommissionViewProps) {
   const exams = commissionMap[selectedCommission] || {};
-  const examTypes = Object.entries(exams).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }));
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const examTypes = Object.entries(exams)
+    .filter(([examType, info]) => {
+      if (!normalizedSearch) return true;
+      const haystack = [
+        examType,
+        info.fullName,
+        selectedCommission,
+        ...(info.years || []).map(String),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(normalizedSearch);
+    })
+    .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }));
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   const totalQs = examTypes.reduce((a, [, e]) => a + e.count, 0);
@@ -177,7 +192,9 @@ export function CommissionView({
 
       {examTypes.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 0', color: C.textTert, fontSize: 13 }}>
-          No exams found for {selectedCommission}.
+          {normalizedSearch
+            ? `No papers in ${selectedCommission} match "${searchQuery}".`
+            : `No exams found for ${selectedCommission}.`}
         </div>
       )}
     </div>

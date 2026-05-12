@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { X, Upload, FileText, Loader2, CheckCircle2, AlertCircle, Key } from 'lucide-react';
 import { C } from '../../lib/tokens';
-import { API_BASE, adminHeaders } from '../../lib/api';
+import { API_BASE, adminHeaders } from '../../lib/adminApi';
 
 interface UploadPaperModalProps {
   onClose: () => void;
@@ -56,12 +56,78 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
 
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [stuckSecs, setStuckSecs]       = useState(0);
+  const [jobDebug, setJobDebug]         = useState('');
+
+  const liveRepairSummary = React.useMemo(() => {
+    if (!jobDebug) return null;
+    const recoveredMatch = jobDebug.match(/recovered\s+(\d+)\/(\d+)\s+targets/i);
+    const partialMatch = jobDebug.match(/partial\/incomplete:\s*\[([^\]]*)\]/i);
+    const unresolvedMatch = jobDebug.match(/unresolved:\s*\[([^\]]*)\]/i);
+    if (!recoveredMatch && !partialMatch && !unresolvedMatch) return null;
+    return {
+      recovered: recoveredMatch ? `${recoveredMatch[1]}/${recoveredMatch[2]}` : null,
+      partial: partialMatch ? partialMatch[1].trim() : '',
+      unresolved: unresolvedMatch ? unresolvedMatch[1].trim() : '',
+    };
+  }, [jobDebug]);
+
+  const stuckMessage = React.useMemo(() => {
+    if (liveRepairSummary) {
+      const parts: string[] = [];
+      if (liveRepairSummary.recovered) parts.push(`Recovered ${liveRepairSummary.recovered} targets so far.`);
+      if (liveRepairSummary.partial) parts.push(`Partial rows: ${liveRepairSummary.partial}.`);
+      if (liveRepairSummary.unresolved) parts.push(`Still unresolved: ${liveRepairSummary.unresolved}.`);
+      return parts.join(' ');
+    }
+    if (progress < 15) {
+      return `Still at ${progress}% for ${Math.floor(stuckSecs / 60)}m. The extractor is likely doing the initial paper scan or shift detection. If this is a repair upload, it may still be identifying the exact target pages.`;
+    }
+    if (progress < 70) {
+      return `Still at ${progress}% for ${Math.floor(stuckSecs / 60)}m. The extractor may be scanning page images or rebuilding difficult rows, which can take time without smooth visible movement.`;
+    }
+    return `Still at ${progress}% for ${Math.floor(stuckSecs / 60)}m. The extractor hit Gemini's rate limit and is pausing 60–120s before resuming — this is normal. It will continue automatically.`;
+  }, [liveRepairSummary, progress, stuckSecs]);
 
   const fileRef   = useRef<HTMLInputElement>(null);
   const akFileRef = useRef<HTMLInputElement>(null);
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastProgressRef = useRef<number>(-1);
   const stuckSecsRef    = useRef<number>(0);
+  const lastHeartbeatRef = useRef<string>('');
+
+  const inferVisibleProgress = React.useCallback((job: any) => {
+    const raw = Number(job?.progress || 0);
+    const status = String(job?.status || '');
+    const errorLog = String(job?.error_log || '');
+    const text = `${status} ${errorLog}`;
+    const m = text.match(/page\s+(\d+)\s+of\s+(\d+)/i);
+    const cur = m ? parseInt(m[1], 10) : 0;
+    const total = m ? Math.max(parseInt(m[2], 10), 1) : 0;
+
+    let inferred = raw;
+    if (mode === 'cbt') {
+      if (/Locating target CBT pages/i.test(text) && total) {
+        inferred = Math.max(raw, 5 + Math.floor(25 * cur / total));
+      } else if (/Re-extracting targeted CBT page/i.test(text) && total) {
+        inferred = Math.max(raw, 30 + Math.floor(45 * cur / total));
+      } else if (/Deep recovery/i.test(text) && total) {
+        inferred = Math.max(raw, 55 + Math.floor(30 * cur / total));
+      } else if (/Scanning Shift|single-shift CBT scan|Reading text layer/i.test(text) && total) {
+        inferred = Math.max(raw, 12 + Math.floor(58 * cur / total));
+      } else if (/Recovered \d+ target CBT rows/i.test(text)) {
+        inferred = Math.max(raw, 70);
+      } else if (/Tagging repaired CBT rows/i.test(text)) {
+        inferred = Math.max(raw, 75);
+      } else if (/Saving repaired CBT rows/i.test(text)) {
+        inferred = Math.max(raw, 88);
+      } else if (/Refreshing explanations/i.test(text)) {
+        inferred = Math.max(raw, 95);
+      } else if (job?.status === 'completed') {
+        inferred = 100;
+      }
+    }
+    return Math.min(100, inferred);
+  }, [mode]);
 
   // On mount: resume polling if there's an active job from a previous session
   React.useEffect(() => {
@@ -79,6 +145,7 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
               if (job.status === 'completed') {
                 localStorage.removeItem(ACTIVE_JOB_KEY);
                 setPhase('done'); setProgress(100);
+                setJobDebug('');
                 onComplete(); // auto-refresh questions list
               } else if (job.status === 'failed') {
                 localStorage.removeItem(ACTIVE_JOB_KEY);
@@ -128,8 +195,9 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
     setStuckSecs(0);
     lastProgressRef.current = -1;
     setPhase('processing');
-    setStatusMsg('Processing — reading the paper...');
+    setStatusMsg('Queued — waiting for worker to start...');
     let attempts = 0;
+    let consecutiveErrors = 0;
     pollRef.current = setInterval(async () => {
       attempts++;
       // Wait up to 45 minutes (2700 seconds) for large PDFs
@@ -144,50 +212,71 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
           headers: adminHeaders(),
         });
         if (!r.ok) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          if (currentJobId === jobId || !currentJobId) {
-            localStorage.removeItem(ACTIVE_JOB_KEY);
+          if (r.status === 404) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            if (currentJobId === jobId || !currentJobId) {
+              localStorage.removeItem(ACTIVE_JOB_KEY);
+            }
+            setPhase('idle');
+            setStatusMsg('');
+            setJobDebug('');
+            setError('This upload job was superseded by a newer run. Reopen the latest upload status or retry once if needed.');
+            return;
           }
-          setPhase('error');
-          setError(`Upload status check failed (${r.status}). Please retry the upload.`);
+          // Transient server error (500, 502, etc.) — retry up to 5 times before giving up
+          consecutiveErrors++;
+          if (consecutiveErrors >= 5) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            if (currentJobId === jobId || !currentJobId) {
+              localStorage.removeItem(ACTIVE_JOB_KEY);
+            }
+            setPhase('error');
+            setError(`Upload status check failed (${r.status}) after ${consecutiveErrors} retries. Please retry the upload.`);
+          }
           return;
         }
+        consecutiveErrors = 0;
         const job = await r.json();
-        const p = job.progress || 0;
+        const p = inferVisibleProgress(job);
         setProgress(p);
 
-        // Stuck detection: increment counter if progress hasn't moved, reset if it did
-        if (p === lastProgressRef.current) {
+        const heartbeat = `${job.updated_at || ''}|${job.error_log || ''}|${job.status || ''}`;
+
+        // Stuck detection: only count as stuck if neither visible progress nor backend heartbeat changed
+        if (p === lastProgressRef.current && heartbeat === lastHeartbeatRef.current) {
           stuckSecsRef.current += 1;
           setStuckSecs(stuckSecsRef.current);
         } else {
           stuckSecsRef.current = 0;
           setStuckSecs(0);
           lastProgressRef.current = p;
+          lastHeartbeatRef.current = heartbeat;
         }
         if (job.status === 'completed') {
           if (pollRef.current) clearInterval(pollRef.current);
           localStorage.removeItem(ACTIVE_JOB_KEY);
           setPhase('done');
           setStatusMsg('');
+          setJobDebug('');
           setProgress(100);
         } else if (job.status === 'failed') {
           if (pollRef.current) clearInterval(pollRef.current);
           localStorage.removeItem(ACTIVE_JOB_KEY);
           setPhase('error');
           setError(job.error_log || 'Processing failed');
+        } else if (job.status === 'queued' || job.status === 'pending') {
+          setStatusMsg(job.error_log || 'Queued — waiting for worker to start...');
+          setJobDebug(`Job status: ${job.status}`);
         } else if (job.status === 'processing') {
+          if (job.error_log) setJobDebug(job.error_log);
           if (mode === 'cbt') {
-            if (p < 10)       setStatusMsg('Detecting exam shifts...');
-            else if (p < 30)  setStatusMsg('Extracting question text (free)...');
-            else if (p < 80)  setStatusMsg('Vision: detecting correct answers per page...');
+            if (p < 80)       setStatusMsg(job.error_log || 'Processing CBT paper...');
             else if (p < 90)  setStatusMsg('Tagging subjects & topics with AI...');
             else              setStatusMsg('Storing to database...');
           } else {
-            if (p < 15)       setStatusMsg('Extracting text from PDF...');
-            else if (p < 25)  setStatusMsg('Parsing questions with regex...');
-            else if (p < 72)  setStatusMsg('Vision recovery for missing questions...');
-            else if (p < 80)  setStatusMsg('Recovering difficult pages with deeper extraction...');
+            if (p < 15)       setStatusMsg('Preparing extractor...');
+            else if (p < 72)  setStatusMsg(job.error_log || 'Extracting questions page by page...');
+            else if (p < 80)  setStatusMsg(job.error_log || 'Recovering difficult pages with deeper extraction...');
             else if (p < 85)  setStatusMsg('Tagging subjects & topics with AI...');
             else if (p < 95)  setStatusMsg('Injecting answers & storing in database...');
             else              setStatusMsg('Generating explanations...');
@@ -205,6 +294,7 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
     setPhase('idle');
     setProgress(0);
     setStatusMsg('');
+    setJobDebug('');
     setError('');
   };
 
@@ -217,6 +307,7 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
     localStorage.removeItem(ACTIVE_JOB_KEY);
     setCurrentJobId(null);
     setError('');
+    setJobDebug('');
     setShowConflict(null);
     setPhase('uploading');
     setStatusMsg('Uploading PDF...');
@@ -279,8 +370,17 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
       }
       
       if (data.job_id) {
+        if (data.missing_reupload_mode) {
+          const targets = Array.isArray(data.target_missing_numbers) ? data.target_missing_numbers.join(', ') : '';
+          const cacheMsg = data.clear_cache_applied ? 'Cache cleared.' : 'Cache reused.';
+          setStatusMsg(`Repair queued for existing paper. ${cacheMsg}`);
+          setJobDebug(`Mode: repair · Route: ${data.route_format || 'unknown'} · Targets: ${targets || 'unknown'}`);
+        } else {
+          setStatusMsg(data.message || 'Upload queued');
+          setJobDebug(`Mode: fresh upload · Route: ${data.route_format || 'unknown'}`);
+        }
         localStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify({ jobId: data.job_id, savedMode: mode }));
-        setProgress(5);
+        setProgress(data.missing_reupload_mode ? 1 : 5);
         pollJob(data.job_id);
       } else if (data.inserted !== undefined) {
         setPhase('done');
@@ -475,13 +575,26 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
                   animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
               </div>
               <p style={{ fontSize: 11, color: C.textTert, marginTop: 4, textAlign: 'right' }}>{progress}%</p>
+              {jobDebug && (
+                <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 11, color: C.textSec, lineHeight: 1.5 }}>
+                  {jobDebug}
+                </div>
+              )}
+              {liveRepairSummary && (
+                <div style={{ marginTop: 8, padding: '10px 12px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 10, fontSize: 11, color: C.textSec, lineHeight: 1.6 }}>
+                  <div style={{ fontWeight: 700, color: C.text, marginBottom: 4 }}>Live Repair Summary</div>
+                  {liveRepairSummary.recovered && <div>Recovered so far: <strong>{liveRepairSummary.recovered}</strong></div>}
+                  {liveRepairSummary.partial && <div>Partial rows: {liveRepairSummary.partial}</div>}
+                  {liveRepairSummary.unresolved && <div>Still unresolved: {liveRepairSummary.unresolved}</div>}
+                </div>
+              )}
 
               {/* Stuck detection — keep the user informed, but don't allow live retries.
                   Retrying an active job can mix pipelines and corrupt the run. */}
               {stuckSecs >= 180 && currentJobId && (
                 <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <span style={{ fontSize: 12, color: '#FBBF24' }}>
-                    Still at {progress}% for {Math.floor(stuckSecs / 60)}m. Around 72-80% the extractor may be retrying difficult pages, which can take a while without visible movement. Live retry is disabled to avoid corrupting the upload.
+                    {stuckMessage}
                   </span>
                 </div>
               )}

@@ -3,6 +3,11 @@ import { motion } from 'motion/react';
 import { X, Play, Brain } from 'lucide-react';
 import { C, diffColor, diffBg } from '../lib/tokens';
 import { QuestionText } from '../lib/QuestionText';
+import {
+  formatAcceptedAnswerDetails,
+  hasMultipleAcceptedAnswers,
+  isDeletedQuestion,
+} from '../lib/questionAnswers';
 import { type Question } from '../types';
 
 interface QuestionModalProps {
@@ -12,6 +17,9 @@ interface QuestionModalProps {
 }
 
 export function QuestionModal({ question, onClose, onStartPractice }: QuestionModalProps) {
+  const deleted = isDeletedQuestion(question);
+  const multipleAnswers = hasMultipleAcceptedAnswers(question);
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -26,6 +34,16 @@ export function QuestionModal({ question, onClose, onStartPractice }: QuestionMo
             <span style={{ padding: '4px 10px', background: '#0F1E3D', color: C.blue, fontSize: 10, fontWeight: 700, borderRadius: 8, textTransform: 'uppercase' }}>{question.subject}</span>
             <span style={{ padding: '4px 10px', background: diffBg[question.difficulty] || C.bg, color: diffColor[question.difficulty] || C.textSec, fontSize: 10, fontWeight: 700, borderRadius: 8 }}>{question.difficulty}</span>
             {question.subtopic && <span style={{ padding: '4px 10px', background: C.bg, color: C.textTert, fontSize: 10, fontWeight: 500, borderRadius: 8, border: `1px solid ${C.border}` }}>{question.subtopic}</span>}
+            {multipleAnswers && !deleted ? (
+              <span style={{ padding: '4px 10px', background: 'rgba(37,99,235,0.12)', color: C.blue, fontSize: 10, fontWeight: 700, borderRadius: 8 }}>
+                Multi-answer
+              </span>
+            ) : null}
+            {deleted ? (
+              <span style={{ padding: '4px 10px', background: 'rgba(37,99,235,0.12)', color: C.blue, fontSize: 10, fontWeight: 700, borderRadius: 8 }}>
+                Deleted in key
+              </span>
+            ) : null}
           </div>
           <button onClick={onClose} style={{ padding: 8, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', display: 'flex', color: C.textSec }}>
             <X style={{ width: 16, height: 16 }} />
@@ -43,6 +61,19 @@ export function QuestionModal({ question, onClose, onStartPractice }: QuestionMo
           <div style={{ fontSize: 16, fontWeight: 600, color: C.text, marginBottom: 20 }}>
             <QuestionText text={question.question} hasImage={(question as any).has_image} style={{ fontSize: 16, fontWeight: 600 }} />
           </div>
+
+          {(deleted || multipleAnswers) ? (
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: C.blueDim, border: `1px solid ${C.blue}20`, marginBottom: 16 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: C.blue, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                Official key note
+              </p>
+              <p style={{ fontSize: 12, color: C.textSec, lineHeight: 1.6 }}>
+                {deleted
+                  ? 'This question was deleted in the official final key, but it is still shown here for completeness.'
+                  : `The official key accepts multiple answers for this question: ${formatAcceptedAnswerDetails(question)}.`}
+              </p>
+            </div>
+          ) : null}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
             {Object.entries(question.options).map(([key, val]) => (

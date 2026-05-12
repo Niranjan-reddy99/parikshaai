@@ -1,4 +1,5 @@
 import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { QuestionText } from '../../lib/QuestionText';
 import { C, diffBg, diffColor } from '../../lib/tokens';
 import { type Question } from '../../types';
 
@@ -42,7 +43,14 @@ export function MockQuestionPanel({
         </div>
       )}
 
-      <p style={{ fontSize: 18, fontWeight: 400, color: C.text, lineHeight: 1.7, marginBottom: 32, whiteSpace: 'pre-wrap', fontFamily: "'Fraunces', Georgia, serif" }}>{question.question}</p>
+      <div style={{ fontSize: 18, fontWeight: 400, color: C.text, lineHeight: 1.7, marginBottom: 32, fontFamily: "'Fraunces', Georgia, serif" }}>
+        <QuestionText
+          text={question.question}
+          hasImage={(question as any).has_image}
+          imageUrl={(question as any).image_url}
+          style={{ fontSize: 18, fontWeight: 400, fontFamily: "'Fraunces', Georgia, serif", lineHeight: 1.7 }}
+        />
+      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32 }}>
         {Object.entries(question.options).map(([optionKey, optionValue]) => {

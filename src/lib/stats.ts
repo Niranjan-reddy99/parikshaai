@@ -1,3 +1,5 @@
+import { API_BASE } from './api';
+
 export interface RecentAttempt {
   q: string;
   correct: boolean;
@@ -72,7 +74,31 @@ export function updateStats(
   stats.recentAttempts = stats.recentAttempts.slice(0, 20);
 
   localStorage.setItem(KEY(uid), JSON.stringify(stats));
+
   return stats;
+}
+
+/** Bulk-sync localStorage stats to Supabase on login or after each update. */
+export async function syncStatsToApi(uid: string, stats?: UserStats, token?: string): Promise<void> {
+  const s = stats ?? getStats(uid);
+  if (!s.totalAnswered || !token) return;
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  await fetch(`${API_BASE}/user/sync-local`, {
+    method: 'POST',
+    headers,
+    credentials: 'include',
+    body: JSON.stringify({
+      by_subject: s.bySubject,
+      streak: s.streak,
+      last_active_date: s.lastActiveDate,
+      xp: s.xp,
+      total_answered: s.totalAnswered,
+      daily_activity: s.dailyActivity,
+    }),
+  });
 }
 
 export function xpToLevel(xp: number): { level: number; levelName: string; xpNext: number } {

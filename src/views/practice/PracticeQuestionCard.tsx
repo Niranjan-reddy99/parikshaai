@@ -1,12 +1,20 @@
 import React from 'react';
-import { Brain, ChevronRight, Flag, Loader2, Pencil, RotateCcw } from 'lucide-react';
+import { Brain, ChevronRight, Flag, Loader2, RotateCcw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ExplanationSkeleton } from '../../components/skeletons/ExplanationSkeleton';
+import {
+  formatAcceptedAnswerDetails,
+  hasMultipleAcceptedAnswers,
+  isAcceptedAnswer,
+  isDeletedQuestion,
+} from '../../lib/questionAnswers';
 import { C, diffBg, diffColor } from '../../lib/tokens';
 import { QuestionText } from '../../lib/QuestionText';
 import { type Question, type View } from '../../types';
 import {
   BLOCKED_EXPLANATION,
+  DELETED_QUESTION_NOTE,
+  MULTIPLE_ANSWERS_NOTE,
   UNAVAILABLE_EXPLANATION,
   getPracticeOptionState,
   getPracticeOptionStyles,
@@ -20,12 +28,10 @@ interface PracticeQuestionCardProps {
   practiceSelectedOption: string | null;
   practiceAnswerLoading: boolean;
   practiceExplanationLoading: boolean;
-  isAdmin: boolean;
   bookmarkedIds: Set<string>;
   hasMoreQuestions: boolean;
   onToggleBookmark: (question: Question) => void;
   onFlagQuestion: (question: Question) => void;
-  setEditQuestion: (question: Question) => void;
   handleAnswerSelect: (key: string) => void;
   nextPracticeQuestion: () => void;
   prevPracticeQuestion: () => void;
@@ -46,12 +52,10 @@ export function PracticeQuestionCard({
   practiceSelectedOption,
   practiceAnswerLoading,
   practiceExplanationLoading,
-  isAdmin,
   bookmarkedIds,
   hasMoreQuestions,
   onToggleBookmark,
   onFlagQuestion,
-  setEditQuestion,
   handleAnswerSelect,
   nextPracticeQuestion,
   prevPracticeQuestion,
@@ -65,6 +69,22 @@ export function PracticeQuestionCard({
 }: PracticeQuestionCardProps) {
   const optionStyles = getPracticeOptionStyles();
   const isBookmarked = bookmarkedIds.has(question.id);
+  const deletedQuestion = isDeletedQuestion(question);
+  const multiAnswerQuestion = hasMultipleAcceptedAnswers(question);
+  const selectedIsAccepted = isAcceptedAnswer(question, practiceSelectedOption || '');
+  const sourceLabel =
+    question.source ||
+    (question.exam
+      ? `${question.exam}${question.year ? ` · ${question.year}` : ''}${question.shift ? ` · ${question.shift}` : ''}`
+      : '');
+  const showQuestionSource =
+    Boolean(sourceLabel) &&
+    (
+      selectedYear === 0 ||
+      selectedExamName.includes('::') ||
+      question.exam !== selectedExamName ||
+      question.year !== selectedYear
+    );
 
   return (
     <div className="glass-panel" style={{ borderRadius: 24, padding: '36px 36px', marginBottom: 16, transition: 'border-color 0.15s', border: `1px solid ${C.borderHover}` }}>
@@ -84,6 +104,16 @@ export function PracticeQuestionCard({
           <span style={{ padding: '3px 10px', background: diffBg[question.difficulty] || 'var(--c-surface3)', color: diffColor[question.difficulty] || C.textSec, fontSize: 10, fontWeight: 600, borderRadius: 8 }}>
             {question.difficulty}
           </span>
+          {deletedQuestion && (
+            <span style={{ padding: '3px 10px', background: '#fff7ed', color: '#c2410c', fontSize: 10, fontWeight: 700, borderRadius: 8 }}>
+              Deleted In Key
+            </span>
+          )}
+          {multiAnswerQuestion && (
+            <span style={{ padding: '3px 10px', background: '#eef2ff', color: '#4338ca', fontSize: 10, fontWeight: 700, borderRadius: 8 }}>
+              Multiple Accepted Answers
+            </span>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
@@ -134,22 +164,6 @@ export function PracticeQuestionCard({
             <Flag style={{ width: 13, height: 13 }} />
           </button>
 
-          {isAdmin && (
-            <button
-              onClick={() => setEditQuestion(question)}
-              style={{ padding: 7, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer', color: C.textTert, display: 'flex', flexShrink: 0, transition: 'all 0.15s' }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.borderColor = C.accent;
-                event.currentTarget.style.color = C.accent;
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.borderColor = C.border;
-                event.currentTarget.style.color = C.textTert;
-              }}
-            >
-              <Pencil style={{ width: 13, height: 13 }} />
-            </button>
-          )}
         </div>
       </div>
 
@@ -164,6 +178,13 @@ export function PracticeQuestionCard({
         <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
           Question {practiceIndex + 1}
         </div>
+        {showQuestionSource && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, border: `1px solid ${C.border}`, background: C.bg, color: C.textSec, fontSize: 11, fontWeight: 600, marginBottom: 12 }}>
+            <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Exam</span>
+            <span style={{ width: 1, height: 12, background: C.border, flexShrink: 0 }} />
+            <span>{sourceLabel}</span>
+          </div>
+        )}
         <QuestionText text={question.question} hasImage={question.has_image} imageUrl={question.image_url} style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.65 }} />
       </div>
 
@@ -171,8 +192,8 @@ export function PracticeQuestionCard({
         {Object.entries(question.options).map(([optionKey, optionValue]) => {
           const state = getPracticeOptionState(question, optionKey, practiceAnswered, practiceSelectedOption);
           const styles = optionStyles[state];
-          const isAnswerKey = practiceAnswered && question.answer === optionKey;
-          const isWrongKey = practiceAnswered && practiceSelectedOption === optionKey && question.answer !== optionKey;
+          const isAnswerKey = practiceAnswered && !deletedQuestion && isAcceptedAnswer(question, optionKey);
+          const isWrongKey = practiceAnswered && !deletedQuestion && practiceSelectedOption === optionKey && !isAcceptedAnswer(question, optionKey);
 
           return (
             <button
@@ -267,18 +288,36 @@ export function PracticeQuestionCard({
               gap: 10,
               fontSize: 13,
               fontWeight: 600,
-              background: practiceSelectedOption === question.answer ? 'rgba(52,211,153,0.10)' : 'rgba(248,113,113,0.10)',
-              color: practiceSelectedOption === question.answer ? '#34d399' : '#f87171',
-              border: `1px solid ${practiceSelectedOption === question.answer ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}`,
+              background: deletedQuestion
+                ? '#fff7ed'
+                : selectedIsAccepted
+                ? 'rgba(52,211,153,0.10)'
+                : 'rgba(248,113,113,0.10)',
+              color: deletedQuestion
+                ? '#c2410c'
+                : selectedIsAccepted
+                ? '#34d399'
+                : '#f87171',
+              border: `1px solid ${
+                deletedQuestion
+                  ? '#fdba74'
+                  : selectedIsAccepted
+                  ? 'rgba(52,211,153,0.25)'
+                  : 'rgba(248,113,113,0.25)'
+              }`,
             }}
           >
-            {practiceSelectedOption === question.answer ? (
+            {deletedQuestion ? (
               <>
-                <span>✓</span> Correct!
+                <span>i</span> {DELETED_QUESTION_NOTE}
+              </>
+            ) : selectedIsAccepted ? (
+              <>
+                <span>✓</span> {multiAnswerQuestion ? `Accepted — official key allows ${formatAcceptedAnswerDetails(question)}` : 'Correct!'}
               </>
             ) : (
               <>
-                <span>✗</span> Incorrect — correct answer is <strong>{question.answer}</strong>
+                <span>✗</span> Incorrect — correct answer is <strong>{multiAnswerQuestion ? formatAcceptedAnswerDetails(question) : question.answer}</strong>
               </>
             )}
           </div>
@@ -313,6 +352,20 @@ export function PracticeQuestionCard({
                 <Brain style={{ width: 12, height: 12 }} /> Explanation
               </div>
               <p style={{ fontSize: 13.5, lineHeight: 1.85, color: '#374151', margin: 0 }}>{question.explanation}</p>
+            </div>
+          ) : deletedQuestion ? (
+            <div style={{ padding: '16px 20px', background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 12, marginBottom: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Brain style={{ width: 12, height: 12 }} /> Official Note
+              </div>
+              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: '#7c2d12', margin: 0 }}>{DELETED_QUESTION_NOTE}</p>
+            </div>
+          ) : multiAnswerQuestion ? (
+            <div style={{ padding: '16px 20px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 12, marginBottom: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Brain style={{ width: 12, height: 12 }} /> Official Note
+              </div>
+              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: '#3730a3', margin: 0 }}>{MULTIPLE_ANSWERS_NOTE}</p>
             </div>
           ) : null}
 

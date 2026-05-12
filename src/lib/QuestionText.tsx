@@ -16,15 +16,54 @@ interface MatchData {
   intro: string;
   col1: string[];
   col2: string[];
+  col1Header?: string;
+  col2Header?: string;
 }
 
-const MATCH_PROMPT_RE = /\b(?:match\s+the\s+following|match\s+list\s+i\s+with\s+list\s+ii|list\s*i\b.*\blist\s*ii\b)\b/i;
+const MATCH_PROMPT_RE = /\b(?:match\s+the\s+following|match\s+list\s*[-–]?\s*i\s+with\s+list\s*[-–]?\s*ii|list\s*[-–]?\s*i\b.*\blist\s*[-–]?\s*ii\b)\b/i;
 const MATCH_LEFT_RE = /^\s*([A-Da-d])\.\s*(.+?)\s*$/;
 const MATCH_RIGHT_RE = /^\s*((?:\d+|[IVXLCDM]+))\.\s*(.+?)\s*$/i;
 const MATCH_INLINE_BOTH_RE = /^\s*([A-Da-d])\.\s*(.+?)\s{2,}((?:\d+|[IVXLCDM]+))\.\s*(.+?)\s*$/i;
 const MATCH_INLINE_RIGHT_LABEL_ONLY_RE = /^\s*([A-Da-d])\.\s*(.+?)\s+((?:\d+|[IVXLCDM]+))\.\s*$/i;
 const MATCH_CONTINUATION_WITH_RIGHT_RE = /^\s*(.+?)\s+((?:\d+|[IVXLCDM]+))\.\s*(.+?)\s*$/i;
 const MATCH_END_RE = /^(?:\s*(?:choose|select)\s+the\s+correct|\s*\([1-4]\)\s*[A-D]-|\s*[A-D]\s*[-:]\s*[IVX\d])/i;
+
+function leftDisplayLabel(idx: number): string {
+  return String.fromCharCode(97 + idx);
+}
+
+function rightDisplayLabel(idx: number): string {
+  const romans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+  return romans[idx] || String(idx + 1);
+}
+
+function inferMatchHeaders(intro: string): { intro: string; col1Header: string; col2Header: string } {
+  const lines = intro.split('\n').map(l => l.trim()).filter(Boolean);
+  let col1Header = 'List I';
+  let col2Header = 'List II';
+  const kept: string[] = [];
+
+  for (const line of lines) {
+    if (/^list\s*[-–]?\s*i\b/i.test(line) || /^column\s*[-–]?\s*i\b/i.test(line)) {
+      col1Header = line;
+      continue;
+    }
+    if (/^list\s*[-–]?\s*ii\b/i.test(line) || /^column\s*[-–]?\s*ii\b/i.test(line)) {
+      col2Header = line;
+      continue;
+    }
+    if (/common\s+codes/i.test(line) || /^codes?\s*[/:-]/i.test(line) || /^[a-d](?:\s+[a-d]){2,}\s*$/i.test(line)) {
+      continue;
+    }
+    kept.push(line);
+  }
+
+  return {
+    intro: kept.join('\n').trim(),
+    col1Header,
+    col2Header,
+  };
+}
 
 function romanToInt(label: string): number {
   const map: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
@@ -139,23 +178,56 @@ function recoverFlattenedMatch(text: string): MatchData | null {
   if (col1.length < 2 || col2.length < 2) return null;
   if (!MATCH_PROMPT_RE.test(text) && !/list\s*i\b|word\b|book\b|writer\b|meaning\b/i.test(text)) return null;
 
+  const headerInfo = inferMatchHeaders(introLines.join('\n').trim() || 'Match the following:');
+
   return {
-    intro: introLines.join('\n').trim() || 'Match the following:',
+    intro: headerInfo.intro,
     col1,
     col2,
+    col1Header: headerInfo.col1Header,
+    col2Header: headerInfo.col2Header,
   };
 }
 
+function stripMatchColumnsFromIntro(raw: string): string {
+  // The text before __MATCH__: contains: question stem + optional column headers
+  // + flattened A./B./C. and 1./2./3. items. Keep only the stem.
+  const lines = raw.split('\n');
+  const kept: string[] = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) { kept.push(line); continue; }
+    // Stop at first match-column item (A./B./C. or numbered)
+    if (MATCH_LEFT_RE.test(t) || MATCH_RIGHT_RE.test(t)) break;
+    kept.push(line);
+  }
+  return kept.join('\n').trim();
+}
+
 function parseMatch(text: string): MatchData | null {
-  const MARKER = '\n\n__MATCH__:';
-  const idx = text.indexOf(MARKER);
-  if (idx === -1) return recoverFlattenedMatch(text);
+  const markerIdx = text.indexOf('__MATCH__:');
+  if (markerIdx === -1) return recoverFlattenedMatch(text);
   try {
-    const intro = text.slice(0, idx).trim();
-    const jsonStr = text.slice(idx + MARKER.length);
+    const rawIntro = text.slice(0, markerIdx).replace(/\s+$/, '').trim();
+    const intro = stripMatchColumnsFromIntro(rawIntro);
+    const rest = text.slice(markerIdx + '__MATCH__:'.length).trimStart();
+    // Extract only the JSON object using brace counting (ignore trailing text)
+    let depth = 0, end = -1;
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === '{') depth++;
+      else if (rest[i] === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
+    }
+    const jsonStr = end !== -1 ? rest.slice(0, end) : rest;
     const { col1, col2 } = JSON.parse(jsonStr);
     if (!Array.isArray(col1) || !Array.isArray(col2)) return recoverFlattenedMatch(text);
-    return { intro, col1, col2 };
+    const headerInfo = inferMatchHeaders(intro || rawIntro);
+    return {
+      intro: headerInfo.intro,
+      col1,
+      col2,
+      col1Header: headerInfo.col1Header,
+      col2Header: headerInfo.col2Header,
+    };
   } catch {
     return recoverFlattenedMatch(text);
   }
@@ -191,15 +263,25 @@ function MatchTable({ data }: { data: MatchData }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr>
-              <th style={thStyle}>List I</th>
-              <th style={thStyle}>List II</th>
+              <th style={thStyle}>{data.col1Header || 'List I'}</th>
+              <th style={thStyle}>{data.col2Header || 'List II'}</th>
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: rows }, (_, i) => (
               <tr key={i}>
-                <td style={tdStyle}>{data.col1[i] ?? ''}</td>
-                <td style={tdStyle}>{data.col2[i] ?? ''}</td>
+                <td style={tdStyle}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr', gap: 8 }}>
+                    <span style={matchLabelStyle}>{leftDisplayLabel(i)}.</span>
+                    <span>{data.col1[i] ?? ''}</span>
+                  </div>
+                </td>
+                <td style={tdStyle}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '34px 1fr', gap: 8 }}>
+                    <span style={matchLabelStyle}>{rightDisplayLabel(i)}.</span>
+                    <span>{data.col2[i] ?? ''}</span>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -254,6 +336,12 @@ const tdStyle: React.CSSProperties = {
   verticalAlign: 'top',
 };
 
+const matchLabelStyle: React.CSSProperties = {
+  color: C.textSec,
+  fontWeight: 700,
+  whiteSpace: 'nowrap',
+};
+
 // ── Main export ──────────────────────────────────────────────────────────────
 
 interface QuestionTextProps {
@@ -267,13 +355,12 @@ interface QuestionTextProps {
 export function QuestionText({ text, hasImage, imageUrl, style }: QuestionTextProps) {
   const imageBlock = hasImage ? <ImageBlock url={imageUrl} /> : null;
 
-  // 1. Match-the-following
+  // 1. Match-the-following — never show image block; the HTML table IS the content.
   const matchData = parseMatch(text);
   if (matchData) {
     return (
       <div style={{ marginBottom: 4 }}>
         <MatchTable data={matchData} />
-        {imageBlock}
       </div>
     );
   }

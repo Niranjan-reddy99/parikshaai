@@ -1,6 +1,7 @@
 import { Lock } from 'lucide-react';
 import { C } from '../../lib/tokens';
 import { type ExamPaperManifestItem } from '../../types';
+import { getPaperDisplayLabel } from './examDetailUtils';
 
 interface ExamDetailControlsProps {
   availableYears: number[];
@@ -84,7 +85,7 @@ export function ExamDetailControls({
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {availablePapers.map((paper, index) => {
                 const isActive = (paper.paper_id || null) === selectedPaperId && (paper.shift_label || null) === selectedShiftLabel;
-                const label = paper.shift_label || paper.paper_id || `Paper ${index + 1}`;
+                const label = getPaperDisplayLabel(paper, index);
 
                 return (
                   <button

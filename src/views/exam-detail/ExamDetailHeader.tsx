@@ -10,11 +10,7 @@ interface ExamDetailHeaderProps {
   examQuestionCount: number;
   selectedPaperLabel: string;
   availablePaperCount: number;
-  isAdmin: boolean;
   onBack: () => void;
-  onAddQuestion?: () => void;
-  onRenameExam: () => void;
-  onDeleteExam: () => void;
 }
 
 export function ExamDetailHeader({
@@ -26,11 +22,7 @@ export function ExamDetailHeader({
   examQuestionCount,
   selectedPaperLabel,
   availablePaperCount,
-  isAdmin,
   onBack,
-  onAddQuestion,
-  onRenameExam,
-  onDeleteExam,
 }: ExamDetailHeaderProps) {
   return (
     <div className="glass-panel" style={{ borderRadius: 24, padding: '24px 26px', marginBottom: 24, border: `1px solid ${C.borderHover}` }}>
@@ -65,32 +57,6 @@ export function ExamDetailHeader({
             )}
           </div>
         </div>
-
-        {isAdmin && (
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button
-              className="hover-lift"
-              onClick={onAddQuestion}
-              style={{ padding: '6px 14px', background: C.accentDim, border: `1px solid ${C.accent}30`, borderRadius: 10, fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer' }}
-            >
-              + Add Question
-            </button>
-            <button
-              className="hover-lift"
-              onClick={onRenameExam}
-              style={{ padding: '6px 14px', background: C.warnDim, border: `1px solid ${C.warn}30`, borderRadius: 10, fontSize: 12, fontWeight: 700, color: C.warn, cursor: 'pointer' }}
-            >
-              Rename Exam
-            </button>
-            <button
-              className="hover-lift"
-              onClick={onDeleteExam}
-              style={{ padding: '6px 14px', background: C.dangerDim, border: `1px solid ${C.danger}30`, borderRadius: 10, fontSize: 12, fontWeight: 700, color: C.danger, cursor: 'pointer' }}
-            >
-              Delete Exam
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

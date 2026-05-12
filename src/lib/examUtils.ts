@@ -1,4 +1,4 @@
-export const KNOWN_COMMISSIONS = ['TSPSC', 'APPSC', 'UPSC', 'UPPSC', 'MPPSC', 'BPSC', 'RPSC', 'MPSC', 'KPSC', 'TNPSC', 'SSC', 'IBPS', 'RRB', 'NABARD'];
+export const KNOWN_COMMISSIONS = ['TSPSC', 'APPSC', 'UPSC', 'UPPSC', 'MPPSC', 'BPSC', 'RPSC', 'MPSC', 'KPSC', 'TNPSC', 'SSC', 'IBPS', 'RRB', 'NABARD', 'TSLPRB', 'APSLPRB', 'APHC', 'TSHC'];
 
 export const COMMISSION_FULL_NAMES: Record<string, string> = {
   TSPSC: 'Telangana State PSC',
@@ -15,6 +15,12 @@ export const COMMISSION_FULL_NAMES: Record<string, string> = {
   IBPS: 'Institute of Banking Personnel Selection',
   RRB: 'Railway Recruitment Board',
   NABARD: 'NABARD',
+  TSLPRB: 'Telangana State Level Police Recruitment Board',
+  APSLPRB: 'AP State Level Police Recruitment Board',
+  APHC: 'Andhra Pradesh High Court',
+  TSHC: 'Telangana High Court',
+  AP: 'Andhra Pradesh',
+  TS: 'Telangana',
 };
 
 export const COMMISSION_COLORS: Record<string, string> = {
