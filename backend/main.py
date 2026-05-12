@@ -220,11 +220,13 @@ ADMIN_API_KEY = _raw_admin_key
 # 2 minutes so 100 simultaneous logins = 1 Supabase query, not 100.
 _meta_cache: dict | None = None
 _meta_cache_ts: float = 0.0
-_META_CACHE_TTL = 120  # seconds
+_META_CACHE_TTL = 900  # seconds
 _catalog_cache: dict | None = None
 _catalog_cache_ts: float = 0.0
 _feed_cache: dict | None = None
 _feed_cache_ts: float = 0.0
+_meta_snapshot_lock = threading.Lock()
+_PUBLIC_META_CACHE_FILE = Path(__file__).parent / "cache" / "public_meta_snapshot.json"
 _admin_meta_cache: list | None = None
 _admin_meta_cache_ts: float = 0.0
 _practice_ready_present_cache: bool | None = None
@@ -297,6 +299,103 @@ def _invalidate_meta_cache() -> None:
     _exam_qs_cache = {}
     _practice_ready_present_cache = None
     _practice_ready_present_cache_ts = 0.0
+    try:
+        _PUBLIC_META_CACHE_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
+def _meta_cache_control_header() -> str:
+    return "public, max-age=300, stale-while-revalidate=1800"
+
+
+def _write_public_meta_snapshot(payload: dict) -> None:
+    try:
+        _PUBLIC_META_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _PUBLIC_META_CACHE_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(payload), encoding="utf-8")
+        tmp.replace(_PUBLIC_META_CACHE_FILE)
+    except Exception:
+        pass
+
+
+def _read_public_meta_snapshot(now: float) -> dict[str, Any] | None:
+    if not _PUBLIC_META_CACHE_FILE.exists():
+        return None
+    try:
+        payload = json.loads(_PUBLIC_META_CACHE_FILE.read_text(encoding="utf-8"))
+        ts = float(payload.get("ts") or 0.0)
+        if (now - ts) >= _META_CACHE_TTL:
+            return None
+        if not isinstance(payload.get("questions_meta"), dict):
+            return None
+        if not isinstance(payload.get("catalog"), dict):
+            return None
+        if not isinstance(payload.get("feed"), dict):
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def _hydrate_public_meta_caches(payload: dict) -> None:
+    global _meta_cache, _meta_cache_ts, _catalog_cache, _catalog_cache_ts, _feed_cache, _feed_cache_ts
+    ts = float(payload.get("ts") or time.time())
+    _meta_cache = payload["questions_meta"]
+    _meta_cache_ts = ts
+    _catalog_cache = payload["catalog"]
+    _catalog_cache_ts = ts
+    _feed_cache = payload["feed"]
+    _feed_cache_ts = ts
+
+
+def _get_public_meta_snapshot() -> dict[str, Any]:
+    global _meta_cache, _meta_cache_ts, _catalog_cache, _catalog_cache_ts, _feed_cache, _feed_cache_ts
+
+    now = time.time()
+    if (
+        _meta_cache is not None and
+        _catalog_cache is not None and
+        _feed_cache is not None and
+        (now - min(_meta_cache_ts, _catalog_cache_ts, _feed_cache_ts)) < _META_CACHE_TTL
+    ):
+        return {
+            "ts": min(_meta_cache_ts, _catalog_cache_ts, _feed_cache_ts),
+            "questions_meta": _meta_cache,
+            "catalog": _catalog_cache,
+            "feed": _feed_cache,
+        }
+
+    with _meta_snapshot_lock:
+        now = time.time()
+        if (
+            _meta_cache is not None and
+            _catalog_cache is not None and
+            _feed_cache is not None and
+            (now - min(_meta_cache_ts, _catalog_cache_ts, _feed_cache_ts)) < _META_CACHE_TTL
+        ):
+            return {
+                "ts": min(_meta_cache_ts, _catalog_cache_ts, _feed_cache_ts),
+                "questions_meta": _meta_cache,
+                "catalog": _catalog_cache,
+                "feed": _feed_cache,
+            }
+
+        persisted = _read_public_meta_snapshot(now)
+        if persisted is not None:
+            _hydrate_public_meta_caches(persisted)
+            return persisted
+
+        rows = _collect_public_question_meta_rows()
+        payload = {
+            "ts": now,
+            "questions_meta": {"questions": rows, "total": len(rows)},
+            "catalog": build_catalog_from_meta(rows),
+            "feed": build_feed_from_meta(rows),
+        }
+        _hydrate_public_meta_caches(payload)
+        _write_public_meta_snapshot(payload)
+        return payload
 
 
 def _question_supported_columns() -> set[str]:
@@ -2192,52 +2291,34 @@ async def get_questions(
 
 
 @app.get("/questions/meta")
-async def get_questions_meta():
+async def get_questions_meta(response: Response):
     """Lightweight question metadata for navigation, feed, and dashboard.
     Returns only id, exam_name, exam_year, subject, topic, subtopic, difficulty.
     Cached in-process for 2 minutes — 100 concurrent logins = 1 Supabase query."""
-    global _meta_cache, _meta_cache_ts
-    now = time.time()
-    if _meta_cache is not None and (now - _meta_cache_ts) < _META_CACHE_TTL:
-        return _meta_cache
     try:
-        all_data = _collect_public_question_meta_rows()
-        result = {"questions": all_data, "total": len(all_data)}
-        _meta_cache = result
-        _meta_cache_ts = now
-        return result
+        snapshot = _get_public_meta_snapshot()
+        response.headers["Cache-Control"] = _meta_cache_control_header()
+        return snapshot["questions_meta"]
     except Exception as e:
         raise HTTPException(500, f"Database error: {e}")
 
 
 @app.get("/meta/catalog")
-async def get_catalog_summary():
-    global _catalog_cache, _catalog_cache_ts
-    now = time.time()
-    if _catalog_cache is not None and (now - _catalog_cache_ts) < _META_CACHE_TTL:
-        return _catalog_cache
+async def get_catalog_summary(response: Response):
     try:
-        rows = _collect_public_question_meta_rows()
-        result = build_catalog_from_meta(rows)
-        _catalog_cache = result
-        _catalog_cache_ts = now
-        return result
+        snapshot = _get_public_meta_snapshot()
+        response.headers["Cache-Control"] = _meta_cache_control_header()
+        return snapshot["catalog"]
     except Exception as e:
         raise HTTPException(500, f"Catalog summary error: {e}")
 
 
 @app.get("/meta/feed")
-async def get_feed_summary():
-    global _feed_cache, _feed_cache_ts
-    now = time.time()
-    if _feed_cache is not None and (now - _feed_cache_ts) < _META_CACHE_TTL:
-        return _feed_cache
+async def get_feed_summary(response: Response):
     try:
-        rows = _collect_public_question_meta_rows()
-        result = build_feed_from_meta(rows)
-        _feed_cache = result
-        _feed_cache_ts = now
-        return result
+        snapshot = _get_public_meta_snapshot()
+        response.headers["Cache-Control"] = _meta_cache_control_header()
+        return snapshot["feed"]
     except Exception as e:
         raise HTTPException(500, f"Feed summary error: {e}")
 
