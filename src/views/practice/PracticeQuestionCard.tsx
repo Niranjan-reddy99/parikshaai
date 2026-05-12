@@ -87,20 +87,12 @@ export function PracticeQuestionCard({
     );
 
   return (
-    <div className="glass-panel" style={{ borderRadius: 24, padding: '36px 36px', marginBottom: 16, transition: 'border-color 0.15s', border: `1px solid ${C.borderHover}` }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 20 }}>
+    <div className="glass-panel" style={{ borderRadius: 16, padding: '24px 28px', marginBottom: 16, transition: 'border-color 0.15s', border: `1px solid ${C.borderHover}` }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ padding: '3px 10px', background: 'rgba(96,165,250,0.12)', color: C.blue, fontSize: 10, fontWeight: 700, borderRadius: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {question.subject}
           </span>
-          <span style={{ padding: '3px 10px', background: 'transparent', border: `1px solid ${C.border}`, color: C.textSec, fontSize: 10, borderRadius: 8 }}>
-            {question.topic}
-          </span>
-          {question.subtopic && (
-            <span style={{ padding: '3px 10px', background: 'transparent', border: `1px solid ${C.borderLight}`, color: C.textTert, fontSize: 10, borderRadius: 8 }}>
-              {question.subtopic}
-            </span>
-          )}
           <span style={{ padding: '3px 10px', background: diffBg[question.difficulty] || 'var(--c-surface3)', color: diffColor[question.difficulty] || C.textSec, fontSize: 10, fontWeight: 600, borderRadius: 8 }}>
             {question.difficulty}
           </span>
@@ -174,9 +166,16 @@ export function PracticeQuestionCard({
         </div>
       )}
 
-      <div style={{ fontSize: 17, fontWeight: 500, color: C.text, marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-          Question {practiceIndex + 1}
+      <div style={{ fontSize: 17, fontWeight: 500, color: C.text, marginBottom: 28 }}>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+            Question {practiceIndex + 1}
+          </div>
+          {question.topic && (
+            <div style={{ fontSize: 11, color: C.textTert }}>
+              {question.topic}{question.subtopic ? ` › ${question.subtopic}` : ''}
+            </div>
+          )}
         </div>
         {showQuestionSource && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, border: `1px solid ${C.border}`, background: C.bg, color: C.textSec, fontSize: 11, fontWeight: 600, marginBottom: 12 }}>
@@ -188,7 +187,7 @@ export function PracticeQuestionCard({
         <QuestionText text={question.question} hasImage={question.has_image} imageUrl={question.image_url} style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.65 }} />
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
         {Object.entries(question.options).map(([optionKey, optionValue]) => {
           const state = getPracticeOptionState(question, optionKey, practiceAnswered, practiceSelectedOption);
           const styles = optionStyles[state];
@@ -202,7 +201,7 @@ export function PracticeQuestionCard({
               onClick={() => handleAnswerSelect(optionKey)}
               style={{
                 width: '100%',
-                padding: '14px 16px',
+                padding: '12px 14px',
                 borderRadius: 10,
                 border: styles.border,
                 background: styles.background,

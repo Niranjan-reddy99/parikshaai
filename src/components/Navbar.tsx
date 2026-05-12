@@ -26,8 +26,6 @@ interface NavbarProps {
   handleLogout: () => void;
 }
 
-type SideView = 'home' | 'browse' | 'dashboard' | 'leaderboard' | 'feed' | 'bookmarks';
-
 function NavIcon({ name }: { name: string }) {
   const icons: Record<string, React.ReactNode> = {
     home: (
@@ -68,18 +66,15 @@ function NavIcon({ name }: { name: string }) {
         <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
       </svg>
     ),
+    users: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    ),
   };
   return <>{icons[name] || null}</>;
 }
-
-const MAIN_NAV: { id: SideView; icon: string; label: string; pro?: boolean }[] = [
-  { id: 'home',        icon: 'home',     label: 'Home' },
-  { id: 'browse',      icon: 'search',   label: 'Question Bank' },
-  { id: 'dashboard',   icon: 'chart',    label: 'Insights' },
-  { id: 'bookmarks',   icon: 'bookmark', label: 'Bookmarks' },
-  { id: 'leaderboard', icon: 'trophy',   label: 'Leaderboard' },
-  { id: 'feed',        icon: 'feed',     label: 'PYQ Feed', pro: true },
-];
 
 function UserAvatar({ displayName, email, size = 32 }: { displayName: string | null; email: string | null; size?: number }) {
   const initials = displayName
@@ -107,6 +102,27 @@ function UserAvatar({ displayName, email, size = 32 }: { displayName: string | n
   );
 }
 
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <div style={{
+      fontSize: 10, fontWeight: 700, color: 'var(--text-tert)',
+      textTransform: 'uppercase', letterSpacing: '0.07em',
+      padding: '0 10px', marginBottom: 4, marginTop: 16,
+    }}>
+      {label}
+    </div>
+  );
+}
+
+interface NavItemDef {
+  id: string;
+  icon: string;
+  label: string;
+  badge?: { text: string; color: string; bg: string };
+  onClick: () => void;
+  isActive: boolean;
+}
+
 export function Navbar({
   user, view, xp,
   setView, openQuestionBankHome, openPatternPractice, handleLogout,
@@ -115,15 +131,7 @@ export function Navbar({
   const { level, levelName, xpNext } = xpToLevel(xp);
   const xpProgress = Math.min(100, Math.round((xp / xpNext) * 100));
 
-  const isActive = (id: SideView): boolean => {
-    if (id === 'home')        return ['home', 'commission', 'exam-detail'].includes(view);
-    if (id === 'browse')      return view === 'browse';
-    if (id === 'dashboard')   return view === 'dashboard';
-    if (id === 'leaderboard') return view === 'leaderboard';
-    if (id === 'feed')        return view === 'feed';
-    if (id === 'bookmarks')   return view === 'bookmarks';
-    return false;
-  };
+  const isHomeActive = ['home', 'commission', 'exam-detail'].includes(view);
 
   const navItemStyle = (active: boolean, hovered: boolean): React.CSSProperties => ({
     display: 'flex',
@@ -141,6 +149,69 @@ export function Navbar({
     transition: 'background 0.1s, color 0.1s',
     borderLeft: `2px solid ${active ? '#2563eb' : 'transparent'}`,
   });
+
+  const practiceItems: NavItemDef[] = [
+    {
+      id: 'home', icon: 'home', label: 'Browse Exams', isActive: isHomeActive,
+      onClick: () => setView('home'),
+    },
+    {
+      id: 'browse', icon: 'search', label: 'Question Bank', isActive: view === 'browse',
+      onClick: openQuestionBankHome,
+    },
+    {
+      id: 'bookmarks', icon: 'bookmark', label: 'Bookmarks', isActive: view === 'bookmarks',
+      onClick: () => setView('bookmarks'),
+    },
+  ];
+
+  const trackItems: NavItemDef[] = [
+    {
+      id: 'dashboard', icon: 'chart', label: 'My Progress', isActive: view === 'dashboard',
+      onClick: () => setView('dashboard'),
+    },
+    {
+      id: 'leaderboard', icon: 'trophy', label: 'Leaderboard', isActive: view === 'leaderboard',
+      onClick: () => setView('leaderboard'),
+    },
+  ];
+
+  const communityItems: NavItemDef[] = [
+    {
+      id: 'feed', icon: 'feed', label: 'PYQ Feed', isActive: view === 'feed',
+      badge: { text: 'PRO', color: '#d97706', bg: '#fff7e6' },
+      onClick: () => setView('feed'),
+    },
+    {
+      id: 'referral', icon: 'users', label: 'Refer & Earn', isActive: view === 'referral',
+      badge: { text: 'NEW', color: '#16a34a', bg: '#dcfce7' },
+      onClick: () => setView('referral'),
+    },
+  ];
+
+  function renderItem(item: NavItemDef) {
+    const active = item.isActive;
+    const hovered = hoveredItem === item.id;
+    return (
+      <div
+        key={item.id}
+        onClick={item.onClick}
+        onMouseEnter={() => setHoveredItem(item.id)}
+        onMouseLeave={() => setHoveredItem(null)}
+        style={navItemStyle(active, hovered)}
+      >
+        <span style={{ width: 15, height: 15, flexShrink: 0, color: active ? '#2563eb' : 'currentColor' }}>
+          <NavIcon name={item.icon} />
+        </span>
+        <span style={{ flex: 1 }}>{item.label}</span>
+        {item.badge && (
+          <span style={{ padding: '1px 5px', background: item.badge.bg, color: item.badge.color, borderRadius: 3, fontSize: 9, fontWeight: 700 }}>
+            {item.badge.text}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <aside style={{
@@ -169,72 +240,41 @@ export function Navbar({
         </div>
       </div>
 
-      {/* Main navigation */}
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '12px 8px 8px' }}>
-        <div style={{
-          fontSize: 10, fontWeight: 700, color: 'var(--text-tert)',
-          textTransform: 'uppercase', letterSpacing: '0.07em',
-          padding: '0 10px', marginBottom: 6,
-        }}>
-          Menu
-        </div>
+      {/* Navigation */}
+      <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 8px' }}>
 
-        {MAIN_NAV.map(item => {
-          const active = isActive(item.id);
-          const hovered = hoveredItem === item.id;
-          return (
-            <div
-              key={item.id}
-              onClick={() => {
-                if (item.id === 'browse') { openQuestionBankHome(); return; }
-                setView(item.id);
-              }}
-              onMouseEnter={() => setHoveredItem(item.id)}
-              onMouseLeave={() => setHoveredItem(null)}
-              style={navItemStyle(active, hovered)}
-            >
-              <span style={{ width: 15, height: 15, flexShrink: 0, color: active ? '#2563eb' : 'currentColor' }}>
-                <NavIcon name={item.icon} />
-              </span>
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {item.pro && (
-                <span style={{ padding: '1px 5px', background: '#fff7e6', color: '#d97706', borderRadius: 3, fontSize: 9, fontWeight: 700 }}>
-                  PRO
-                </span>
-              )}
-            </div>
-          );
-        })}
+        {/* PRACTICE */}
+        <SectionLabel label="Practice" />
+        {practiceItems.map(renderItem)}
 
-        {/* Labs */}
-        <div style={{ marginTop: 20 }}>
-          <div style={{
-            fontSize: 10, fontWeight: 700, color: 'var(--text-tert)',
-            textTransform: 'uppercase', letterSpacing: '0.07em',
-            padding: '0 10px', marginBottom: 6,
-          }}>
-            Labs
-          </div>
-          <div
-            onClick={openPatternPractice}
-            onMouseEnter={() => setHoveredItem('pattern')}
-            onMouseLeave={() => setHoveredItem(null)}
-            style={navItemStyle(view === 'pattern-practice', hoveredItem === 'pattern')}
-          >
-            <span style={{ width: 15, height: 15, flexShrink: 0, color: view === 'pattern-practice' ? '#2563eb' : 'currentColor' }}>
-              <NavIcon name="pulse" />
-            </span>
-            <span style={{ flex: 1 }}>Pattern Practice</span>
-            <span style={{ padding: '1px 5px', background: '#dbeafe', color: '#2563eb', borderRadius: 3, fontSize: 9, fontWeight: 700 }}>
-              BETA
-            </span>
-          </div>
+        {/* TRACK */}
+        <SectionLabel label="Track" />
+        {trackItems.map(renderItem)}
+
+        {/* COMMUNITY */}
+        <SectionLabel label="Community" />
+        {communityItems.map(renderItem)}
+
+        {/* LABS */}
+        <SectionLabel label="Labs" />
+        <div
+          onClick={openPatternPractice}
+          onMouseEnter={() => setHoveredItem('pattern')}
+          onMouseLeave={() => setHoveredItem(null)}
+          style={navItemStyle(view === 'pattern-practice', hoveredItem === 'pattern')}
+        >
+          <span style={{ width: 15, height: 15, flexShrink: 0, color: view === 'pattern-practice' ? '#2563eb' : 'currentColor' }}>
+            <NavIcon name="pulse" />
+          </span>
+          <span style={{ flex: 1 }}>Pattern Practice</span>
+          <span style={{ padding: '1px 5px', background: '#dbeafe', color: '#2563eb', borderRadius: 3, fontSize: 9, fontWeight: 700 }}>
+            BETA
+          </span>
         </div>
       </nav>
 
       {/* Profile footer */}
       <div style={{ padding: '10px 10px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-        {/* Guest */}
         {user.uid === 'guest' ? (
           <div style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 11.5, color: 'var(--text-sec)', marginBottom: 8, lineHeight: 1.5 }}>
@@ -249,7 +289,6 @@ export function Navbar({
           </div>
         ) : (
           <div style={{ marginBottom: 6 }}>
-            {/* User info row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 8px', borderRadius: 8 }}>
               <UserAvatar displayName={user.displayName} email={user.email} />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -261,8 +300,6 @@ export function Navbar({
                 </div>
               </div>
             </div>
-
-            {/* XP bar */}
             <div style={{ padding: '0 8px 6px' }}>
               <div style={{ height: 3, background: 'var(--bg-canvas)', borderRadius: 2 }}>
                 <div style={{ height: '100%', width: `${xpProgress}%`, background: '#2563eb', borderRadius: 2, transition: 'width 0.4s ease' }} />

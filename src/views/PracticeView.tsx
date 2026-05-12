@@ -87,7 +87,11 @@ export function PracticeView({
 
   if (!practiceQueue.length) return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '80px 16px', textAlign: 'center' }}>
-      <div style={{ fontSize: 40, marginBottom: 16 }}>📂</div>
+      <div style={{ width: 48, height: 48, margin: '0 auto 16px', color: 'var(--text-tert)' }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
       <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: 22, fontWeight: 400, color: C.text, marginBottom: 8 }}>No questions found</h3>
       <p style={{ fontSize: 13, color: C.textSec, marginBottom: 24 }}>Try adjusting your subject or topic filters.</p>
       <button onClick={() => setView(backView)}
@@ -167,15 +171,6 @@ export function PracticeView({
           practiceTopic={practiceTopic}
         />
 
-      {practiceQueue.length <= 30 && (
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {practiceQueue.map((_, i) => (
-            <div key={i} style={{ height: 6, borderRadius: 99, transition: 'all 0.2s',
-              width: i === practiceIndex ? 20 : 6,
-              background: i === practiceIndex ? '#2563eb' : i < practiceIndex ? '#dbeafe' : C.surface3 }} />
-          ))}
-        </div>
-      )}
       {loadingMoreQuestions && (
         <div style={{ marginTop: 14 }}>
           <QuestionCardSkeleton />

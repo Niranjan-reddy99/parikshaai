@@ -66,6 +66,9 @@ const ProfileView = lazy(() =>
 const BookmarksView = lazy(() =>
   import("./views/BookmarksView").then((m) => ({ default: m.BookmarksView }))
 );
+const ReferralView = lazy(() =>
+  import("./views/ReferralView").then((m) => ({ default: m.ReferralView }))
+);
 
 import { normalizeSubject } from "./lib/utils";
 import { loadBookmarkMap, toggleBookmark, removeBookmark, clearBookmarks } from "./lib/bookmarks";
@@ -2873,6 +2876,19 @@ function AppContent() {
                     }
                   >
                     <LeaderboardView stats={userStats} user={user} />
+                  </Suspense>
+                )}
+                {view === "referral" && (
+                  <Suspense
+                    fallback={
+                      <ViewLoadingFallback label="Loading referrals..." />
+                    }
+                  >
+                    <ReferralView
+                      userId={user.uid}
+                      displayName={user.displayName}
+                      email={user.email}
+                    />
                   </Suspense>
                 )}
                 {view === "home" && (

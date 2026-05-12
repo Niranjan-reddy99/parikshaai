@@ -222,108 +222,129 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
     return { text: `${rank}`, bg: 'transparent', color: 'var(--text-tert)' };
   };
 
+  const top3 = entries.filter(e => (e.rank || 0) <= 3).sort((a, b) => (a.rank || 0) - (b.rank || 0));
+
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: 'var(--text)', letterSpacing: '-0.3px' }}>Leaderboard</h1>
-        <span style={{ fontSize: 22 }}>🏆</span>
-      </div>
-      <p style={{ fontSize: 13, color: 'var(--text-sec)', margin: '0 0 20px' }}>
-        {enrolledCommissions.length === 0
-          ? 'Compete with aspirants across the country'
-          : `Showing ranks for your enrolled exam track${enrolledCommissions.length > 1 ? 's' : ''}`}
-      </p>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
-        <button style={tabStyle(tab === 'overall')} onClick={() => setTab('overall')}>Overall</button>
-        <button style={tabStyle(tab === 'friends')} onClick={() => setTab('friends')}>Friends</button>
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', color: 'var(--text)', letterSpacing: '-0.3px' }}>Leaderboard</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-sec)', margin: 0 }}>
+          {enrolledCommissions.length === 0 ? 'Rankings across all exams' : `Scoped to ${leaderboardScopeLabel}`}
+        </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 20, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 20, alignItems: 'start' }}>
 
-        {/* Left: table */}
+        {/* ── Left column ─────────────────────────────────────────────── */}
         <div>
-          {/* Filter bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <select
-              value={timeFilter}
-              onChange={e => setTimeFilter(e.target.value as TimeFilter)}
-              style={{ padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', background: 'var(--bg)', fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}
-            >
-              <option value="all-time">All Time</option>
-              <option value="monthly">This Month</option>
-              <option value="weekly">This Week</option>
-            </select>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-tert)' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
-              {loading ? 'Refreshing leaderboard...' : `Updated ${lastUpdatedLabel}`}
-              <button
-                onClick={() => setRefreshNonce((value) => value + 1)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text-tert)', display: 'flex' }}
-                aria-label="Refresh leaderboard"
+          {/* Tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 18 }}>
+            {(['overall', 'friends'] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                padding: '8px 18px', fontSize: 13.5, fontWeight: tab === t ? 700 : 500,
+                color: tab === t ? 'var(--text)' : 'var(--text-sec)',
+                background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none',
+                borderBottom: `2px solid ${tab === t ? '#2563eb' : 'transparent'}`,
+                cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
+              }}>
+                {t}
+              </button>
+            ))}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <select
+                value={timeFilter}
+                onChange={e => setTimeFilter(e.target.value as TimeFilter)}
+                style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 7, fontSize: 12.5, color: 'var(--text)', background: 'var(--bg)', fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <option value="all-time">All Time</option>
+                <option value="monthly">This Month</option>
+                <option value="weekly">This Week</option>
+              </select>
+              <button
+                onClick={() => setRefreshNonce(v => v + 1)}
+                title="Refresh"
+                style={{ width: 30, height: 30, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tert)' }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
                 </svg>
               </button>
             </div>
           </div>
 
-          {error && (
-            <div style={{
-              marginBottom: 14,
-              padding: '12px 14px',
-              borderRadius: 10,
-              border: '1px solid #fecaca',
-              background: '#fef2f2',
-              color: '#b91c1c',
-              fontSize: 13,
-            }}>
-              {error}. Showing your local stats until the leaderboard comes back.
+          {/* Top 3 podium */}
+          {!loading && top3.length === 3 && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
+              {[top3[1], top3[0], top3[2]].map((e, podiumIdx) => {
+                if (!e) return null;
+                const podiumOrder = [2, 1, 3];
+                const rank = podiumOrder[podiumIdx];
+                const heights = [72, 92, 56];
+                const bg = rank === 1 ? '#fef9c3' : rank === 2 ? '#f1f5f9' : '#fff7ed';
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+                return (
+                  <div key={e.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: '50%',
+                      background: e.isMe ? 'linear-gradient(135deg,#6366f1,#2563eb)' : e.color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 13, fontWeight: 800, color: '#fff',
+                      border: e.isMe ? '2px solid #2563eb' : '2px solid rgba(255,255,255,0.3)',
+                    }}>{e.initials}</div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{e.isMe ? 'You' : e.name.split(' ')[0]}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tert)' }}>{e.xp.toLocaleString()} pts</div>
+                    </div>
+                    <div style={{
+                      width: '100%', height: heights[podiumIdx],
+                      background: bg, borderRadius: '10px 10px 0 0',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2,
+                    }}>
+                      <span style={{ fontSize: 22 }}>{medal}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>#{rank}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          {!error && leaderboard?.has_more && (
-            <div style={{ marginBottom: 14, fontSize: 12, color: 'var(--text-tert)' }}>
-              Showing top {leaderboard.entries.length} ranks{leaderboard.my_entry && !leaderboard.entries.some((entry) => entry.is_me) ? ' plus your position' : ''}.
+          {/* Error */}
+          {error && (
+            <div style={{ marginBottom: 14, padding: '11px 14px', borderRadius: 10, border: '1px solid #fecaca', background: '#fef2f2', color: '#b91c1c', fontSize: 13 }}>
+              {error}. Showing your local stats.
             </div>
           )}
 
           {/* Table */}
-          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-            {/* Header */}
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
             <div style={{
-              display: 'grid', gridTemplateColumns: '60px 1fr 100px 90px',
-              padding: '10px 18px', background: 'var(--bg-alt)',
-              fontSize: 11, fontWeight: 600, color: 'var(--text-tert)',
-              textTransform: 'uppercase', letterSpacing: '0.04em', gap: 12,
+              display: 'grid', gridTemplateColumns: '52px 1fr 90px 80px',
+              padding: '9px 16px', background: 'var(--bg-alt)',
+              fontSize: 10.5, fontWeight: 700, color: 'var(--text-tert)',
+              textTransform: 'uppercase', letterSpacing: '0.05em', gap: 12,
               borderBottom: '1px solid var(--border)',
             }}>
-              <div>Rank</div>
-              <div>Aspirant</div>
+              <div>Rank</div><div>Aspirant</div>
               <div style={{ textAlign: 'right' }}>Score</div>
-              <div style={{ textAlign: 'right' }}>Accuracy</div>
+              <div style={{ textAlign: 'right' }}>Acc.</div>
             </div>
 
-            {/* Rows */}
             {loading && entries.length === 0 && (
-              <div style={{ padding: '20px 18px', fontSize: 13, color: 'var(--text-sec)' }}>
-                Building leaderboard from recent attempts...
-              </div>
+              <div style={{ padding: '20px 16px', fontSize: 13, color: 'var(--text-sec)' }}>Building leaderboard…</div>
             )}
+
             {entries.map((e, i) => {
-              const badge = rankBadge(e.rank || i + 1);
+              const rank = e.rank || i + 1;
+              const badge = rankBadge(rank);
               return (
                 <div
-                  key={`${e.rank}-${e.name}-${e.exam}`}
+                  key={`${rank}-${e.name}`}
                   style={{
-                    display: 'grid', gridTemplateColumns: '60px 1fr 100px 90px',
-                    padding: '12px 18px', gap: 12, alignItems: 'center',
+                    display: 'grid', gridTemplateColumns: '52px 1fr 90px 80px',
+                    padding: '11px 16px', gap: 12, alignItems: 'center',
                     borderBottom: i < entries.length - 1 ? '1px solid var(--border)' : 'none',
                     background: e.isMe ? '#eff6ff' : 'transparent',
                     transition: 'background 0.1s',
@@ -331,43 +352,33 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
                   onMouseEnter={ev => { if (!e.isMe) ev.currentTarget.style.background = 'var(--bg-alt)'; }}
                   onMouseLeave={ev => { if (!e.isMe) ev.currentTarget.style.background = 'transparent'; }}
                 >
-                  {/* Rank */}
                   <div style={{
-                    width: 32, height: 32, borderRadius: 8,
+                    width: 30, height: 30, borderRadius: 8,
                     background: badge.bg, color: badge.color,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: e.rank <= 3 ? 18 : 13, fontWeight: 700,
-                  }}>
-                    {badge.text}
-                  </div>
+                    fontSize: rank <= 3 ? 16 : 12.5, fontWeight: 700,
+                  }}>{badge.text}</div>
 
-                  {/* Identity */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                     <div style={{
-                      width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                      background: e.isMe ? 'linear-gradient(135deg, #6366f1, #2563eb)' : e.color,
+                      width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                      background: e.isMe ? 'linear-gradient(135deg,#6366f1,#2563eb)' : e.color,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 12, fontWeight: 700, color: 'white',
+                      fontSize: 11.5, fontWeight: 700, color: '#fff',
                       border: e.isMe ? '2px solid #2563eb' : 'none',
-                    }}>
-                      {e.initials}
-                    </div>
+                    }}>{e.initials}</div>
                     <div>
-                      <div style={{ fontSize: 13.5, fontWeight: e.isMe ? 700 : 500, color: e.isMe ? '#2563eb' : 'var(--text)' }}>
+                      <div style={{ fontSize: 13, fontWeight: e.isMe ? 700 : 500, color: e.isMe ? '#2563eb' : 'var(--text)', lineHeight: 1.2 }}>
                         {e.isMe ? 'You' : e.name}
-                        {e.isMe && <span style={{ fontSize: 11, fontWeight: 500, color: '#2563eb', marginLeft: 6 }}>(#{myRank})</span>}
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-tert)' }}>{e.exam}</div>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-tert)', marginTop: 2 }}>{e.exam || leaderboardScopeLabel}</div>
                     </div>
                   </div>
 
-                  {/* Score */}
-                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#2563eb' }}>
+                  <div style={{ textAlign: 'right', fontSize: 13.5, fontWeight: 700, color: '#2563eb' }}>
                     {e.xp.toLocaleString()}
                   </div>
-
-                  {/* Accuracy */}
-                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#16a34a' }}>
+                  <div style={{ textAlign: 'right', fontSize: 13.5, fontWeight: 700, color: e.acc >= 70 ? '#16a34a' : e.acc >= 50 ? '#d97706' : 'var(--text-sec)' }}>
                     {e.acc > 0 ? `${e.acc}%` : '—'}
                   </div>
                 </div>
@@ -375,84 +386,62 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
             })}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-            {leaderboard?.has_more ? (
+          {leaderboard?.has_more && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
               <button
-                onClick={() => setEntryLimit((value) => value + 50)}
-                style={{
-                  padding: '9px 20px', border: '1px solid var(--border)', borderRadius: 8,
-                  background: 'var(--bg)', color: 'var(--text)', fontSize: 13, fontWeight: 500,
-                  cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
-                }}
+                onClick={() => setEntryLimit(v => v + 50)}
+                style={{ padding: '9px 22px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--bg)', color: 'var(--text)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
               >
-                View More
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
+                Show more
               </button>
-            ) : null}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Right sidebar */}
+        {/* ── Right sidebar ────────────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 24 }}>
 
-          {/* Your Rank */}
-          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 18px', textAlign: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12 }}>Your Rank</div>
-            <div style={{
-              width: 64, height: 64, borderRadius: '50%', margin: '0 auto 12px',
-              background: 'linear-gradient(135deg, #dbeafe, #eff6ff)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: '2px solid #bfdbfe',
-            }}>
-              <span style={{ fontSize: 26 }}>🏆</span>
+          {/* Your rank card */}
+          <div style={{
+            background: 'linear-gradient(160deg,#0f172a 0%,#1e3a8a 100%)',
+            borderRadius: 16, padding: '22px 20px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 }}>Your Rank</div>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: 16, fontWeight: 800, color: '#fff' }}>
+              {myInitials}
             </div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: '#2563eb', marginBottom: 4 }}>#{myRank}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-sec)', marginBottom: 16 }}>
-              {myRank <= 5 ? 'Excellent! Keep pushing!' : myRank <= 10 ? 'Great going! Keep pushing!' : 'Good going! Keep pushing your limits.'}
+            <div style={{ fontSize: 38, fontWeight: 900, color: '#fff', letterSpacing: '-0.05em', lineHeight: 1 }}>
+              #{myRank}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div style={{ background: 'var(--bg-alt)', borderRadius: 8, padding: '10px', textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-tert)', marginBottom: 2 }}>Score</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{myEntry.xp.toLocaleString()}</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', margin: '6px 0 18px' }}>
+              {myRank <= 3 ? 'Top of the board!' : myRank <= 10 ? 'Top 10 — keep going!' : 'Keep practicing to climb'}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 8px' }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 3 }}>Score</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{myEntry.xp.toLocaleString()}</div>
               </div>
-              <div style={{ background: 'var(--bg-alt)', borderRadius: 8, padding: '10px', textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-tert)', marginBottom: 2 }}>Accuracy</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#16a34a' }}>{myEntry.acc > 0 ? `${myEntry.acc}%` : '—'}</div>
+              <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 8px' }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 3 }}>Accuracy</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: myEntry.acc >= 70 ? '#86efac' : myEntry.acc >= 50 ? '#fde68a' : '#fca5a5' }}>
+                  {myEntry.acc > 0 ? `${myEntry.acc}%` : '—'}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Leaderboard Info */}
-          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Leaderboard Info</div>
+          {/* Stats */}
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Board stats</div>
             {[
-              { label: 'Total Aspirants', value: totalAspirants, icon: '👥' },
-              { label: 'Exams Covered', value: examsCovered || '1', icon: '📋' },
-              { label: 'Last Updated', value: lastUpdatedLabel, icon: '🕐' },
-              { label: 'Scope', value: leaderboardScopeLabel, icon: '🎯' },
-            ].map(({ label, value, icon }) => (
+              { label: 'Aspirants', value: totalAspirants.toLocaleString() },
+              { label: 'Exams tracked', value: examsCovered || 1 },
+              { label: 'Updated', value: loading ? '…' : lastUpdatedLabel },
+              { label: 'Scope', value: leaderboardScopeLabel },
+            ].map(({ label, value }) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: 12.5, color: 'var(--text-sec)' }}>{icon} {label}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{value}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* How it works */}
-          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>How it works?</div>
-            {[
-              'This board now uses actual attempt history from the backend, not placeholder ranks.',
-              'Your board is scoped to the commissions you selected in onboarding/profile.',
-              'Update enrolled exams in Profile to change this leaderboard scope.',
-            ].map((tip, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-                <span style={{ width: 16, height: 16, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </span>
-                <span style={{ fontSize: 12, color: 'var(--text-sec)', lineHeight: 1.5 }}>{tip}</span>
+                <span style={{ fontSize: 12.5, color: 'var(--text-sec)' }}>{label}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', maxWidth: 120, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
               </div>
             ))}
           </div>

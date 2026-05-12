@@ -20,7 +20,7 @@ export function PracticeSessionSidebar({
   const sessionStats = getPracticeSessionStats(sessionAnswers);
 
   return (
-    <div className="glass-panel" style={{ borderRadius: 18, padding: '24px 20px', position: 'sticky', top: 0, border: `1px solid ${C.borderHover}` }}>
+    <div style={{ background: 'var(--bg)', borderRadius: 14, padding: '20px 16px', position: 'sticky', top: 16, border: '1px solid var(--border)' }}>
       <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', color: C.textTert, marginBottom: 14 }}>
         Session Navigator
       </div>
@@ -42,14 +42,14 @@ export function PracticeSessionSidebar({
           overflowY: 'auto',
           paddingRight: 2,
           scrollbarWidth: 'thin',
-          scrollbarColor: `${C.border} transparent`,
+          scrollbarColor: 'var(--border) transparent',
         }}
       >
         {Array.from({ length: practiceQueueLength }).map((_, index) => {
           const answerState = sessionAnswers[index];
-          let background = C.surface3;
+          let background = 'var(--bg-alt)';
           let color = C.textSec;
-          let border = `1px solid ${C.border}`;
+          let border = '1px solid var(--border)';
 
           if (index === practiceIndex) {
             background = '#2563eb';
@@ -78,7 +78,7 @@ export function PracticeSessionSidebar({
         })}
       </div>
 
-      <div style={{ height: 1, background: C.border, margin: '0 0 16px' }} />
+      <div style={{ height: 1, background: 'var(--border)', margin: '0 0 16px' }} />
 
       <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em', color: C.textTert, marginBottom: 12 }}>
         Session
@@ -90,7 +90,7 @@ export function PracticeSessionSidebar({
         { label: 'Accuracy', value: sessionStats.answered > 0 ? `${sessionStats.accuracy}%` : '—', color: '#2563eb' },
         { label: 'XP earned', value: `+${sessionStats.xpEarned}`, color: '#2563eb' },
       ].map((statItem) => (
-        <div key={statItem.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${C.border}`, fontSize: 12 }}>
+        <div key={statItem.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
           <span style={{ color: C.textSec }}>{statItem.label}</span>
           <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 500, color: statItem.color }}>{statItem.value}</span>
         </div>

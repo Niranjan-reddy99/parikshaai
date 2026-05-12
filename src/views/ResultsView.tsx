@@ -228,15 +228,9 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
 
       {/* ── Score Hero ──────────────────────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-        style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: '32px 28px', textAlign: 'center', marginBottom: 16 }}>
+        style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: '28px 24px', textAlign: 'center', marginBottom: 16 }}>
 
-        {/* Pariksha branding */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 20 }}>
-          <div style={{ width: 22, height: 22, borderRadius: 5, background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 11 }}>P</div>
-          <span style={{ fontSize: 12, fontWeight: 700, color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pariksha</span>
-        </div>
-
-        <div style={{ width: 72, height: 72, borderRadius: 20, background: '#dbeafe', border: '2px solid #2563eb40', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <div style={{ width: 64, height: 64, borderRadius: 18, background: '#dbeafe', border: '2px solid #2563eb40', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
           <Trophy style={{ width: 34, height: 34, color: '#2563eb' }} />
         </div>
 
