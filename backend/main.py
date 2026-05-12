@@ -398,6 +398,14 @@ def _get_public_meta_snapshot() -> dict[str, Any]:
         return payload
 
 
+def _warm_public_meta_snapshot() -> None:
+    try:
+        _get_public_meta_snapshot()
+        print("[startup] Public metadata snapshot warmed")
+    except Exception as exc:
+        print(f"[startup] Public metadata warm failed: {exc}")
+
+
 def _question_supported_columns() -> set[str]:
     global _question_supported_columns_cache
     if _question_supported_columns_cache is not None:
@@ -1913,6 +1921,15 @@ try:
         pass  # no stuck jobs on clean start
 except Exception as _e:
     print(f"[startup] Could not handle stuck jobs: {_e}")
+
+try:
+    threading.Thread(
+        target=_warm_public_meta_snapshot,
+        name="warm-public-meta",
+        daemon=True,
+    ).start()
+except Exception as _e:
+    print(f"[startup] Could not schedule public metadata warm: {_e}")
 
 
 # ── Dependencies ─────────────────────────────────────────
