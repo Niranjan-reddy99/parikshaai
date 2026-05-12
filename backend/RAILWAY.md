@@ -1,74 +1,111 @@
 # Railway Deploy
 
-This backend is ready to deploy to Railway from the `/backend` directory.
+This repo is set up to run **four Railway services**:
 
-## 1. Create the service
+1. `public-api` for the learner backend
+2. `learner-web` for the learner frontend
+3. `admin-api` for admin upload/edit/publish routes
+4. `admin-web` for the admin frontend
 
-In Railway:
+The safest rollout order is:
 
-1. New Project
-2. Deploy from GitHub repo
-3. Select this repository
-4. Open the backend service settings
-5. Set `Root Directory` to `/backend`
-6. Generate a public domain in `Networking`
+1. `public-api`
+2. `learner-web`
+3. `admin-api`
+4. `admin-web`
 
-Railway will use:
-- [railway.toml](./railway.toml) for the start command
-- [nixpacks.toml](./nixpacks.toml) to install `tesseract-ocr`
+## 1. Public API
 
-## 2. Add environment variables
+Use the repo root `/` so Railway picks up the root [Dockerfile](../Dockerfile).
 
-Copy these from your real local backend setup:
-
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_KEY`
-- `ADMIN_API_KEY`
-- `GOOGLE_CLOUD_PROJECT`
-- `GOOGLE_CLOUD_LOCATION`
-- `FIREBASE_PROJECT_ID`
-- `CORS_ORIGINS`
-- `CORS_ORIGIN_REGEX`
-
-Recommended `CORS_ORIGINS` value:
+Set these variables:
 
 ```env
-https://your-frontend-domain.vercel.app,http://localhost:4000,http://localhost:5173
+APP_ROLE=public
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_KEY=your-supabase-service-or-secret-key
+ADMIN_API_KEY=your-long-random-admin-secret
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+FIREBASE_PROJECT_ID=your-firebase-project-id
+CORS_ORIGINS=https://your-learner-domain.up.railway.app,http://localhost:4000,http://localhost:4001,http://localhost:5173
+CORS_ORIGIN_REGEX=^https://.*\.up\.railway\.app$
 ```
 
-Recommended `CORS_ORIGIN_REGEX` value:
-
-```env
-^https://.*\.up\.railway\.app$
-```
-
-## 3. Verify the backend
-
-After deploy, test:
+After deploy, generate a public domain and verify:
 
 ```bash
-curl https://your-railway-domain.up.railway.app/health
+curl https://your-public-api.up.railway.app/health
 ```
 
-You should get a healthy JSON response.
+## 2. Learner Web
 
-## 4. Point the frontend to Railway
-
-In your frontend deployment, set:
+Use the repo root `/` and set:
 
 ```env
-VITE_API_URL=https://your-railway-domain.up.railway.app
+RAILWAY_DOCKERFILE_PATH=Dockerfile.student
+VITE_API_URL=https://your-public-api.up.railway.app
 ```
 
-Then redeploy the frontend.
+Generate a public domain and point it to port `8080` if Railway asks for the target port manually.
 
-## 5. Production sanity checks
+## 3. Admin API
 
-Verify these flows on the deployed app:
+Create a second backend service from the same repo root `/`.
+
+Use the same variables as `public-api`, but change:
+
+```env
+APP_ROLE=admin
+CORS_ORIGINS=https://your-admin-web.up.railway.app,http://localhost:4001,http://localhost:5173
+```
+
+After deploy, generate a domain and verify:
+
+```bash
+curl https://your-admin-api.up.railway.app/health
+```
+
+Admin upload routes live here:
+
+- `POST /admin/upload-pdf`
+- `POST /admin/upload-pattern-book`
+
+## 4. Admin Web
+
+Use the repo root `/` and set:
+
+```env
+RAILWAY_DOCKERFILE_PATH=Dockerfile.admin
+VITE_ADMIN_API_URL=https://your-admin-api.up.railway.app
+VITE_ADMIN_KEY=the-same-value-as-ADMIN_API_KEY
+```
+
+Generate a public domain and point it to port `8080` if Railway asks for the target port manually.
+
+## 5. Firebase
+
+Add your live frontend domains in Firebase Authentication -> Authorized domains:
+
+- `your-learner-domain.up.railway.app`
+- `your-admin-web.up.railway.app`
+
+Use the bare hostnames, without `https://`.
+
+## 6. Production Checks
+
+Learner:
 
 1. login works
-2. practice answer submit works
-3. mock submit works
-4. attempts are written
-5. `/progress/me` returns data after login
-6. PDF upload works from admin mode
+2. question bank loads
+3. exam detail opens
+4. practice works
+5. mock submit works
+
+Admin:
+
+1. admin frontend loads
+2. recent jobs load
+3. PDF upload works
+4. repair queue loads
+5. publish works

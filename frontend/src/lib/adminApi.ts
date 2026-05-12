@@ -1,6 +1,11 @@
 import { API_BASE } from './api';
 
-const rawAdminKey = import.meta.env.VITE_ADMIN_KEY as string | undefined;
+const runtimeAdminKey =
+  typeof window !== 'undefined'
+    ? window.__ADMIN_APP_CONFIG__?.VITE_ADMIN_KEY
+    : undefined;
+
+const rawAdminKey = runtimeAdminKey || (import.meta.env.VITE_ADMIN_KEY as string | undefined);
 
 export const ADMIN_KEY = rawAdminKey || '';
 

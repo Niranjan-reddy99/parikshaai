@@ -1,0 +1,26 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm install
+
+COPY frontend ./frontend
+
+ARG VITE_ADMIN_API_URL
+ENV VITE_ADMIN_API_URL=$VITE_ADMIN_API_URL
+
+ARG VITE_ADMIN_KEY
+ENV VITE_ADMIN_KEY=$VITE_ADMIN_KEY
+
+RUN npm run build:admin
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN npm install -g serve
+
+COPY --from=builder /app/frontend/dist ./frontend/dist
+
+CMD ["sh", "-c", "printf 'window.__ADMIN_APP_CONFIG__={VITE_ADMIN_API_URL:\"%s\",VITE_ADMIN_KEY:\"%s\"};\\n' \"$VITE_ADMIN_API_URL\" \"$VITE_ADMIN_KEY\" > /app/frontend/dist/runtime-config.js && serve -s /app/frontend/dist -l ${PORT:-3000}"]
