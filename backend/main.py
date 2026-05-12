@@ -238,6 +238,8 @@ _publish_gate_cache_ts: float = 0.0
 _PUBLISH_GATE_TTL = 120  # seconds
 _topic_bucket_cache: dict[tuple[bool, str, str], tuple[float, list[dict]]] = {}
 _TOPIC_BUCKET_CACHE_TTL = 600  # 10 minutes — topics change rarely during a session
+_topic_first_page_cache: dict[tuple[str, str, int], tuple[float, dict]] = {}
+_TOPIC_FIRST_PAGE_CACHE_TTL = 900  # 15 minutes — first topic page is the critical UX path
 # Per-exam question cache — keyed by (exam_name, exam_year, is_admin).
 # Avoids hitting Supabase on every exam open; TTL 5 min (admin) / 10 min (public).
 _exam_qs_cache: dict[tuple[str, int, bool], tuple[float, list[dict]]] = {}
@@ -283,7 +285,7 @@ def _get_publishable_paper_ids() -> set[str]:
 
 
 def _invalidate_meta_cache() -> None:
-    global _meta_cache, _meta_cache_ts, _catalog_cache, _catalog_cache_ts, _feed_cache, _feed_cache_ts, _admin_meta_cache, _admin_meta_cache_ts, _publish_gate_cache, _publish_gate_cache_ts, _topic_bucket_cache, _publishable_paper_ids_cache, _publishable_paper_ids_cache_ts, _exam_qs_cache, _practice_ready_present_cache, _practice_ready_present_cache_ts
+    global _meta_cache, _meta_cache_ts, _catalog_cache, _catalog_cache_ts, _feed_cache, _feed_cache_ts, _admin_meta_cache, _admin_meta_cache_ts, _publish_gate_cache, _publish_gate_cache_ts, _topic_bucket_cache, _topic_first_page_cache, _publishable_paper_ids_cache, _publishable_paper_ids_cache_ts, _exam_qs_cache, _practice_ready_present_cache, _practice_ready_present_cache_ts
     _meta_cache = None
     _meta_cache_ts = 0.0
     _catalog_cache = None
@@ -295,6 +297,7 @@ def _invalidate_meta_cache() -> None:
     _publish_gate_cache = None
     _publish_gate_cache_ts = 0.0
     _topic_bucket_cache = {}
+    _topic_first_page_cache = {}
     _publishable_paper_ids_cache = None
     _publishable_paper_ids_cache_ts = 0.0
     _exam_qs_cache = {}
@@ -525,6 +528,90 @@ def _filter_question_write_payload(payload: dict, supported_cols: set[str] | Non
     return {key: value for key, value in payload.items() if key in supported}
 
 
+def _topic_first_page_questions(
+    *,
+    subject: str,
+    topic: str,
+    limit: int,
+) -> dict:
+    cache_key = (subject.strip(), topic.strip(), limit)
+    now = time.time()
+    cached = _topic_first_page_cache.get(cache_key)
+    if cached and (now - cached[0]) <= _TOPIC_FIRST_PAGE_CACHE_TTL:
+        result = dict(cached[1])
+        result["cache"] = "first-page-hit"
+        return result
+
+    t0 = time.perf_counter()
+    supported_cols = _question_supported_columns()
+    base_cols = [
+        "id", "question_text", "option_a", "option_b", "option_c", "option_d",
+        "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
+        "question_type", "concept", "question_number", "needs_review", "has_image", "image_url", "paper_id", "practice_ready", "updated_at",
+    ]
+    if "is_active" in supported_cols and "is_active" not in base_cols:
+        base_cols.append("is_active")
+    if "public_visibility" in supported_cols and "public_visibility" not in base_cols:
+        base_cols.append("public_visibility")
+    select_clause = _question_select_clause(base_cols, supported_cols)
+
+    has_canonical_subject = "canonical_subject" in supported_cols
+    has_canonical_topic = "canonical_topic_family" in supported_cols
+    subject_col = "canonical_subject" if has_canonical_subject else "subject"
+    topic_col = "canonical_topic_family" if has_canonical_topic else "topic"
+
+    practice_mode = _practice_ready_mode(supported_cols)
+    publishable_paper_ids = None if (_public_include_all_questions() or practice_mode) else latest_live_paper_ids(sb=supabase)
+    query_start = time.perf_counter()
+    fetch_limit = max(limit * 4, 80)
+    q = _apply_public_question_filter(supabase.table("questions").select(select_clause), supported_cols)
+    q = q.eq(subject_col, subject.strip()).eq(topic_col, topic.strip())
+    if "updated_at" in supported_cols:
+        q = q.order("updated_at", desc=True)
+    q = q.order("created_at", desc=True).range(0, fetch_limit - 1)
+    result = q.execute()
+    query_ms = (time.perf_counter() - query_start) * 1000
+
+    sanitize_start = time.perf_counter()
+    questions: list[dict] = []
+    seen_keys: set[tuple[str, ...]] = set()
+    for row in result.data or []:
+        if not _row_matches_selected_papers(row, publishable_paper_ids):
+            continue
+        row_key = public_row_identity(row)
+        if row_key in seen_keys:
+            continue
+        sanitized = _sanitize_public_question_row(row)
+        if sanitized is None:
+            continue
+        if sanitized.get("subject") != subject or sanitized.get("topic") != topic:
+            continue
+        seen_keys.add(row_key)
+        questions.append(sanitized)
+        if len(questions) >= limit:
+            break
+    sanitize_ms = (time.perf_counter() - sanitize_start) * 1000
+
+    has_more = len(result.data or []) >= fetch_limit or len(questions) >= limit
+    response = {
+        "questions": questions[:limit],
+        "total": max(len(questions), limit + 1 if has_more else len(questions)),
+        "limit": limit,
+        "offset": 0,
+        "has_more": has_more,
+        "cache": "first-page-miss",
+    }
+    _topic_first_page_cache[cache_key] = (now, response)
+    total_ms = (time.perf_counter() - t0) * 1000
+    if total_ms >= 250:
+        print(
+            "[topic-questions] first-page "
+            f"subject={subject!r} topic={topic!r} rows={len(questions)} "
+            f"query_ms={query_ms:.1f} sanitize_ms={sanitize_ms:.1f} total_ms={total_ms:.1f}"
+        )
+    return response
+
+
 def _topic_bucket_questions(
     *,
     subject: str,
@@ -533,6 +620,7 @@ def _topic_bucket_questions(
     limit: int,
     offset: int,
 ) -> dict:
+    t0 = time.perf_counter()
     cache_key = (admin_mode, subject.strip(), topic.strip())
     cached = _topic_bucket_cache.get(cache_key)
     now = time.time()
@@ -570,6 +658,8 @@ def _topic_bucket_questions(
     all_data: list[dict] = []
     seen_keys: set[tuple[str, ...]] = set()
     scan_offset = 0
+    query_ms = 0.0
+    sanitize_ms = 0.0
     while True:
         q = supabase.table("questions").select(select_clause)
         if admin_mode:
@@ -582,11 +672,14 @@ def _topic_bucket_questions(
         if "updated_at" in supported_cols:
             q = q.order("updated_at", desc=True)
         q = q.order("created_at", desc=True).range(scan_offset, scan_offset + 999)
+        query_start = time.perf_counter()
         result = q.execute()
+        query_ms += (time.perf_counter() - query_start) * 1000
         batch = result.data or []
         if not batch:
             break
 
+        sanitize_start = time.perf_counter()
         for row in batch:
             if not admin_mode and publishable_paper_ids is not None and str(row.get("paper_id")) not in publishable_paper_ids:
                 continue
@@ -601,11 +694,13 @@ def _topic_bucket_questions(
                 continue
             seen_keys.add(row_key)
             all_data.append(sanitized)
+        sanitize_ms += (time.perf_counter() - sanitize_start) * 1000
 
         if len(batch) < 1000:
             break
         scan_offset += 1000
 
+    sort_start = time.perf_counter()
     all_data.sort(
         key=lambda row: (
             -(int(row.get("year") or row.get("exam_year") or 0)),
@@ -614,10 +709,18 @@ def _topic_bucket_questions(
             str(row.get("id") or ""),
         )
     )
+    sort_ms = (time.perf_counter() - sort_start) * 1000
     _topic_bucket_cache[cache_key] = (now, all_data)
 
     total = len(all_data)
     page = all_data[offset: offset + limit]
+    total_ms = (time.perf_counter() - t0) * 1000
+    if total_ms >= 250:
+        print(
+            "[topic-questions] full-bucket "
+            f"subject={subject!r} topic={topic!r} rows={total} offset={offset} "
+            f"query_ms={query_ms:.1f} sanitize_ms={sanitize_ms:.1f} sort_ms={sort_ms:.1f} total_ms={total_ms:.1f}"
+        )
     return {
         "questions": page,
         "total": total,
@@ -2752,13 +2855,20 @@ async def get_questions_by_topic(
     response: Response = None,
 ):
     try:
-        result = _topic_bucket_questions(
-            subject=subject,
-            topic=topic,
-            admin_mode=False,
-            limit=limit,
-            offset=offset,
-        )
+        if offset == 0 and limit <= 100:
+            result = _topic_first_page_questions(
+                subject=subject,
+                topic=topic,
+                limit=limit,
+            )
+        else:
+            result = _topic_bucket_questions(
+                subject=subject,
+                topic=topic,
+                admin_mode=False,
+                limit=limit,
+                offset=offset,
+            )
         if response is not None:
             response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
         return result

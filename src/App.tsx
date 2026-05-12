@@ -1635,7 +1635,7 @@ function AppContent() {
         if (topicPracticeRequestRef.current === requestId) {
           setPracticeInitMessage(`Building topic session from the server...`);
         }
-      }, 600);
+      }, 1800);
 
       const firstPage =
         (await topicPrefetchInFlightRef.current[prefetchKey]?.catch(() => null)) ||
