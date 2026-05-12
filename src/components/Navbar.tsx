@@ -31,22 +31,22 @@ type SideView = 'home' | 'browse' | 'dashboard' | 'leaderboard' | 'feed' | 'book
 function NavIcon({ name }: { name: string }) {
   const icons: Record<string, React.ReactNode> = {
     home: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 12 12 3l9 9" /><path d="M5 10v10h14V10" />
       </svg>
     ),
     search: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
       </svg>
     ),
     chart: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 3v18h18" /><polyline points="7 14 11 10 15 13 21 7" />
       </svg>
     ),
     trophy: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 9H4.5A2.5 2.5 0 0 1 2 6.5V5h4" /><path d="M18 9h1.5A2.5 2.5 0 0 0 22 6.5V5h-4" />
         <path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
         <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
@@ -54,17 +54,17 @@ function NavIcon({ name }: { name: string }) {
       </svg>
     ),
     feed: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 11a9 9 0 0 1 9 9" /><path d="M4 4a16 16 0 0 1 16 16" /><circle cx="5" cy="19" r="1" />
       </svg>
     ),
     bookmark: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
       </svg>
     ),
     pulse: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
       </svg>
     ),
@@ -81,6 +81,32 @@ const MAIN_NAV: { id: SideView; icon: string; label: string; pro?: boolean }[] =
   { id: 'feed',        icon: 'feed',     label: 'PYQ Feed', pro: true },
 ];
 
+function UserAvatar({ displayName, email, size = 32 }: { displayName: string | null; email: string | null; size?: number }) {
+  const initials = displayName
+    ? displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+    : email?.[0]?.toUpperCase() ?? '?';
+
+  const colors = [
+    { bg: '#dbeafe', fg: '#1d4ed8' },
+    { bg: '#dcfce7', fg: '#16a34a' },
+    { bg: '#fef3c7', fg: '#d97706' },
+    { bg: '#f3e8ff', fg: '#7c3aed' },
+    { bg: '#ffe4e6', fg: '#e11d48' },
+    { bg: '#cffafe', fg: '#0891b2' },
+  ];
+  const colorIndex = (initials.charCodeAt(0) || 0) % colors.length;
+  const { bg, fg } = colors[colorIndex];
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="16" r="16" fill={bg} />
+      <text x="16" y="20.5" textAnchor="middle" fill={fg} fontSize="12" fontWeight="700" fontFamily="Inter, sans-serif">
+        {initials}
+      </text>
+    </svg>
+  );
+}
+
 export function Navbar({
   user, view, xp,
   setView, openQuestionBankHome, openPatternPractice, handleLogout,
@@ -88,9 +114,6 @@ export function Navbar({
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const { level, levelName, xpNext } = xpToLevel(xp);
   const xpProgress = Math.min(100, Math.round((xp / xpNext) * 100));
-  const avatarInitials = user.displayName
-    ? user.displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
-    : user.email?.[0]?.toUpperCase() ?? '?';
 
   const isActive = (id: SideView): boolean => {
     if (id === 'home')        return ['home', 'commission', 'exam-detail'].includes(view);
@@ -109,22 +132,14 @@ export function Navbar({
     padding: '7px 10px',
     borderRadius: 7,
     cursor: 'pointer',
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: active ? 600 : 500,
     color: active ? 'var(--text)' : hovered ? 'var(--text-sec)' : 'var(--text-tert)',
     background: active ? 'var(--bg-alt)' : hovered ? 'var(--bg-alt)' : 'transparent',
     marginBottom: 1,
     userSelect: 'none' as const,
     transition: 'background 0.1s, color 0.1s',
-    borderLeft: `2px solid ${active ? 'var(--blue)' : 'transparent'}`,
-  });
-
-  const footerItemStyle = (hovered: boolean, danger = false): React.CSSProperties => ({
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
-    fontSize: 12, color: danger ? (hovered ? '#dc2626' : 'var(--text-tert)') : (hovered ? 'var(--text-sec)' : 'var(--text-tert)'),
-    background: hovered ? 'var(--bg-alt)' : 'transparent',
-    transition: 'all 0.1s', marginBottom: 1,
+    borderLeft: `2px solid ${active ? '#2563eb' : 'transparent'}`,
   });
 
   return (
@@ -138,12 +153,28 @@ export function Navbar({
       height: '100%',
     }}>
 
+      {/* Brand logo */}
+      <div style={{
+        padding: '16px 14px 12px',
+        borderBottom: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0,
+      }}>
+        <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="#0f172a" />
+          <path d="M9 22V10l7 4 7-4v12l-7-4z" fill="#5eead4" />
+        </svg>
+        <div>
+          <div style={{ fontSize: 14.5, fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', lineHeight: 1 }}>Pariksha</div>
+          <div style={{ fontSize: 10, color: 'var(--text-tert)', marginTop: 2 }}>PYQ Practice</div>
+        </div>
+      </div>
+
       {/* Main navigation */}
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '14px 8px 12px' }}>
+      <nav style={{ flex: 1, overflowY: 'auto', padding: '12px 8px 8px' }}>
         <div style={{
           fontSize: 10, fontWeight: 700, color: 'var(--text-tert)',
           textTransform: 'uppercase', letterSpacing: '0.07em',
-          padding: '0 10px', marginBottom: 8,
+          padding: '0 10px', marginBottom: 6,
         }}>
           Menu
         </div>
@@ -155,29 +186,19 @@ export function Navbar({
             <div
               key={item.id}
               onClick={() => {
-                if (item.id === 'browse') {
-                  openQuestionBankHome();
-                  return;
-                }
+                if (item.id === 'browse') { openQuestionBankHome(); return; }
                 setView(item.id);
               }}
               onMouseEnter={() => setHoveredItem(item.id)}
               onMouseLeave={() => setHoveredItem(null)}
               style={navItemStyle(active, hovered)}
             >
-              <span style={{
-                width: 16, height: 16, flexShrink: 0,
-                color: active ? '#2563eb' : 'currentColor',
-              }}>
+              <span style={{ width: 15, height: 15, flexShrink: 0, color: active ? '#2563eb' : 'currentColor' }}>
                 <NavIcon name={item.icon} />
               </span>
               <span style={{ flex: 1 }}>{item.label}</span>
               {item.pro && (
-                <span style={{
-                  padding: '1px 5px', background: '#fff7e6',
-                  color: '#d97706', borderRadius: 3,
-                  fontSize: 9, fontWeight: 700, letterSpacing: '0.02em',
-                }}>
+                <span style={{ padding: '1px 5px', background: '#fff7e6', color: '#d97706', borderRadius: 3, fontSize: 9, fontWeight: 700 }}>
                   PRO
                 </span>
               )}
@@ -186,11 +207,11 @@ export function Navbar({
         })}
 
         {/* Labs */}
-        <div style={{ marginTop: 22 }}>
+        <div style={{ marginTop: 20 }}>
           <div style={{
             fontSize: 10, fontWeight: 700, color: 'var(--text-tert)',
             textTransform: 'uppercase', letterSpacing: '0.07em',
-            padding: '0 10px', marginBottom: 8,
+            padding: '0 10px', marginBottom: 6,
           }}>
             Labs
           </div>
@@ -200,46 +221,57 @@ export function Navbar({
             onMouseLeave={() => setHoveredItem(null)}
             style={navItemStyle(view === 'pattern-practice', hoveredItem === 'pattern')}
           >
-            <span style={{
-              width: 16, height: 16, flexShrink: 0,
-              color: view === 'pattern-practice' ? '#2563eb' : 'currentColor',
-            }}>
+            <span style={{ width: 15, height: 15, flexShrink: 0, color: view === 'pattern-practice' ? '#2563eb' : 'currentColor' }}>
               <NavIcon name="pulse" />
             </span>
             <span style={{ flex: 1 }}>Pattern Practice</span>
-            <span style={{
-              padding: '1px 5px', background: '#dbeafe',
-              color: '#2563eb', borderRadius: 3,
-              fontSize: 9, fontWeight: 700,
-            }}>
+            <span style={{ padding: '1px 5px', background: '#dbeafe', color: '#2563eb', borderRadius: 3, fontSize: 9, fontWeight: 700 }}>
               BETA
             </span>
           </div>
         </div>
       </nav>
 
-      {/* Footer */}
-      <div style={{ padding: '8px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-        {/* Guest sign-in */}
-        {user.uid === 'guest' && (
-          <div style={{
-            padding: '12px', border: '1px solid var(--border)',
-            borderRadius: 8, textAlign: 'center', marginBottom: 8,
-          }}>
+      {/* Profile footer */}
+      <div style={{ padding: '10px 10px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+        {/* Guest */}
+        {user.uid === 'guest' ? (
+          <div style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 11.5, color: 'var(--text-sec)', marginBottom: 8, lineHeight: 1.5 }}>
               Sign in to track progress and streaks.
             </div>
             <button
               onClick={handleLogout}
-              style={{
-                width: '100%', padding: '7px',
-                background: 'var(--text)', color: 'white',
-                border: 'none', borderRadius: 6,
-                fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-              }}
+              style={{ width: '100%', padding: '7px', background: 'var(--text)', color: 'white', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               Sign in with Google
             </button>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 6 }}>
+            {/* User info row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 8px', borderRadius: 8 }}>
+              <UserAvatar displayName={user.displayName} email={user.email} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {user.displayName?.split(' ')[0] || 'Aspirant'}
+                </div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-tert)', marginTop: 1 }}>
+                  Lv.{level} · {levelName}
+                </div>
+              </div>
+            </div>
+
+            {/* XP bar */}
+            <div style={{ padding: '0 8px 6px' }}>
+              <div style={{ height: 3, background: 'var(--bg-canvas)', borderRadius: 2 }}>
+                <div style={{ height: '100%', width: `${xpProgress}%`, background: '#2563eb', borderRadius: 2, transition: 'width 0.4s ease' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+                <span style={{ fontSize: 9.5, color: 'var(--text-tert)', fontWeight: 600 }}>{xp} XP</span>
+                <span style={{ fontSize: 9.5, color: 'var(--text-tert)' }}>next: {xpNext}</span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -247,7 +279,13 @@ export function Navbar({
           onClick={handleLogout}
           onMouseEnter={() => setHoveredItem('logout')}
           onMouseLeave={() => setHoveredItem(null)}
-          style={footerItemStyle(hoveredItem === 'logout', true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+            fontSize: 12, color: hoveredItem === 'logout' ? '#dc2626' : 'var(--text-tert)',
+            background: hoveredItem === 'logout' ? 'var(--bg-alt)' : 'transparent',
+            transition: 'all 0.1s',
+          }}
         >
           <LogOut style={{ width: 12, height: 12 }} /> Sign out
         </div>
