@@ -87,8 +87,35 @@ def build_exam_paper_manifest_from_rows(rows: list[dict], exam_name: str, exam_y
         )
         groups.setdefault(key, []).append(row)
 
+    # Some uploads end up with one or two stray rows from the same paper missing
+    # the shift label while the rest of the paper is correctly tagged (for
+    # example 149 rows under "Shift 1" and 1 row under "NO_SHIFT"). Those
+    # should behave as one paper in the learner UI, not as separate paper chips.
+    paper_ids = {paper_id for paper_id, _shift in groups.keys() if paper_id != "NO_PAPER"}
+    for paper_id in paper_ids:
+        no_shift_key = (paper_id, "NO_SHIFT")
+        if no_shift_key not in groups:
+            continue
+        shifted_keys = [
+            key for key in groups.keys()
+            if key[0] == paper_id and key[1] != "NO_SHIFT"
+        ]
+        if len(shifted_keys) != 1:
+            continue
+        target_key = shifted_keys[0]
+        groups[target_key].extend(groups[no_shift_key])
+        del groups[no_shift_key]
+
     papers: list[dict] = []
-    for (paper_id, shift), members in sorted(groups.items(), key=lambda item: (item[0][1], item[0][0])):
+    for (paper_id, shift), members in sorted(
+        groups.items(),
+        key=lambda item: (
+            -(len(item[1])),
+            item[0][1] == "NO_SHIFT",
+            item[0][1],
+            item[0][0],
+        ),
+    ):
         numbered = sorted(
             int(row.get("question_number"))
             for row in members
@@ -108,6 +135,20 @@ def build_exam_paper_manifest_from_rows(rows: list[dict], exam_name: str, exam_y
         "total_count": len(rows),
         "papers": papers,
     }
+
+
+def prefer_current_public_manifest_rows(
+    rows: list[dict],
+    current_public_paper_ids: set[str],
+) -> list[dict]:
+    if not rows or not current_public_paper_ids:
+        return rows
+    filtered = [
+        row
+        for row in rows
+        if str(row.get("paper_id") or "").strip() in current_public_paper_ids
+    ]
+    return filtered or rows
 
 
 def build_catalog_from_meta(rows: list[dict]) -> dict:
@@ -147,9 +188,10 @@ def build_catalog_from_meta(rows: list[dict]) -> dict:
 def build_feed_from_meta(rows: list[dict]) -> dict:
     subject_map: dict[str, dict] = {}
     for row in rows:
-        subject = str(row.get("subject") or "General Awareness").strip() or "General Awareness"
-        topic = str(row.get("topic") or "General").strip() or "General"
-        subtopic = str(row.get("subtopic") or topic).strip() or topic
+        # Prefer canonical fields (post-backfill normalized) over raw AI-tagged fields
+        subject = str(row.get("canonical_subject") or row.get("subject") or "General Awareness").strip() or "General Awareness"
+        topic = str(row.get("canonical_topic_family") or row.get("topic") or "General").strip() or "General"
+        subtopic = str(row.get("canonical_subtopic_family") or row.get("subtopic") or topic).strip() or topic
         exam_name = str(row.get("exam_name") or "")
         exam_year = int(row.get("exam_year") or 0)
 

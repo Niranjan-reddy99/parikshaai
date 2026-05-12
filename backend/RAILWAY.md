@@ -28,11 +28,18 @@ Copy these from your real local backend setup:
 - `GOOGLE_CLOUD_LOCATION`
 - `FIREBASE_PROJECT_ID`
 - `CORS_ORIGINS`
+- `CORS_ORIGIN_REGEX`
 
 Recommended `CORS_ORIGINS` value:
 
 ```env
 https://your-frontend-domain.vercel.app,http://localhost:4000,http://localhost:5173
+```
+
+Recommended `CORS_ORIGIN_REGEX` value:
+
+```env
+^https://.*\.up\.railway\.app$
 ```
 
 ## 3. Verify the backend
@@ -65,4 +72,3 @@ Verify these flows on the deployed app:
 4. attempts are written
 5. `/progress/me` returns data after login
 6. PDF upload works from admin mode
-

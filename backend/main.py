@@ -31,7 +31,7 @@ import threading
 import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -95,7 +95,7 @@ def _resolve_job_pdf_path(job_row: dict) -> str:
             return path
     return direct
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Header, Query, Depends, UploadFile, File, Form, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Header, Query, Depends, UploadFile, File, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -120,6 +120,7 @@ from papers import (
     mark_paper_lifecycle,
     normalize_exam_name,
     paper_id_for_job,
+    public_paper_ids,
     recompute_practice_ready_for_all,
     recompute_practice_ready_for_exam,
     refresh_paper_publish_state,
@@ -134,6 +135,7 @@ from public_metadata_helpers import (
     build_exam_outline,
     build_exam_paper_manifest_from_rows,
     build_feed_from_meta,
+    prefer_current_public_manifest_rows,
     public_row_identity,
     row_matches_search,
     safe_cursor_to_index,
@@ -150,12 +152,22 @@ app = FastAPI(
     description="Admin-managed exam platform. Users consume questions, admin manages content.",
 )
 
+_cors_origins = (
+    os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://localhost:4000,http://127.0.0.1:4000,http://localhost:4001,http://127.0.0.1:4001",
+    )
+    .split(",")
+)
+_cors_origin_regex = os.getenv(
+    "CORS_ORIGIN_REGEX",
+    r"^https://.*\.up\.railway\.app$",
+).strip() or None
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=(
-        os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:4000")
-        .split(",")
-    ),
+    allow_origins=_cors_origins,
+    allow_origin_regex=_cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -222,7 +234,7 @@ _publish_gate_cache: dict | None = None
 _publish_gate_cache_ts: float = 0.0
 _PUBLISH_GATE_TTL = 120  # seconds
 _topic_bucket_cache: dict[tuple[bool, str, str], tuple[float, list[dict]]] = {}
-_TOPIC_BUCKET_CACHE_TTL = 120  # seconds
+_TOPIC_BUCKET_CACHE_TTL = 600  # 10 minutes — topics change rarely during a session
 # Per-exam question cache — keyed by (exam_name, exam_year, is_admin).
 # Avoids hitting Supabase on every exam open; TTL 5 min (admin) / 10 min (public).
 _exam_qs_cache: dict[tuple[str, int, bool], tuple[float, list[dict]]] = {}
@@ -294,11 +306,12 @@ def _question_supported_columns() -> set[str]:
 
     fallback = {
         "question_text", "option_a", "option_b", "option_c", "option_d",
-        "correct_answer", "subject", "topic", "subtopic", "difficulty",
+        "correct_answer", "correct_answers", "subject", "topic", "subtopic", "difficulty",
         "canonical_subject", "canonical_topic_family", "canonical_subtopic_family",
         "question_type", "concept", "exam_name", "exam_year", "source_pdf",
         "paper_id", "question_hash", "question_number", "is_active",
         "needs_review", "has_image", "image_url", "shift_label",
+        "updated_at",
         "test_date", "test_time", "exam_section", "passage",
         "structural_status", "answer_status", "explanation_status",
         "tagging_status", "review_required", "confidence_score",
@@ -410,14 +423,20 @@ def _topic_bucket_questions(
     supported_cols = _question_supported_columns()
     base_cols = [
         "id", "question_text", "option_a", "option_b", "option_c", "option_d",
-        "correct_answer", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
-        "question_type", "concept", "question_number", "needs_review", "has_image", "image_url", "paper_id", "practice_ready",
+        "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
+        "question_type", "concept", "question_number", "needs_review", "has_image", "image_url", "paper_id", "practice_ready", "updated_at",
     ]
     if "is_active" in supported_cols and "is_active" not in base_cols:
         base_cols.append("is_active")
     if "public_visibility" in supported_cols and "public_visibility" not in base_cols:
         base_cols.append("public_visibility")
     select_clause = _question_select_clause(base_cols, supported_cols)
+
+    # Use canonical columns for DB-level filtering when available (same approach as /practice)
+    has_canonical_subject = "canonical_subject" in supported_cols
+    has_canonical_topic = "canonical_topic_family" in supported_cols
+    subject_col = "canonical_subject" if has_canonical_subject else "subject"
+    topic_col = "canonical_topic_family" if has_canonical_topic else "topic"
 
     practice_mode = _practice_ready_mode(supported_cols)
     publishable_paper_ids = None if (admin_mode or _public_include_all_questions() or practice_mode) else latest_live_paper_ids(sb=supabase)
@@ -431,6 +450,10 @@ def _topic_bucket_questions(
                 q = q.eq("is_active", True)
         else:
             q = _apply_public_question_filter(q, supported_cols)
+        # DB-level filter — avoids full table scan; only fetch rows matching this topic
+        q = q.eq(subject_col, subject.strip()).eq(topic_col, topic.strip())
+        if "updated_at" in supported_cols:
+            q = q.order("updated_at", desc=True)
         q = q.order("created_at", desc=True).range(scan_offset, scan_offset + 999)
         result = q.execute()
         batch = result.data or []
@@ -446,6 +469,7 @@ def _topic_bucket_questions(
             sanitized = _sanitize_public_question_row(row)
             if sanitized is None:
                 continue
+            # Guard: canonical taxonomy may remap edge cases; final values must match
             if sanitized.get("subject") != subject or sanitized.get("topic") != topic:
                 continue
             seen_keys.add(row_key)
@@ -589,26 +613,46 @@ def _stream_public_exam_page(
 
 
 def _build_exam_paper_manifest(exam_name: str, exam_year: int) -> dict:
-    return build_exam_paper_manifest(
+    manifest = build_exam_paper_manifest(
         exam_name=exam_name,
         exam_year=exam_year,
         collect_public_exam_rows=_collect_public_exam_rows,
         build_exam_paper_manifest_from_rows=build_exam_paper_manifest_from_rows,
     )
+    current_public_ids = public_paper_ids(
+        exam_name=exam_name,
+        exam_year=exam_year,
+        sb=supabase,
+    )
+    filtered_rows = prefer_current_public_manifest_rows(
+        _collect_public_exam_rows(
+            exam_name=exam_name,
+            exam_year=exam_year,
+            scoped_by_selector=True,
+        ),
+        current_public_ids,
+    )
+    if len(filtered_rows) == manifest.get("total_count", 0):
+        return manifest
+    return build_exam_paper_manifest_from_rows(filtered_rows, exam_name, exam_year)
 
 
 def _collect_public_question_meta_rows() -> list[dict]:
     supported_cols = _question_supported_columns()
-    publishable_ids = None if (_public_include_all_questions() or _practice_ready_mode(supported_cols)) else _get_publishable_paper_ids()
+    include_all_or_practice = _public_include_all_questions() or _practice_ready_mode(supported_cols)
+    publishable_ids = None if include_all_or_practice else _get_publishable_paper_ids()
+    publishable_exam_keys = None if include_all_or_practice else latest_live_exam_keys(sb=supabase)
     select_clause = _question_select_clause([
         "id", "exam_name", "exam_year", "subject", "topic", "subtopic", "difficulty", "paper_id",
         "question_number", "question_hash", "created_at", "practice_ready", "shift_label",
+        "canonical_subject", "canonical_topic_family", "canonical_subtopic_family",
     ], supported_cols)
     return collect_public_question_meta_rows(
         supabase=supabase,
         supported_cols=supported_cols,
         select_clause=select_clause,
         publishable_ids=publishable_ids,
+        publishable_exam_keys=publishable_exam_keys,
         apply_public_question_filter=_apply_public_question_filter,
         row_matches_selected_papers=_row_matches_selected_papers,
         public_row_identity=public_row_identity,
@@ -810,6 +854,61 @@ def _publishable_exam_keys() -> set[tuple[str, int]]:
     return _compute_publish_gate()["publishable_keys"]
 
 
+def _resolve_admin_exam_name(exam_name: str, exam_year: int) -> str:
+    normalized_name = normalize_exam_name(exam_name)
+    if not normalized_name:
+        return normalized_name
+
+    try:
+        latest_exact = get_latest_paper_for_exam(normalized_name, exam_year, sb=supabase)
+        if latest_exact:
+            return normalized_name
+
+        paper_rows = (
+            supabase.table("papers")
+            .select(
+                "exam_name, exam_year, upload_version, visible_question_count, question_count, lifecycle_status"
+            )
+            .eq("exam_year", int(exam_year))
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        return normalized_name
+
+    normalized_lower = normalized_name.lower()
+
+    def _match_score(row: dict[str, Any]) -> tuple[int, int, int, int, int]:
+        stored_name = normalize_exam_name(str(row.get("exam_name") or ""))
+        stored_lower = stored_name.lower()
+        exact = 1 if stored_lower == normalized_lower else 0
+        contains = 1 if (normalized_lower in stored_lower or stored_lower in normalized_lower) else 0
+        visible = int(row.get("visible_question_count") or 0)
+        total = int(row.get("question_count") or 0)
+        version = int(row.get("upload_version") or 0)
+        return (exact, contains, visible, total, version)
+
+    candidates = []
+    for row in paper_rows:
+        if str(row.get("lifecycle_status") or "") in {"archived", "replaced"}:
+            continue
+        stored_name = normalize_exam_name(str(row.get("exam_name") or ""))
+        stored_lower = stored_name.lower()
+        if (
+            stored_lower == normalized_lower
+            or normalized_lower in stored_lower
+            or stored_lower in normalized_lower
+        ):
+            candidates.append(row)
+
+    if not candidates:
+        return normalized_name
+
+    best = max(candidates, key=_match_score)
+    return normalize_exam_name(str(best.get("exam_name") or normalized_name))
+
+
 def _question_rows_for_exam(
     exam_name: str,
     exam_year: int,
@@ -819,19 +918,22 @@ def _question_rows_for_exam(
 ) -> list[dict]:
     rows: list[dict] = []
     selected_paper_ids: set[str] | None = None
+    normalized_name = _resolve_admin_exam_name(exam_name, exam_year)
     if latest_only:
-        selected_paper_ids = latest_live_paper_ids(
-            exam_name=exam_name,
-            exam_year=exam_year,
+        latest_paper = get_latest_paper_for_exam(
+            normalized_name,
+            exam_year,
             sb=supabase,
         )
+        if latest_paper and latest_paper.get("id"):
+            selected_paper_ids = {str(latest_paper["id"])}
     offset = 0
     while True:
         q = supabase.table("questions").select(
             "id, exam_name, exam_year, question_number, needs_review, correct_answer, "
             "question_text, option_a, option_b, option_c, option_d, question_type, topic, "
             "subject, subtopic, difficulty, concept, passage, has_image, image_url, is_active, paper_id"
-        ).eq("exam_name", exam_name).eq("exam_year", exam_year)
+        ).eq("exam_name", normalized_name).eq("exam_year", exam_year)
         if is_active is not None:
             q = q.eq("is_active", is_active)
         r = q.range(offset, offset + 999).execute()
@@ -1206,6 +1308,7 @@ def _sanitize_public_question_row(row: dict) -> Optional[dict]:
         "passage": row.get("passage"),
         "question_number": row.get("question_number"),
         "correct_answer": row.get("correct_answer"),
+        "correct_answers": row.get("correct_answers"),
         "needs_review": row.get("needs_review"),
     })
     sanitized = apply_canonical_taxonomy(dict(row))
@@ -1249,6 +1352,7 @@ def _merge_public_duplicate_row(existing: dict, candidate: dict) -> dict:
         "option_c",
         "option_d",
         "correct_answer",
+        "answer_status",
         "subject",
         "topic",
         "subtopic",
@@ -1257,10 +1361,17 @@ def _merge_public_duplicate_row(existing: dict, candidate: dict) -> dict:
         "question_type",
         "image_url",
     ):
-        merged[key] = _prefer_richer_public_value(merged.get(key), candidate.get(key))
+        if not str(merged.get(key) or "").strip():
+            merged[key] = candidate.get(key)
 
     if not merged.get("has_image") and candidate.get("has_image"):
         merged["has_image"] = True
+    existing_answers = existing.get("correct_answers") if isinstance(existing.get("correct_answers"), list) else []
+    candidate_answers = candidate.get("correct_answers") if isinstance(candidate.get("correct_answers"), list) else []
+    if not existing_answers and candidate_answers:
+        merged["correct_answers"] = candidate_answers
+    elif existing_answers:
+        merged["correct_answers"] = existing_answers
     if not merged.get("question_number") and candidate.get("question_number"):
         merged["question_number"] = candidate.get("question_number")
     if not merged.get("shift_label") and candidate.get("shift_label"):
@@ -1981,9 +2092,16 @@ def list_pattern_books():
 
 @app.get("/pattern-books/{book_id}/questions")
 async def get_pattern_questions(book_id: str):
-    """All questions for a given pattern book, ordered by question_number."""
+    """All questions for a given pattern book, ordered in book flow."""
     try:
-        res = supabase.table("pattern_questions").select("*").eq("book_id", book_id).order("question_number").execute()
+        res = (
+            supabase.table("pattern_questions")
+            .select("*")
+            .eq("book_id", book_id)
+            .order("source_page")
+            .order("question_number")
+            .execute()
+        )
         return res.data or []
     except Exception as e:
         raise HTTPException(503, f"Pattern questions unavailable: {e}")
@@ -2046,6 +2164,7 @@ async def get_questions(
     limit: int = Query(20, ge=1, le=10000),
     offset: int = Query(0, ge=0),
     cursor: Optional[str] = Query(None),
+    response: Response = None,
 ):
     """Fetch filtered + paginated questions from stored publishable papers only."""
     try:
@@ -2063,6 +2182,10 @@ async def get_questions(
             limit=limit,
             offset=start,
         )
+        # Allow browser/CDN to cache stable question pages for 5 min,
+        # serve stale for up to 10 min while revalidating in background.
+        if response is not None and not search:
+            response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
         return page_data
     except Exception as e:
         raise HTTPException(500, f"Database error: {e}")
@@ -2156,7 +2279,7 @@ async def get_question_with_answer(question_id: str):
         supported_cols = _question_supported_columns()
         select_clause = _question_select_clause([
             "id", "question_text", "option_a", "option_b", "option_c", "option_d",
-            "correct_answer", "subject", "topic", "subtopic", "difficulty",
+            "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty",
             "exam_name", "exam_year", "question_type", "concept", "question_number", "needs_review", "has_image", "image_url", "paper_id", "public_visibility", "practice_ready",
         ], supported_cols)
         r = supabase.table("questions").select(
@@ -2216,15 +2339,37 @@ def get_explanation(question_id: str):
             raise HTTPException(404, "Question not found")
         question_row = supabase.table("questions").select(
             "id, question_text, option_a, option_b, option_c, option_d, "
-            "correct_answer, needs_review, question_number"
+            "correct_answer, correct_answers, answer_status, needs_review, question_number"
         ).eq("id", question_id).single().execute()
         if not question_row.data or _sanitize_public_question_row(question_row.data) is None:
             raise HTTPException(404, "Question not found")
+        answer_status = str(question_row.data.get("answer_status") or "").strip().lower()
+        correct_answers = question_row.data.get("correct_answers") or []
+        if answer_status == "deleted":
+            return _explanation_unavailable_payload(
+                question_id,
+                source="deleted-question",
+                verified_answer=question_row.data.get("correct_answer"),
+                verified_answers=correct_answers,
+                answer_status=answer_status,
+                needs_review=False,
+            )
+        if isinstance(correct_answers, list) and len(correct_answers) > 1:
+            return _explanation_unavailable_payload(
+                question_id,
+                source="multiple-correct-answers",
+                verified_answer=question_row.data.get("correct_answer"),
+                verified_answers=correct_answers,
+                answer_status="multiple",
+                needs_review=False,
+            )
         if bool(question_row.data.get("needs_review")):
             return _explanation_unavailable_payload(
                 question_id,
                 source="blocked-unverified-answer",
                 verified_answer=question_row.data.get("correct_answer"),
+                verified_answers=correct_answers,
+                answer_status=answer_status or None,
                 needs_review=True,
             )
         result = None
@@ -2237,6 +2382,8 @@ def get_explanation(question_id: str):
                 question_id,
                 source="unavailable-error",
                 verified_answer=question_row.data.get("correct_answer"),
+                verified_answers=correct_answers,
+                answer_status=answer_status or None,
                 needs_review=bool(question_row.data.get("needs_review")),
             )
         if not result:
@@ -2244,6 +2391,8 @@ def get_explanation(question_id: str):
                 question_id,
                 source="unavailable-error",
                 verified_answer=question_row.data.get("correct_answer"),
+                verified_answers=correct_answers,
+                answer_status=answer_status or None,
                 needs_review=bool(question_row.data.get("needs_review")),
             )
         if _question_has_explanation_contradiction(
@@ -2255,6 +2404,8 @@ def get_explanation(question_id: str):
                 question_id,
                 source="hidden-contradiction",
                 verified_answer=result.get("verified_answer"),
+                verified_answers=result.get("verified_answers"),
+                answer_status=result.get("answer_status"),
                 needs_review=result.get("needs_review"),
             )
         
@@ -2276,6 +2427,8 @@ def _explanation_unavailable_payload(
     *,
     source: str = "unavailable-error",
     verified_answer: Optional[str] = None,
+    verified_answers: Optional[list[str]] = None,
+    answer_status: Optional[str] = None,
     needs_review: Optional[bool] = None,
 ) -> dict:
     return {
@@ -2283,6 +2436,8 @@ def _explanation_unavailable_payload(
         "explanation": "",
         "source": source,
         "verified_answer": verified_answer,
+        "verified_answers": verified_answers,
+        "answer_status": answer_status,
         "needs_review": needs_review,
     }
 
@@ -2442,7 +2597,7 @@ async def get_practice_questions(
         topic_col = "canonical_topic_family" if has_canonical_topic else "topic"
         select_clause = _question_select_clause([
             "id", "question_text", "option_a", "option_b", "option_c", "option_d",
-            "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year", "has_image", "image_url", "paper_id", "practice_ready",
+            "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year", "has_image", "image_url", "paper_id", "practice_ready",
         ], supported_cols)
         q = _apply_public_question_filter(supabase.table("questions").select(select_clause), supported_cols)
 
@@ -2480,15 +2635,19 @@ async def get_questions_by_topic(
     topic: str = Query(...),
     limit: int = Query(500, ge=1, le=5000),
     offset: int = Query(0, ge=0),
+    response: Response = None,
 ):
     try:
-        return _topic_bucket_questions(
+        result = _topic_bucket_questions(
             subject=subject,
             topic=topic,
             admin_mode=False,
             limit=limit,
             offset=offset,
         )
+        if response is not None:
+            response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
+        return result
     except Exception as e:
         raise HTTPException(500, f"Database error: {e}")
 
@@ -2558,9 +2717,357 @@ class AttemptCreate(BaseModel):
     subject: Optional[str] = None
 
 
+_LEADERBOARD_KNOWN_COMMISSIONS = (
+    "TSPSC", "APPSC", "UPSC", "UPPSC", "MPPSC", "BPSC", "RPSC", "MPSC",
+    "KPSC", "TNPSC", "SSC", "IBPS", "RRB", "NABARD", "TSLPRB",
+    "APSLPRB", "APHC", "TSHC",
+)
+_LEADERBOARD_SPECIAL_COMMISSIONS = (
+    ("AP HIGH COURT", "APHC"),
+    ("ANDHRA PRADESH HIGH COURT", "APHC"),
+    ("TS HIGH COURT", "TSHC"),
+    ("TELANGANA HIGH COURT", "TSHC"),
+)
+_LEADERBOARD_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def _parse_leaderboard_commission(exam_name: str) -> str:
+    trimmed = str(exam_name or "").strip()
+    upper = trimmed.upper()
+    for prefix, commission in _LEADERBOARD_SPECIAL_COMMISSIONS:
+        if upper.startswith(prefix):
+            return commission
+    for commission in _LEADERBOARD_KNOWN_COMMISSIONS:
+        if upper.startswith(commission):
+            return commission
+    parts = trimmed.split()
+    return parts[0].upper() if parts else "GENERAL"
+
+
+def _parse_leaderboard_scope(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in raw.split(","):
+        commission = str(item or "").strip().upper()
+        if not commission or commission in seen:
+            continue
+        seen.add(commission)
+        ordered.append(commission)
+    return ordered
+
+
+def _leaderboard_start_dt(time_filter: str) -> datetime | None:
+    now = datetime.now(timezone.utc)
+    if time_filter == "all-time":
+        return None
+    if time_filter == "monthly":
+        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if time_filter == "weekly":
+        week_start = now.date() - timedelta(days=now.weekday())
+        return datetime.combine(week_start, datetime.min.time(), tzinfo=timezone.utc)
+    raise HTTPException(400, "Invalid time_filter. Use all-time, monthly, or weekly.")
+
+
+def _coerce_attempted_at(value) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    if hasattr(value, "astimezone"):
+        try:
+            coerced = value.astimezone(timezone.utc)
+            if isinstance(coerced, datetime):
+                return coerced
+        except Exception:
+            return None
+    return None
+
+
+def _compute_attempt_streak(daily_activity: dict[str, int]) -> int:
+    if not daily_activity:
+        return 0
+    active_dates = set(daily_activity.keys())
+    cursor = datetime.now(timezone.utc).date()
+    streak = 0
+    while cursor.isoformat() in active_dates:
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
+
+
+def _fallback_leaderboard_name(uid: str) -> str:
+    suffix = (uid or "user")[:4].upper()
+    return f"Aspirant {suffix}"
+
+
+def _resolve_leaderboard_names(user_ids: list[str]) -> dict[str, str]:
+    from firebase_admin import auth as firebase_auth
+
+    names: dict[str, str] = {}
+    for uid in user_ids:
+        if not uid or uid in names:
+            continue
+        try:
+            record = firebase_auth.get_user(uid)
+            names[uid] = (
+                str(record.display_name or "").strip()
+                or str(record.email or "").split("@")[0].strip()
+                or _fallback_leaderboard_name(uid)
+            )
+        except Exception:
+            names[uid] = _fallback_leaderboard_name(uid)
+    return names
+
+
+def _format_leaderboard_entry(
+    agg: dict,
+    names_by_uid: dict[str, str],
+    current_uid: str,
+) -> dict:
+    attempted = int(agg.get("attempted") or 0)
+    correct = int(agg.get("correct") or 0)
+    accuracy = round((correct / attempted) * 100) if attempted > 0 else 0
+    return {
+        "rank": int(agg.get("rank") or 0),
+        "name": names_by_uid.get(agg["user_id"], _fallback_leaderboard_name(agg["user_id"])),
+        "exam": agg.get("top_exam") or "No attempts yet",
+        "commission": agg.get("top_commission") or "GENERAL",
+        "score": int(agg.get("score") or 0),
+        "accuracy": accuracy,
+        "streak": int(agg.get("streak") or 0),
+        "attempts": attempted,
+        "correct": correct,
+        "is_me": agg["user_id"] == current_uid,
+    }
+
+
+@app.get("/leaderboard")
+def get_leaderboard(
+    commissions: str | None = Query(default=None),
+    time_filter: str = Query(default="all-time"),
+    limit: int = Query(default=50, ge=1, le=200),
+    user: dict = Depends(get_current_user),
+):
+    """Return a commission-scoped leaderboard derived from real user attempts."""
+    current_uid = str(user.get("uid") or "").strip()
+    if not current_uid:
+        raise HTTPException(401, "Invalid user")
+
+    selected_commissions = _parse_leaderboard_scope(commissions)
+    start_dt = _leaderboard_start_dt(time_filter)
+
+    try:
+        aggregates: dict[str, dict] = {}
+        commission_set: set[str] = set()
+
+        offset = 0
+        while True:
+            query = supabase.table("user_attempts").select(
+                "firebase_uid, is_correct, exam_name, attempted_at"
+            )
+            if start_dt is not None:
+                query = query.gte("attempted_at", start_dt.isoformat())
+            response = query.range(offset, offset + 999).execute()
+            rows = response.data or []
+            if not rows:
+                break
+
+            for item in rows:
+                uid = str(item.get("firebase_uid") or "").strip()
+                if not uid:
+                    continue
+
+                exam_name = str(item.get("exam_name") or "").strip()
+                commission = _parse_leaderboard_commission(exam_name) if exam_name else "GENERAL"
+                if selected_commissions and commission not in selected_commissions:
+                    continue
+
+                attempted_at_raw = item.get("attempted_at")
+                attempted_at = None
+                if isinstance(attempted_at_raw, str) and attempted_at_raw.strip():
+                    try:
+                        attempted_at = datetime.fromisoformat(
+                            attempted_at_raw.replace("Z", "+00:00")
+                        ).astimezone(timezone.utc)
+                    except Exception:
+                        attempted_at = None
+                attempted_at = attempted_at or datetime.now(timezone.utc)
+                is_correct = bool(item.get("is_correct"))
+                agg = aggregates.setdefault(uid, {
+                    "user_id": uid,
+                    "attempted": 0,
+                    "correct": 0,
+                    "score": 0,
+                    "daily_activity": {},
+                    "exam_counts": {},
+                    "commission_counts": {},
+                    "latest_attempt_at": _LEADERBOARD_EPOCH,
+                })
+
+                agg["attempted"] += 1
+                agg["correct"] += 1 if is_correct else 0
+                agg["score"] += 10 if is_correct else 2
+                if exam_name:
+                    agg["exam_counts"][exam_name] = int(agg["exam_counts"].get(exam_name, 0)) + 1
+                agg["commission_counts"][commission] = int(agg["commission_counts"].get(commission, 0)) + 1
+                date_key = attempted_at.date().isoformat()
+                agg["daily_activity"][date_key] = int(agg["daily_activity"].get(date_key, 0)) + 1
+                if attempted_at > agg["latest_attempt_at"]:
+                    agg["latest_attempt_at"] = attempted_at
+                commission_set.add(commission)
+
+            if len(rows) < 1000:
+                break
+            offset += 1000
+
+        aggregates.setdefault(current_uid, {
+            "user_id": current_uid,
+            "attempted": 0,
+            "correct": 0,
+            "score": 0,
+            "daily_activity": {},
+            "exam_counts": {},
+            "commission_counts": {},
+            "latest_attempt_at": _LEADERBOARD_EPOCH,
+        })
+
+        ranked: list[dict] = []
+        for agg in aggregates.values():
+            exam_counts = agg.get("exam_counts") or {}
+            commission_counts = agg.get("commission_counts") or {}
+            top_exam = max(
+                exam_counts.items(),
+                key=lambda pair: (pair[1], pair[0]),
+                default=("No attempts yet", 0),
+            )[0]
+            top_commission = max(
+                commission_counts.items(),
+                key=lambda pair: (pair[1], pair[0]),
+                default=((selected_commissions[0] if selected_commissions else "GENERAL"), 0),
+            )[0]
+            attempted = int(agg.get("attempted") or 0)
+            correct = int(agg.get("correct") or 0)
+            agg["top_exam"] = top_exam
+            agg["top_commission"] = top_commission
+            agg["accuracy"] = (correct / attempted) if attempted > 0 else 0.0
+            agg["streak"] = _compute_attempt_streak(agg.get("daily_activity") or {})
+            ranked.append(agg)
+
+        ranked.sort(
+            key=lambda agg: (
+                -int(agg.get("score") or 0),
+                -float(agg.get("accuracy") or 0.0),
+                -int(agg.get("attempted") or 0),
+                -(agg.get("latest_attempt_at") or _LEADERBOARD_EPOCH).timestamp(),
+                str(agg.get("user_id") or ""),
+            )
+        )
+
+        my_rank = 0
+        my_agg: dict | None = None
+        for index, agg in enumerate(ranked, start=1):
+            agg["rank"] = index
+            if agg["user_id"] == current_uid:
+                my_rank = index
+                my_agg = agg
+
+        top_entries = ranked[:limit]
+        visible_user_ids = [str(agg["user_id"]) for agg in top_entries]
+        if my_agg is not None and my_agg["user_id"] not in visible_user_ids:
+            visible_user_ids.append(my_agg["user_id"])
+
+        names_by_uid = _resolve_leaderboard_names(visible_user_ids)
+        current_name = str(user.get("name") or user.get("displayName") or "").strip()
+        if current_name:
+            names_by_uid[current_uid] = current_name
+
+        return {
+            "time_filter": time_filter,
+            "scope_commissions": selected_commissions,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "total_aspirants": len(ranked),
+            "exams_covered": len(commission_set) if commission_set else max(len(selected_commissions), 1),
+            "has_more": len(ranked) > limit,
+            "entries": [
+                _format_leaderboard_entry(agg, names_by_uid, current_uid)
+                for agg in top_entries
+            ],
+            "my_rank": my_rank or 1,
+            "my_entry": _format_leaderboard_entry(my_agg or ranked[0], names_by_uid, current_uid) if ranked else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"WARN leaderboard fallback for user={current_uid}: {e}")
+        fallback_commission = selected_commissions[0] if selected_commissions else "GENERAL"
+        fallback_name = str(user.get("name") or user.get("displayName") or "").strip() or _fallback_leaderboard_name(current_uid)
+        return {
+            "time_filter": time_filter,
+            "scope_commissions": selected_commissions,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "total_aspirants": 1,
+            "exams_covered": max(len(selected_commissions), 1),
+            "has_more": False,
+            "entries": [{
+                "rank": 1,
+                "name": fallback_name,
+                "exam": "No attempts yet",
+                "commission": fallback_commission,
+                "score": 0,
+                "accuracy": 0,
+                "streak": 0,
+                "attempts": 0,
+                "correct": 0,
+                "is_me": True,
+            }],
+            "my_rank": 1,
+            "my_entry": {
+                "rank": 1,
+                "name": fallback_name,
+                "exam": "No attempts yet",
+                "commission": fallback_commission,
+                "score": 0,
+                "accuracy": 0,
+                "streak": 0,
+                "attempts": 0,
+                "correct": 0,
+                "is_me": True,
+            },
+            "warning": "Leaderboard is temporarily using fallback mode.",
+        }
+
+
 @app.post("/attempt")
 def record_attempt(attempt: AttemptCreate, user: dict = Depends(get_current_user)):
-    """Store user attempt in Firebase Firestore."""
+    """Store user attempt in Supabase, with Firestore as best-effort secondary."""
+    persisted = False
+    warning: str | None = None
+    attempt_id: str | None = None
+    attempted_at = datetime.now(timezone.utc).isoformat()
+
+    try:
+        res = supabase.table("user_attempts").insert({
+            "firebase_uid": user["uid"],
+            "question_id": attempt.question_id,
+            "selected_answer": attempt.selected_answer,
+            "is_correct": attempt.is_correct,
+            "time_taken_s": int(attempt.time_taken_seconds or 0),
+            "exam_name": attempt.exam_name,
+            "subject": attempt.subject,
+            "attempted_at": attempted_at,
+        }).execute()
+        inserted = res.data or []
+        if inserted:
+            attempt_id = str(inserted[0].get("id") or "")
+        persisted = True
+    except Exception as e:
+        print(f"WARN record_attempt supabase failed for user={user.get('uid')}: {e}")
+        warning = "Attempt was not persisted to the leaderboard store."
+
     try:
         from firebase_admin import firestore
         db = firestore.client()
@@ -2575,15 +3082,18 @@ def record_attempt(attempt: AttemptCreate, user: dict = Depends(get_current_user
             "subject": attempt.subject,
             "attemptedAt": firestore.SERVER_TIMESTAMP,
         })
-        return {"status": "recorded", "attemptId": ref.id, "isCorrect": attempt.is_correct}
     except Exception as e:
         print(f"WARN record_attempt failed for user={user.get('uid')}: {e}")
-        return {
-            "status": "deferred",
-            "attemptId": None,
-            "isCorrect": attempt.is_correct,
-            "warning": "Attempt was not persisted server-side.",
-        }
+
+    if persisted:
+        return {"status": "recorded", "attemptId": attempt_id, "isCorrect": attempt.is_correct}
+
+    return {
+        "status": "deferred",
+        "attemptId": None,
+        "isCorrect": attempt.is_correct,
+        "warning": warning or "Attempt was not persisted server-side.",
+    }
 
 
 @app.get("/progress/me")
@@ -3099,7 +3609,7 @@ def admin_upload_pdf(
 
         # ── Smart Routing with explicit admin overrides ──
         from extractor.router import detect_format, ExamFormat
-        detected_format = detect_format(tmp_path)
+        detected_format = detect_format(tmp_path, source_filename=file.filename)
         route_format = detected_format
         if is_cbt:
             route_format = ExamFormat.TCSION_CBT
@@ -3184,7 +3694,15 @@ def admin_upload_pdf(
             fn, fn_args = process_vision_job_background, (job_id, tmp_path, exam_name, exam_year, series)
         else:
             from extractor.universal_extractor import process_universal_job_background
-            fn, fn_args = process_universal_job_background, (job_id, tmp_path, exam_name, exam_year, answer_key_map, expected_count)
+            fn, fn_args = process_universal_job_background, (
+                job_id,
+                tmp_path,
+                exam_name,
+                exam_year,
+                answer_key_map,
+                expected_count,
+                force_replace,
+            )
 
         for _attempt in range(3):
             try:
@@ -3224,6 +3742,123 @@ def admin_upload_pdf(
         if tmp_path.startswith(tempfile.gettempdir()) and os.path.exists(tmp_path):
             os.unlink(tmp_path)
         raise HTTPException(500, f"Error queuing job: {e}")
+
+
+@app.post("/admin/upload-pattern-book", dependencies=[Depends(verify_admin)])
+def admin_upload_pattern_book(
+    file: UploadFile = File(...),
+    exam_name: str = Form(...),
+    exam_year: int = Form(...),
+    series: str = Form(""),
+    force_replace: bool = Form(False),
+):
+    """
+    Admin uploads an SSC content / pattern-book PDF.
+    This route extracts practice questions into pattern_books + pattern_questions
+    instead of the public question-paper pipeline.
+    """
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "Only PDF files accepted")
+
+    exam_name = normalize_exam_name(exam_name)
+    chapter = normalize_exam_name(series) or exam_name
+    book_title = (
+        f"{exam_name} — {chapter} ({exam_year})"
+        if chapter.lower() != exam_name.lower()
+        else f"{exam_name} ({exam_year})"
+    )
+    exam_target = "SSC CGL" if "ssc" in exam_name.lower() else exam_name
+
+    content = file.file.read()
+    max_size = 100 * 1024 * 1024
+    if len(content) > max_size:
+        raise HTTPException(413, f"File too large ({len(content)//1024//1024} MB). Max allowed: 100 MB.")
+
+    file_hash = hashlib.sha256(content).hexdigest()
+    existing_job = supabase.table("jobs").select("id, status, exam_name, exam_year").eq("file_hash", file_hash).execute()
+    if existing_job.data:
+        active = next((job for job in existing_job.data if str(job.get("status") or "") in {"pending", "processing", "completed"}), None)
+        if active and not force_replace:
+            existing_exam = f"{active.get('exam_name', '')} {active.get('exam_year', '')}".strip()
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "error": "duplicate_file",
+                    "message": f"This PDF was already uploaded as '{existing_exam}'. Re-upload only if you intend to replace that SSC content import.",
+                    "job_id": active["id"],
+                    "existing_exam_name": active.get("exam_name", ""),
+                    "existing_exam_year": active.get("exam_year", ""),
+                },
+            )
+        for job in existing_job.data:
+            try:
+                supabase.table("jobs").update({
+                    "status": "failed",
+                    "error_log": "Superseded by a newer SSC content import for the same PDF/file hash.",
+                }).eq("id", job["id"]).execute()
+            except Exception:
+                pass
+
+    tmp_path = _persist_uploaded_pdf(content, f"{file_hash}_{int(time.time() * 1000)}", file.filename)
+
+    try:
+        job_payload = {
+            "paper_id": None,
+            "filename": file.filename,
+            "file_hash": file_hash,
+            "exam_name": book_title,
+            "exam_year": exam_year,
+            "status": "pending",
+            "progress": 0,
+            "error_log": "SSC content import queued",
+            "pdf_path": tmp_path,
+        }
+        if existing_job.data:
+            job_id = existing_job.data[0]["id"]
+            supabase.table("jobs").update(job_payload).eq("id", job_id).execute()
+        else:
+            job_res = supabase.table("jobs").insert(job_payload).execute()
+            if not job_res.data:
+                raise HTTPException(500, "Failed to create pattern-book job in database")
+            job_id = job_res.data[0]["id"]
+
+        from extractor.pattern_book_pipeline import process_pattern_book_job_background
+
+        future = _JOB_EXECUTOR.submit(
+            process_pattern_book_job_background,
+            job_id,
+            tmp_path,
+            book_title,
+            exam_year,
+            chapter,
+            exam_target,
+            file.filename,
+        )
+
+        def _on_done(f):
+            if f.exception():
+                print(f"[pattern-book {job_id[:8]}] crashed: {f.exception()}")
+            _invalidate_meta_cache()
+
+        future.add_done_callback(_on_done)
+        print(f"[pattern-book] Submitted job {job_id[:8]} to pool")
+
+        return {
+            "status": "queued",
+            "job_id": job_id,
+            "message": "SSC content PDF uploaded successfully. Extracting questions for Pattern Practice in background.",
+            "route_format": "pattern_book",
+            "review_supported": False,
+            "book_title": book_title,
+            "chapter": chapter,
+        }
+    except Exception as e:
+        import traceback as _tb
+        print(f"[pattern-book] ERROR queuing job: {e}")
+        print(_tb.format_exc())
+        if tmp_path.startswith(tempfile.gettempdir()) and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise HTTPException(500, f"Error queuing SSC content job: {e}")
 
 @app.post("/admin/inject-answers", dependencies=[Depends(verify_admin)])
 def admin_inject_answers(
@@ -3322,23 +3957,30 @@ def admin_status_page():
 
 
 @app.get("/admin/jobs", dependencies=[Depends(verify_admin)])
-def admin_list_jobs(limit: int = Query(50, ge=1, le=100)):
+def admin_list_jobs(
+    limit: int = Query(50, ge=1, le=100),
+    include_quality: bool = Query(False, description="Attach the heavy exam quality report for completed jobs"),
+):
     """List all upload jobs and their statuses."""
     try:
         r = supabase.table("jobs").select("*").order("created_at", desc=True).limit(limit).execute()
         jobs = r.data or []
-        for job in jobs:
-            if job.get("exam_name") and job.get("exam_year") and str(job.get("status")) in {"completed", "failed", "archived"}:
-                try:
-                    job["quality_report"] = _exam_quality_report(job["exam_name"], int(job["exam_year"]))
-                except Exception:
-                    job["quality_report"] = None
+        if include_quality:
+            for job in jobs:
+                if job.get("exam_name") and job.get("exam_year") and str(job.get("status")) in {"completed", "failed", "archived"}:
+                    try:
+                        job["quality_report"] = _exam_quality_report(job["exam_name"], int(job["exam_year"]))
+                    except Exception:
+                        job["quality_report"] = None
         return {"jobs": jobs}
     except Exception as e:
         raise HTTPException(500, f"Database error: {e}")
 
 @app.get("/admin/jobs/{job_id}", dependencies=[Depends(verify_admin)])
-def admin_get_job(job_id: str):
+def admin_get_job(
+    job_id: str,
+    include_quality: bool = Query(False, description="Attach the heavy exam quality report for completed jobs"),
+):
     """Poll a specific job's real-time progress."""
     try:
         import time as _time
@@ -3358,6 +4000,8 @@ def admin_get_job(job_id: str):
         # 1-second poll makes uploads appear stuck because the poll endpoint does
         # heavy exam-wide analysis while the worker is trying to progress.
         if (
+            include_quality
+            and
             job.get("exam_name")
             and job.get("exam_year")
             and str(job.get("status")) in {"completed", "failed", "archived"}
@@ -3434,6 +4078,8 @@ async def admin_repair_queue(
 ):
     """Structured per-row repair queue with hide/block guidance."""
     try:
+        if exam_name:
+            exam_name = _resolve_admin_exam_name(exam_name, int(exam_year or 0)) if exam_year is not None else normalize_exam_name(exam_name)
         exam_scoped = bool(exam_name and exam_year is not None)
         if exam_scoped:
             exams = [(exam_name, exam_year)]
@@ -3533,7 +4179,7 @@ def admin_retry_job(job_id: str):
         exam_name  = job["exam_name"]
         exam_year  = job["exam_year"]
         from extractor.router import detect_format, ExamFormat
-        detected = detect_format(pdf_path)
+        detected = detect_format(pdf_path, source_filename=job.get("filename"))
         if detected in (ExamFormat.TCSION_CBT, ExamFormat.TELEGRAM_CBT):
             from extractor.cbt_pipeline import process_cbt_job_background
             fn, fn_args = process_cbt_job_background, (job_id, pdf_path, exam_name, exam_year, None, 0)
@@ -3542,7 +4188,7 @@ def admin_retry_job(job_id: str):
             fn, fn_args = process_vision_job_background, (job_id, pdf_path, exam_name, exam_year, "")
         else:
             from extractor.universal_extractor import process_universal_job_background
-            fn, fn_args = process_universal_job_background, (job_id, pdf_path, exam_name, exam_year, None, 0)
+            fn, fn_args = process_universal_job_background, (job_id, pdf_path, exam_name, exam_year, None, 0, False)
         future = _JOB_EXECUTOR.submit(fn, *fn_args)
         def _on_done(f):
             if f.exception():
@@ -3615,6 +4261,8 @@ class QuestionUpdate(BaseModel):
     subtopic: Optional[str] = None
     difficulty: Optional[str] = None
     correct_answer: Optional[str] = Field(None, pattern="^[A-D]$")
+    correct_answers: Optional[list[str]] = None
+    answer_status: Optional[str] = None
     has_image: Optional[bool] = None
     image_url: Optional[str] = None
 
@@ -3625,6 +4273,7 @@ def admin_update_question(question_id: str, update: QuestionUpdate, background_t
     data = update.model_dump(exclude_none=True)
     if not data:
         raise HTTPException(400, "No fields to update")
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     # Derive canonical taxonomy fields from whatever subject/topic/subtopic was sent
     if {"subject", "topic", "subtopic"} & set(data.keys()):
@@ -3668,17 +4317,29 @@ def admin_update_question(question_id: str, update: QuestionUpdate, background_t
             # If an admin has manually saved a complete row and explicitly cleared
             # review, trust that approval over brittle shape heuristics (for
             # example match-the-following rows without synthetic __MATCH__ payloads).
+            explicit_answer_status = str(current_q.get("answer_status") or "").strip().lower()
+            has_manual_answer_state = (
+                str(current_q.get("correct_answer") or "").strip().upper() in {"A", "B", "C", "D"}
+                or explicit_answer_status == "deleted"
+                or (
+                    explicit_answer_status == "multiple"
+                    and len(current_q.get("correct_answers") or []) >= 2
+                )
+            )
             manual_publish_ready = (
                 current_q.get("is_active") is True
                 and current_q.get("needs_review") is not True
                 and len(str(current_q.get("question_text") or "").strip()) >= 15
                 and all(len(str(current_q.get(k) or "").strip()) > 0 for k in ("option_a", "option_b", "option_c", "option_d"))
-                and str(current_q.get("correct_answer") or "").strip().upper() in {"A", "B", "C", "D"}
+                and has_manual_answer_state
             )
             if manual_publish_ready:
+                answer_status = quality_merged.get("answer_status")
+                if explicit_answer_status in {"deleted", "multiple"}:
+                    answer_status = explicit_answer_status
                 quality_merged.update({
                     "structural_status": "valid",
-                    "answer_status": "verified",
+                    "answer_status": answer_status or "verified",
                     "review_required": False,
                     "public_visibility": "visible",
                 })
@@ -3700,7 +4361,7 @@ def admin_update_question(question_id: str, update: QuestionUpdate, background_t
 
     # If the correct answer changed, the existing explanation is now wrong — delete it
     # so it regenerates fresh on the next user access.
-    if "correct_answer" in data:
+    if {"correct_answer", "correct_answers", "answer_status"} & set(data.keys()):
         try:
             supabase.table("explanations").delete().eq("question_id", question_id).execute()
         except Exception:
@@ -3826,16 +4487,86 @@ def admin_rename_exam(
     if not new_name:
         raise HTTPException(400, "new_name cannot be empty")
     try:
-        r = supabase.table("questions").update({"exam_name": new_name}).eq("exam_name", old_name).eq("exam_year", exam_year).execute()
+        resolved_old_name = _resolve_admin_exam_name(old_name, exam_year)
+        r = (
+            supabase.table("questions")
+            .update({"exam_name": new_name})
+            .eq("exam_name", resolved_old_name)
+            .eq("exam_year", exam_year)
+            .execute()
+        )
         supabase.table("papers").update({
             "exam_name": new_name,
             "display_name": new_name,
             "paper_key": f"{new_name.lower()}::{exam_year}",
-        }).eq("exam_name", old_name).eq("exam_year", exam_year).execute()
+        }).eq("exam_name", resolved_old_name).eq("exam_year", exam_year).execute()
         _invalidate_meta_cache()
-        return {"status": "renamed", "updated": len(r.data or []), "old_name": old_name, "new_name": new_name}
+        return {
+            "status": "renamed",
+            "updated": len(r.data or []),
+            "old_name": resolved_old_name,
+            "new_name": new_name,
+        }
     except Exception as e:
         raise HTTPException(500, f"Rename error: {e}")
+
+
+@app.post("/admin/publish-paper", dependencies=[Depends(verify_admin)])
+def admin_publish_paper(
+    exam_name: str = Query(..., description="Exact exam name as stored in DB"),
+    exam_year: int = Query(..., description="Exam year"),
+):
+    """Explicit admin publish action for the latest paper in an exam/year bucket."""
+    try:
+        target_exam_name = _resolve_admin_exam_name(exam_name, exam_year)
+        paper_id = resolve_paper_id(exam_name=target_exam_name, exam_year=exam_year, sb=supabase)
+        if not paper_id:
+            raise HTTPException(404, "Could not find a paper for this exam.")
+
+        sync_paper_question_counts(paper_id, sb=supabase)
+
+        paper_res = (
+            supabase.table("papers")
+            .select(
+                "id, exam_name, exam_year, publish_status, lifecycle_status, "
+                "visible_question_count, hidden_question_count, question_count"
+            )
+            .eq("id", paper_id)
+            .limit(1)
+            .execute()
+        )
+        rows = paper_res.data or []
+        if not rows:
+            raise HTTPException(404, "Paper not found after publish refresh.")
+
+        paper = rows[0]
+        publish_status = str(paper.get("publish_status") or "")
+        lifecycle_status = str(paper.get("lifecycle_status") or "")
+
+        if publish_status not in {"publishable", "publishable_with_hidden_rows"}:
+            raise HTTPException(
+                409,
+                f"Paper is not ready for public publish yet (status: {publish_status or 'unknown'}).",
+            )
+
+        if lifecycle_status != "ingested":
+            mark_paper_lifecycle(paper_id, "ingested", publish_status=publish_status, sb=supabase)
+            paper["lifecycle_status"] = "ingested"
+
+        _invalidate_meta_cache()
+        return {
+            "status": "published",
+            "paper": paper,
+            "message": (
+                "Paper published to the learner app."
+                if publish_status == "publishable"
+                else "Paper published to the learner app with some rows still hidden."
+            ),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Publish error: {e}")
 
 
 @app.post("/admin/add-blank-question", dependencies=[Depends(verify_admin)])
@@ -4030,6 +4761,173 @@ def admin_fix_explanation_mismatches(
         }
     except Exception as e:
         raise HTTPException(500, f"Error: {e}")
+
+
+def _is_cbt_answer_verification_candidate(row: dict, paper_by_id: dict[str, dict]) -> bool:
+    if row.get("needs_review") is not True:
+        return False
+    answer = str(row.get("correct_answer") or "").strip().upper()
+    if answer not in {"A", "B", "C", "D"}:
+        return False
+
+    paper = paper_by_id.get(str(row.get("paper_id") or ""))
+    extractor_type = str((paper or {}).get("extractor_type") or "").strip().lower()
+    shift_label = str(row.get("shift_label") or "").strip()
+    exam_name = str(row.get("exam_name") or "").strip().lower()
+
+    return (
+        extractor_type == "cbt"
+        or bool(shift_label)
+        or "cbt" in exam_name
+        or " shift " in f" {exam_name} "
+    )
+
+
+def _collect_cbt_answer_verification_candidates(
+    *,
+    exam_name: Optional[str] = None,
+    exam_year: Optional[int] = None,
+) -> tuple[list[dict], dict[str, dict]]:
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        query = (
+            supabase.table("questions")
+            .select(
+                "id, paper_id, exam_name, exam_year, shift_label, needs_review, "
+                "correct_answer, question_text, option_a, option_b, option_c, option_d, "
+                "question_type, question_number, subject, topic, subtopic, difficulty, "
+                "has_image, image_url, is_active, structural_status, answer_status, "
+                "explanation_status, tagging_status, review_required, confidence_score, "
+                "public_visibility, primary_issue_code, issue_codes"
+            )
+            .eq("is_active", True)
+            .eq("needs_review", True)
+        )
+        if exam_name:
+            query = query.eq("exam_name", exam_name)
+        if exam_year is not None:
+            query = query.eq("exam_year", int(exam_year))
+
+        batch = query.range(offset, offset + 999).execute().data or []
+        rows.extend(batch)
+        if len(batch) < 1000:
+            break
+        offset += 1000
+
+    paper_ids = sorted({str(row.get("paper_id") or "").strip() for row in rows if row.get("paper_id")})
+    paper_by_id: dict[str, dict] = {}
+    for i in range(0, len(paper_ids), 500):
+        chunk = paper_ids[i:i + 500]
+        paper_rows = (
+            supabase.table("papers")
+            .select("id, extractor_type")
+            .in_("id", chunk)
+            .execute()
+            .data
+            or []
+        )
+        for paper in paper_rows:
+            paper_by_id[str(paper.get("id") or "")] = paper
+
+    candidates = [row for row in rows if _is_cbt_answer_verification_candidate(row, paper_by_id)]
+    return candidates, paper_by_id
+
+
+@app.post("/admin/verify-cbt-answers", dependencies=[Depends(verify_admin)])
+def admin_verify_cbt_answers(
+    exam_name: Optional[str] = Query(None, description="Optional exact exam filter"),
+    exam_year: Optional[int] = Query(None, description="Optional exact year filter (requires exam_name)"),
+    dry_run: bool = Query(True, description="Preview matching rows without updating them"),
+):
+    """
+    Promote CBT/shift-based rows from needs_review=true to verified when the paper
+    already contains a concrete A/B/C/D answer. This intentionally skips the
+    broader non-CBT ai_inferred backlog.
+    """
+    try:
+        if exam_year is not None and not exam_name:
+            raise HTTPException(400, "Provide exam_name together with exam_year.")
+
+        candidates, paper_by_id = _collect_cbt_answer_verification_candidates(
+            exam_name=exam_name,
+            exam_year=exam_year,
+        )
+
+        from collections import Counter
+
+        by_exam = Counter(
+            (str(row.get("exam_name") or ""), int(row.get("exam_year") or 0))
+            for row in candidates
+        )
+        by_source = Counter()
+        for row in candidates:
+            paper = paper_by_id.get(str(row.get("paper_id") or ""))
+            extractor_type = str((paper or {}).get("extractor_type") or "").strip().lower()
+            if extractor_type == "cbt":
+                by_source["extractor_type=cbt"] += 1
+            elif str(row.get("shift_label") or "").strip():
+                by_source["shift_label"] += 1
+            else:
+                by_source["exam_name_marker"] += 1
+
+        preview = [
+            {"exam_name": exam, "exam_year": year, "count": count}
+            for (exam, year), count in sorted(
+                by_exam.items(),
+                key=lambda item: (-item[1], item[0][0], item[0][1]),
+            )
+        ]
+
+        if dry_run:
+            return {
+                "dry_run": True,
+                "candidate_count": len(candidates),
+                "candidate_sources": dict(by_source),
+                "exams": preview,
+            }
+
+        supported = _question_supported_columns()
+        touched_exam_keys: set[tuple[str, int]] = set()
+        updated = 0
+        for row in candidates:
+            quality_merged = merge_quality_fields(
+                row,
+                {"needs_review": False},
+                explanation_present=str(row.get("explanation_status") or "") == "generated",
+                explanation_contradiction=str(row.get("explanation_status") or "") == "contradiction",
+            )
+            patch = _filter_question_write_payload({
+                "needs_review": False,
+                "structural_status": quality_merged.get("structural_status"),
+                "answer_status": quality_merged.get("answer_status"),
+                "explanation_status": quality_merged.get("explanation_status"),
+                "tagging_status": quality_merged.get("tagging_status"),
+                "review_required": quality_merged.get("review_required"),
+                "confidence_score": quality_merged.get("confidence_score"),
+                "public_visibility": quality_merged.get("public_visibility"),
+                "primary_issue_code": quality_merged.get("primary_issue_code"),
+                "issue_codes": quality_merged.get("issue_codes"),
+            }, supported)
+            supabase.table("questions").update(patch).eq("id", row["id"]).execute()
+            touched_exam_keys.add((str(row.get("exam_name") or ""), int(row.get("exam_year") or 0)))
+            updated += 1
+
+        for current_exam_name, current_exam_year in sorted(touched_exam_keys):
+            if current_exam_name and current_exam_year > 0:
+                recompute_practice_ready_for_exam(current_exam_name, current_exam_year, sb=supabase)
+
+        _invalidate_meta_cache()
+        return {
+            "dry_run": False,
+            "updated": updated,
+            "candidate_sources": dict(by_source),
+            "exams": preview,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"CBT verification update failed: {e}")
 
 
 @app.get("/admin/explanation-mismatches", dependencies=[Depends(verify_admin)])
@@ -4356,6 +5254,7 @@ async def admin_list_all_questions(
     exam_year: Optional[int] = Query(None),
     is_active: Optional[bool] = Query(None),
     distinct_question_numbers: bool = Query(True),
+    latest_only: bool = Query(False),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=1000),
     limit: int = Query(50, ge=1, le=10000),
@@ -4364,12 +5263,19 @@ async def admin_list_all_questions(
     """Admin view: see ALL questions including deactivated ones."""
     global _exam_qs_cache
     try:
+        if exam_name:
+            exam_name = _resolve_admin_exam_name(exam_name, int(exam_year or 0)) if exam_year is not None else normalize_exam_name(exam_name)
         page_size = page_size or limit
         start = offset if offset > 0 else (page - 1) * page_size
         fetch_size = page_size
+        selected_paper_ids: set[str] | None = None
+        if latest_only and exam_name and exam_year:
+            latest_paper = get_latest_paper_for_exam(exam_name, exam_year, sb=supabase)
+            if latest_paper and latest_paper.get("id"):
+                selected_paper_ids = {str(latest_paper["id"])}
         # Per-exam cache: only when fetching a full exam at once (offset=0, limit large, is_active=True)
         use_cache = (
-            exam_name and exam_year and start == 0 and fetch_size >= 1000 and is_active is not False
+            exam_name and exam_year and start == 0 and fetch_size >= 1000 and is_active is not False and not latest_only
         )
         cache_key = (exam_name or "", exam_year or 0, True)
         if use_cache:
@@ -4412,6 +5318,11 @@ async def admin_list_all_questions(
             result = q.execute()
             raw_batch = result.data or []
             batch = raw_batch
+            if selected_paper_ids is not None:
+                batch = [
+                    row for row in batch
+                    if (not row.get("paper_id")) or str(row.get("paper_id")) in selected_paper_ids
+                ]
             all_rows.extend(batch)
             if len(raw_batch) < 1000:
                 break

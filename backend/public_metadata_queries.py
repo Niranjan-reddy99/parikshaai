@@ -1,12 +1,24 @@
 from typing import Callable
 
 
+def _apply_public_question_order(query, supported_cols: set[str], *, question_first: bool = False):
+    if question_first:
+        query = query.order("question_number", desc=False)
+        if "updated_at" in supported_cols:
+            query = query.order("updated_at", desc=True)
+        return query.order("created_at", desc=True).order("id", desc=False)
+    if "updated_at" in supported_cols:
+        query = query.order("updated_at", desc=True)
+    return query.order("created_at", desc=True).order("id", desc=False)
+
+
 def collect_public_question_meta_rows(
     *,
     supabase,
     supported_cols: set[str],
     select_clause: str,
     publishable_ids: set[str] | None,
+    publishable_exam_keys: set[tuple[str, int]] | None,
     apply_public_question_filter: Callable,
     row_matches_selected_papers: Callable,
     public_row_identity: Callable,
@@ -20,12 +32,17 @@ def collect_public_question_meta_rows(
             supabase.table("questions").select(select_clause),
             supported_cols,
         )
-        result = query.order("created_at", desc=True).order("id", desc=False).range(offset, offset + 999).execute()
+        result = _apply_public_question_order(query, supported_cols).range(offset, offset + 999).execute()
         batch = result.data or []
 
         for row in batch:
             if not row_matches_selected_papers(row, publishable_ids):
                 continue
+            if publishable_exam_keys is not None and not row.get("paper_id"):
+                exam_name = str(row.get("exam_name") or "")
+                exam_year = int(row.get("exam_year") or 0)
+                if exam_name and exam_year > 0 and (exam_name, exam_year) in publishable_exam_keys:
+                    continue
             row_key = public_row_identity(row, scoped_by_selector=True)
             if row_key in seen_keys:
                 continue
@@ -98,6 +115,7 @@ def collect_public_exam_rows(
         cached_ts, cached_rows = exam_qs_cache.get(cache_key, (0.0, []))
         if cached_rows and (now_ts - cached_ts) < exam_qs_cache_ttl_public:
             return cached_rows
+    scoped_question_order = bool(normalized_exam_name or exam_year or paper_id or shift_label)
 
     include_all = public_include_all_questions()
     supported_cols = question_supported_columns()
@@ -135,9 +153,9 @@ def collect_public_exam_rows(
 
     select_clause = question_select_clause([
         "id", "question_text", "option_a", "option_b", "option_c", "option_d",
-        "correct_answer", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
+        "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
         "question_type", "concept", "question_number", "needs_review", "passage", "has_image", "image_url", "paper_id", "practice_ready", "shift_label",
-        "question_hash", "created_at",
+        "question_hash", "created_at", "updated_at",
     ], supported_cols)
 
     all_data: list[dict] = []
@@ -163,7 +181,11 @@ def collect_public_exam_rows(
         if difficulty:
             query = query.eq("difficulty", difficulty)
 
-        query = query.order("created_at", desc=True).order("id", desc=False).range(scan_offset, scan_offset + 999)
+        query = _apply_public_question_order(
+            query,
+            supported_cols,
+            question_first=scoped_question_order,
+        ).range(scan_offset, scan_offset + 999)
         result = query.execute()
         batch = result.data or []
         if not batch:
@@ -242,6 +264,7 @@ def stream_public_exam_page(
     include_all = public_include_all_questions()
     supported_cols = question_supported_columns()
     practice_mode = practice_ready_mode(supported_cols)
+    scoped_question_order = bool(normalized_exam_name or exam_year or paper_id or shift_label)
     if normalized_exam_name or exam_year:
         publishable_paper_ids = None if (include_all or practice_mode) else latest_live_paper_ids(
             exam_name=normalized_exam_name,
@@ -282,9 +305,9 @@ def stream_public_exam_page(
 
     select_clause = question_select_clause([
         "id", "question_text", "option_a", "option_b", "option_c", "option_d",
-        "correct_answer", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
+        "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
         "question_type", "concept", "question_number", "needs_review", "passage", "has_image", "image_url", "paper_id", "practice_ready", "shift_label",
-        "question_hash", "created_at",
+        "question_hash", "created_at", "updated_at",
     ], supported_cols)
 
     page_rows: list[dict] = []
@@ -318,10 +341,13 @@ def stream_public_exam_page(
             query = query.eq("difficulty", difficulty)
 
         query = (
-            query.order("exam_name", desc=False)
+            _apply_public_question_order(
+                query,
+                supported_cols,
+                question_first=scoped_question_order,
+            )
+            .order("exam_name", desc=False)
             .order("exam_year", desc=True)
-            .order("question_number", desc=False)
-            .order("created_at", desc=True)
             .range(scan_offset, scan_offset + batch_size - 1)
         )
         result = query.execute()
