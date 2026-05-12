@@ -3,9 +3,8 @@ import { ArrowLeft, BookOpen, ChevronRight, RotateCcw, Loader2, Brain, Trophy, T
 import { motion, AnimatePresence } from 'motion/react';
 import { C } from '../lib/tokens';
 import { QuestionText } from '../lib/QuestionText';
+import { API_BASE } from '../lib/api';
 import { type View } from '../types';
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 interface PatternBook {
   id: string;
@@ -59,7 +58,7 @@ export function PatternPracticeView({ setView, backView = 'home' as View, adminT
   const activeQRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    fetch(`${API}/pattern-books`)
+    fetch(`${API_BASE}/pattern-books`)
       .then(r => r.json())
       .then((data) => { setBooks(data); setLoadingBooks(false); })
       .catch(() => setLoadingBooks(false));
@@ -90,7 +89,7 @@ export function PatternPracticeView({ setView, backView = 'home' as View, adminT
     setSelectedBook(book);
     setLoadingQs(true);
     try {
-      const r = await fetch(`${API}/pattern-books/${book.id}/questions`);
+      const r = await fetch(`${API_BASE}/pattern-books/${book.id}/questions`);
       const data: PatternQuestion[] = await r.json();
       setAllQuestions(data);
       

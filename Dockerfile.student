@@ -25,4 +25,4 @@ RUN npm install -g serve
 
 COPY --from=builder /app/dist ./dist
 
-CMD ["sh", "-c", "serve -s /app/dist -l ${PORT:-3000}"]
+CMD ["sh", "-c", "printf 'window.__APP_CONFIG__={VITE_API_URL:\"%s\"};\\n' \"$VITE_API_URL\" > /app/dist/runtime-config.js && serve -s /app/dist -l ${PORT:-3000}"]

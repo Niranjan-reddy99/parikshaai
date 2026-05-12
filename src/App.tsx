@@ -635,12 +635,12 @@ function AppContent() {
         setDataLoading(false);
       } else {
         setGlobalError(
-          "Backend returned an error. Check that uvicorn is running on port 8000."
+          `Backend returned an error from ${API_BASE}.`
         );
       }
     } catch {
       setGlobalError(
-        "Cannot reach backend on port 8000. Start it: cd backend && uvicorn main:app --reload --port 8000"
+        `Cannot reach backend at ${API_BASE}.`
       );
     } finally {
       setDataLoading(false);
