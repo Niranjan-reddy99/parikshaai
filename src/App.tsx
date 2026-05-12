@@ -325,6 +325,7 @@ function AppContent() {
     total: number | null;
   }>({ loaded: 0, total: null });
   const topicPracticeRequestRef = useRef(0);
+  const topicPrefetchInFlightRef = useRef<Record<string, Promise<void>>>({});
   const examPageStateRef = useRef<
     Record<
       string,
@@ -1075,6 +1076,35 @@ function AppContent() {
       hasMore: Boolean(data.has_more),
       nextOffset: data.has_more ? pageOffset + pageSize : null,
     };
+  };
+
+  const prefetchTopicPractice = (subject: string, topic: string) => {
+    const cacheKey = `${subject}::${topic}`;
+    if (getCachedTopicPage(subject, topic)) {
+      return;
+    }
+    if (topicPrefetchInFlightRef.current[cacheKey]) {
+      return;
+    }
+    const promise = requestTopicPracticePage(subject, topic, {
+      pageSize: 20,
+      offset: 0,
+    })
+      .then((page) => {
+        setCachedTopicPage(subject, topic, {
+          questions: page.rows,
+          total: page.totalCount,
+          hasMore: page.hasMore,
+          nextOffset: page.nextOffset,
+        });
+      })
+      .catch(() => {
+        // Silent prefetch miss — click path will still do the real request.
+      })
+      .finally(() => {
+        delete topicPrefetchInFlightRef.current[cacheKey];
+      });
+    topicPrefetchInFlightRef.current[cacheKey] = promise;
   };
 
   const loadExamQuestions = async (
@@ -2762,12 +2792,13 @@ function AppContent() {
                       <ViewLoadingFallback label="Loading PYQ intelligence..." />
                     }
                   >
-                    <FeedView
-                      subjects={feedSummary?.subjects || []}
-                      setView={setView}
-                      startPractice={startPractice}
-                      startTopicPractice={startTopicPractice}
-                    />
+                  <FeedView
+                    subjects={feedSummary?.subjects || []}
+                    setView={setView}
+                    startPractice={startPractice}
+                    startTopicPractice={startTopicPractice}
+                    prefetchTopicPractice={prefetchTopicPractice}
+                  />
                   </Suspense>
                 )}
                 {view === "badges" && (

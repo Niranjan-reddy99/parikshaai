@@ -7,6 +7,7 @@ interface FeedViewProps {
   setView: (v: View) => void;
   startPractice?: (examName: string, year: number, subject?: string, topic?: string) => void;
   startTopicPractice?: (subject: string, topic: string) => void;
+  prefetchTopicPractice?: (subject: string, topic: string) => void;
 }
 
 type FeedTab = 'by-topic' | 'by-exam';
@@ -98,13 +99,25 @@ function BackButton({ label, onClick }: { label: string; onClick: () => void }) 
   );
 }
 
-function TopicCard({ item, onClick }: { item: TopicItem; onClick: () => void }) {
+function TopicCard({
+  item,
+  onClick,
+  onHover,
+}: {
+  item: TopicItem;
+  onClick: () => void;
+  onHover?: () => void;
+}) {
   const [hov, setHov] = useState(false);
   const { bg, text, dot } = getSubjectStyle(item.subject);
   return (
     <div
       onClick={onClick}
-      onMouseEnter={() => setHov(true)}
+      onMouseEnter={() => {
+        setHov(true);
+        onHover?.();
+      }}
+      onFocus={onHover}
       onMouseLeave={() => setHov(false)}
       style={{
         background: hov ? 'var(--bg-alt)' : 'var(--bg)',
@@ -286,7 +299,7 @@ function ExamRow({ exam, accentColor, onPick }: { exam: ExamEntry; accentColor: 
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────
-export function FeedView({ subjects, startPractice, startTopicPractice }: FeedViewProps) {
+export function FeedView({ subjects, startPractice, startTopicPractice, prefetchTopicPractice }: FeedViewProps) {
   const [tab, setTab] = useState<FeedTab>('by-topic');
   const [sortMode, setSortMode] = useState<SortMode>('count');
   const [filterSubject, setFilterSubject] = useState('All');
@@ -528,6 +541,7 @@ export function FeedView({ subjects, startPractice, startTopicPractice }: FeedVi
                 <TopicCard
                   key={`${item.subject}::${item.topic}::${i}`}
                   item={item}
+                  onHover={() => prefetchTopicPractice?.(item.subject, item.topic)}
                   onClick={() => {
                     if (startTopicPractice) startTopicPractice(item.subject, item.topic);
                     else startPractice?.(item.latestExam, item.latestYear, item.subject, item.topic);
