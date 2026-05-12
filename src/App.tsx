@@ -609,49 +609,91 @@ function AppContent() {
   const fetchData = async (options?: { background?: boolean }) => {
     if (!user) return;
     const background = options?.background === true;
-    const hasVisibleMeta = Boolean(catalogSummary && feedSummary);
+    const hasVisibleCatalog = Boolean(catalogSummary);
+    const hasVisibleFeed = Boolean(feedSummary);
 
-    if (!background) {
-      setDataLoading(true);
-    }
-    try {
-      const [catalogRes, feedRes] = await Promise.all([
-        fetch(`${API_BASE}/meta/catalog`),
-        fetch(`${API_BASE}/meta/feed`),
-      ]);
-      if (catalogRes.ok && feedRes.ok) {
-        const [catalogData, feedData] = await Promise.all([
-          catalogRes.json(),
-          feedRes.json(),
-        ]);
-        setCatalogSummary(catalogData);
-        setFeedSummary(feedData);
+    const fetchCatalog = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/meta/catalog`);
+        if (!res.ok) {
+          return { ok: false as const, kind: "http" as const };
+        }
+        const data = await res.json();
+        setCatalogSummary(data);
         try {
           localStorage.setItem(
             CATALOG_CACHE_KEY,
-            JSON.stringify({ data: catalogData, ts: Date.now() })
+            JSON.stringify({ data, ts: Date.now() })
           );
         } catch {}
+        return { ok: true as const };
+      } catch {
+        return { ok: false as const, kind: "network" as const };
+      }
+    };
+
+    const fetchFeed = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/meta/feed`);
+        if (!res.ok) {
+          return { ok: false as const, kind: "http" as const };
+        }
+        const data = await res.json();
+        setFeedSummary(data);
         try {
           localStorage.setItem(
             FEED_CACHE_KEY,
-            JSON.stringify({ data: feedData, ts: Date.now() })
+            JSON.stringify({ data, ts: Date.now() })
           );
         } catch {}
-        setGlobalError(null);
-      } else {
-        if (!background || !hasVisibleMeta) {
-          setGlobalError(`Backend returned an error from ${API_BASE}.`);
-        }
+        return { ok: true as const };
+      } catch {
+        return { ok: false as const, kind: "network" as const };
       }
-    } catch {
-      if (!background || !hasVisibleMeta) {
-        setGlobalError(`Cannot reach backend at ${API_BASE}.`);
-      }
-    } finally {
-      if (!background) {
-        setDataLoading(false);
-      }
+    };
+
+    if (!background && !hasVisibleCatalog) {
+      setDataLoading(true);
+    }
+
+    const feedPromise = fetchFeed();
+    const catalogResult = await fetchCatalog();
+
+    if (!background && !hasVisibleCatalog) {
+      setDataLoading(false);
+    }
+
+    if (catalogResult.ok) {
+      setGlobalError(null);
+    } else if (!background || !hasVisibleCatalog) {
+      setGlobalError(
+        catalogResult.kind === "network"
+          ? `Cannot reach backend at ${API_BASE}.`
+          : `Backend returned an error from ${API_BASE}.`
+      );
+    }
+
+    const feedResult = await feedPromise;
+    if (feedResult.ok) {
+      setGlobalError((current) =>
+        current === `Backend returned an error from ${API_BASE}.` ||
+        current === `Cannot reach backend at ${API_BASE}.`
+          ? null
+          : current
+      );
+      return;
+    }
+
+    if (!hasVisibleFeed && (!background || !hasVisibleCatalog)) {
+      setGlobalError(
+        feedResult.kind === "network"
+          ? `Cannot reach backend at ${API_BASE}.`
+          : `Backend returned an error from ${API_BASE}.`
+      );
+    }
+
+    if (!background && hasVisibleCatalog) {
+      setDataLoading(false);
     }
   };
 
