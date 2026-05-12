@@ -325,7 +325,17 @@ function AppContent() {
     total: number | null;
   }>({ loaded: 0, total: null });
   const topicPracticeRequestRef = useRef(0);
-  const topicPrefetchInFlightRef = useRef<Record<string, Promise<void>>>({});
+  const topicPrefetchInFlightRef = useRef<
+    Record<
+      string,
+      Promise<{
+        rows: Question[];
+        totalCount: number;
+        hasMore: boolean;
+        nextOffset: number | null;
+      }>
+    >
+  >({});
   const examPageStateRef = useRef<
     Record<
       string,
@@ -1097,9 +1107,11 @@ function AppContent() {
           hasMore: page.hasMore,
           nextOffset: page.nextOffset,
         });
+        return page;
       })
       .catch(() => {
         // Silent prefetch miss — click path will still do the real request.
+        throw new Error("topic prefetch failed");
       })
       .finally(() => {
         delete topicPrefetchInFlightRef.current[cacheKey];
@@ -1527,6 +1539,7 @@ function AppContent() {
     const requestId = ++topicPracticeRequestRef.current;
     const queueLabel = `${subject} :: ${topic}`;
     const initialPageSize = 20;
+    const prefetchKey = `${subject}::${topic}`;
 
     // ── Shared state reset ──────────────────────────────────────────────────
     setSelectedExamName(queueLabel);
@@ -1601,10 +1614,12 @@ function AppContent() {
         }
       }, 600);
 
-      const firstPage = await requestTopicPracticePage(subject, topic, {
-        pageSize: initialPageSize,
-        offset: 0,
-      });
+      const firstPage =
+        (await topicPrefetchInFlightRef.current[prefetchKey]?.catch(() => null)) ||
+        (await requestTopicPracticePage(subject, topic, {
+          pageSize: initialPageSize,
+          offset: 0,
+        }));
       if (topicPracticeRequestRef.current !== requestId) return;
       window.clearTimeout(slowTimer);
 
