@@ -226,6 +226,7 @@ _catalog_cache_ts: float = 0.0
 _feed_cache: dict | None = None
 _feed_cache_ts: float = 0.0
 _meta_snapshot_lock = threading.Lock()
+_meta_warm_thread: threading.Thread | None = None
 _PUBLIC_META_CACHE_FILE = Path(__file__).parent / "cache" / "public_meta_snapshot.json"
 _admin_meta_cache: list | None = None
 _admin_meta_cache_ts: float = 0.0
@@ -303,6 +304,7 @@ def _invalidate_meta_cache() -> None:
         _PUBLIC_META_CACHE_FILE.unlink(missing_ok=True)
     except Exception:
         pass
+    _schedule_public_meta_warm("invalidate")
 
 
 def _meta_cache_control_header() -> str:
@@ -324,9 +326,6 @@ def _read_public_meta_snapshot(now: float) -> dict[str, Any] | None:
         return None
     try:
         payload = json.loads(_PUBLIC_META_CACHE_FILE.read_text(encoding="utf-8"))
-        ts = float(payload.get("ts") or 0.0)
-        if (now - ts) >= _META_CACHE_TTL:
-            return None
         if not isinstance(payload.get("questions_meta"), dict):
             return None
         if not isinstance(payload.get("catalog"), dict):
@@ -356,8 +355,7 @@ def _get_public_meta_snapshot() -> dict[str, Any]:
     if (
         _meta_cache is not None and
         _catalog_cache is not None and
-        _feed_cache is not None and
-        (now - min(_meta_cache_ts, _catalog_cache_ts, _feed_cache_ts)) < _META_CACHE_TTL
+        _feed_cache is not None
     ):
         return {
             "ts": min(_meta_cache_ts, _catalog_cache_ts, _feed_cache_ts),
@@ -371,8 +369,7 @@ def _get_public_meta_snapshot() -> dict[str, Any]:
         if (
             _meta_cache is not None and
             _catalog_cache is not None and
-            _feed_cache is not None and
-            (now - min(_meta_cache_ts, _catalog_cache_ts, _feed_cache_ts)) < _META_CACHE_TTL
+            _feed_cache is not None
         ):
             return {
                 "ts": min(_meta_cache_ts, _catalog_cache_ts, _feed_cache_ts),
@@ -404,6 +401,29 @@ def _warm_public_meta_snapshot() -> None:
         print("[startup] Public metadata snapshot warmed")
     except Exception as exc:
         print(f"[startup] Public metadata warm failed: {exc}")
+
+
+def _schedule_public_meta_warm(reason: str = "manual") -> None:
+    global _meta_warm_thread
+    if os.getenv("PUBLIC_META_EAGER_REFRESH", "1").strip().lower() in {"0", "false", "no", "off"}:
+        return
+    if _meta_warm_thread is not None and _meta_warm_thread.is_alive():
+        return
+
+    def _runner() -> None:
+        global _meta_warm_thread
+        try:
+            _warm_public_meta_snapshot()
+            print(f"[meta] Public metadata snapshot refreshed ({reason})")
+        finally:
+            _meta_warm_thread = None
+
+    _meta_warm_thread = threading.Thread(
+        target=_runner,
+        name=f"warm-public-meta-{reason}",
+        daemon=True,
+    )
+    _meta_warm_thread.start()
 
 
 def _question_supported_columns() -> set[str]:
@@ -1923,11 +1943,7 @@ except Exception as _e:
     print(f"[startup] Could not handle stuck jobs: {_e}")
 
 try:
-    threading.Thread(
-        target=_warm_public_meta_snapshot,
-        name="warm-public-meta",
-        daemon=True,
-    ).start()
+    _schedule_public_meta_warm("startup")
 except Exception as _e:
     print(f"[startup] Could not schedule public metadata warm: {_e}")
 
