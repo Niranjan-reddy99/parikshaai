@@ -367,7 +367,14 @@ export function PracticeQuestionCard({
               </div>
               <p style={{ fontSize: 13.5, lineHeight: 1.85, color: '#3730a3', margin: 0 }}>{MULTIPLE_ANSWERS_NOTE}</p>
             </div>
-          ) : null}
+          ) : (
+            <div style={{ padding: '16px 20px', background: 'var(--bg-alt)', border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.textSec, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Brain style={{ width: 12, height: 12 }} /> Explanation Unavailable
+              </div>
+              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: C.textSec, margin: 0 }}>{UNAVAILABLE_EXPLANATION}</p>
+            </div>
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button

@@ -1803,7 +1803,15 @@ function AppContent() {
         const res = await fetch(explanationUrl, {
           signal: controller.signal,
         });
-        if (!res.ok) return null;
+        if (!res.ok) {
+          if (!options?.background) {
+            updatePracticeQuestion(questionId, {
+              explanation: UNAVAILABLE_EXPLANATION,
+              ...(options?.revealedAnswer ? { answer: options.revealedAnswer } : {}),
+            });
+          }
+          return null;
+        }
         const data = await res.json();
         const source = (data.source || "").toString();
         const explanation =
@@ -1849,6 +1857,12 @@ function AppContent() {
         }
         return isRenderableExplanation(explanation) ? explanation : null;
       } catch {
+        if (!options?.background) {
+          updatePracticeQuestion(questionId, {
+            explanation: UNAVAILABLE_EXPLANATION,
+            ...(options?.revealedAnswer ? { answer: options.revealedAnswer } : {}),
+          });
+        }
         return null;
       } finally {
         window.clearTimeout(timeout);
@@ -1932,6 +1946,12 @@ function AppContent() {
       if (needsExplanationFetch) {
         void fetchExplanationForQuestion(questionId, {
           revealedAnswer: answerMeta?.answer,
+        }).then((explanation) => {
+          if (!explanation) {
+            updatePracticeQuestion(questionId, {
+              explanation: UNAVAILABLE_EXPLANATION,
+            });
+          }
         }).finally(() => {
           setPracticeExplanationLoading((prev) =>
             currentPracticeQ?.id === questionId ? false : prev
