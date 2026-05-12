@@ -5603,7 +5603,10 @@ _APP_ROLE = os.getenv("APP_ROLE", "both").strip().lower()
 if _APP_ROLE == "public":
     # Remove every /admin/* route so they are completely inaccessible.
     # All helper functions and data remain; only the HTTP endpoints are filtered.
-    app.routes = [r for r in app.routes if not getattr(r, "path", "").startswith("/admin")]
+    app.router.routes[:] = [
+        r for r in app.router.routes
+        if not getattr(r, "path", "").startswith("/admin")
+    ]
     app.openapi_schema = None  # Reset cached OpenAPI schema so docs are correct
 
 # ── Run ──────────────────────────────────────────────────
