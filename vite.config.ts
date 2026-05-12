@@ -10,72 +10,73 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  const enablePwa = env.VITE_ENABLE_PWA === 'true';
   return {
     plugins: [
       react(),
       tailwindcss(),
-      VitePWA({
-        registerType: 'autoUpdate',
-        includeAssets: ['icon.svg', 'apple-touch-icon.png'],
-        manifest: {
-          name: 'Pariksha — UPSC Preparation',
-          short_name: 'Pariksha',
-          description: 'Practice PYQs from UPSC, APPSC, TSPSC with AI-powered explanations and mock tests.',
-          theme_color: '#0d1f1e',
-          background_color: '#0d1f1e',
-          display: 'standalone',
-          orientation: 'portrait',
-          scope: '/',
-          start_url: '/',
-          icons: [
-            {
-              src: 'pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png',
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any maskable',
-            },
-          ],
-        },
-        workbox: {
-          // Cache static assets (JS, CSS, fonts, images) — cache-first
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          // Never cache API calls — always go to network
-          navigateFallbackDenylist: [/^\/api/, /^\/questions/, /^\/admin/],
-          runtimeCaching: [
-            {
-              // Google Fonts — cache-first, long TTL
-              urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'google-fonts',
-                expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
-                cacheableResponse: { statuses: [0, 200] },
+      ...(enablePwa
+        ? [
+            VitePWA({
+              registerType: 'autoUpdate',
+              includeAssets: ['icon.svg', 'apple-touch-icon.png'],
+              manifest: {
+                name: 'Pariksha — UPSC Preparation',
+                short_name: 'Pariksha',
+                description: 'Practice PYQs from UPSC, APPSC, TSPSC with AI-powered explanations and timed mock tests.',
+                theme_color: '#0d1f1e',
+                background_color: '#0d1f1e',
+                display: 'standalone',
+                orientation: 'portrait',
+                scope: '/',
+                start_url: '/',
+                icons: [
+                  {
+                    src: 'pwa-192x192.png',
+                    sizes: '192x192',
+                    type: 'image/png',
+                  },
+                  {
+                    src: 'pwa-512x512.png',
+                    sizes: '512x512',
+                    type: 'image/png',
+                  },
+                  {
+                    src: 'pwa-512x512.png',
+                    sizes: '512x512',
+                    type: 'image/png',
+                    purpose: 'any maskable',
+                  },
+                ],
               },
-            },
-            {
-              // Backend API — network-first, fall back to cache for 5 min
-              urlPattern: ({ url }) => url.port === '8000' || url.pathname.startsWith('/api/'),
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'api-cache',
-                networkTimeoutSeconds: 10,
-                expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 },
-                cacheableResponse: { statuses: [0, 200] },
+              workbox: {
+                globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+                navigateFallbackDenylist: [/^\/api/, /^\/questions/, /^\/admin/],
+                runtimeCaching: [
+                  {
+                    urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+                    handler: 'CacheFirst',
+                    options: {
+                      cacheName: 'google-fonts',
+                      expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                      cacheableResponse: { statuses: [0, 200] },
+                    },
+                  },
+                  {
+                    urlPattern: ({ url }) => url.port === '8000' || url.pathname.startsWith('/api/'),
+                    handler: 'NetworkFirst',
+                    options: {
+                      cacheName: 'api-cache',
+                      networkTimeoutSeconds: 10,
+                      expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 },
+                      cacheableResponse: { statuses: [0, 200] },
+                    },
+                  },
+                ],
               },
-            },
-          ],
-        },
-      }),
+            }),
+          ]
+        : []),
     ],
     build: {
       rollupOptions: {
