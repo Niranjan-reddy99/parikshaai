@@ -336,6 +336,7 @@ function AppContent() {
       }>
     >
   >({});
+  const feedTopicPrefetchedRef = useRef<Set<string>>(new Set());
   const examPageStateRef = useRef<
     Record<
       string,
@@ -445,6 +446,28 @@ function AppContent() {
       void fetchData();
     }
   }, [view]);
+
+  useEffect(() => {
+    if (view !== "feed" || !feedSummary?.subjects?.length) return;
+
+    const candidates = feedSummary.subjects
+      .flatMap((subjectBucket) =>
+        (subjectBucket.topics || []).map((topicBucket) => ({
+          subject: subjectBucket.subject,
+          topic: topicBucket.topic,
+          count: topicBucket.count || 0,
+        }))
+      )
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    candidates.forEach(({ subject, topic }) => {
+      const key = `${subject}::${topic}`;
+      if (feedTopicPrefetchedRef.current.has(key)) return;
+      feedTopicPrefetchedRef.current.add(key);
+      prefetchTopicPractice(subject, topic);
+    });
+  }, [view, feedSummary]);
 
   useEffect(() => {
     if (!examSession || examSession.isFinished || examTimer <= 0) return;
