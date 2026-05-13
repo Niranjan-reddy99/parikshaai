@@ -225,7 +225,7 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
   const top3 = entries.filter(e => (e.rank || 0) <= 3).sort((a, b) => (a.rank || 0) - (b.rank || 0));
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="leaderboard-shell" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
@@ -235,7 +235,7 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 20, alignItems: 'start' }}>
+      <div className="leaderboard-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 20, alignItems: 'start' }}>
 
         {/* ── Left column ─────────────────────────────────────────────── */}
         <div>
@@ -252,7 +252,7 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
                 {t}
               </button>
             ))}
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div className="leaderboard-toolbar" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
               <select
                 value={timeFilter}
                 onChange={e => setTimeFilter(e.target.value as TimeFilter)}
@@ -276,7 +276,7 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
 
           {/* Top 3 podium */}
           {!loading && top3.length === 3 && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
+            <div className="leaderboard-podium" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
               {[top3[1], top3[0], top3[2]].map((e, podiumIdx) => {
                 if (!e) return null;
                 const podiumOrder = [2, 1, 3];
@@ -319,8 +319,8 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
           )}
 
           {/* Table */}
-          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-            <div style={{
+          <div className="leaderboard-table-wrap" style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+            <div className="leaderboard-table-grid leaderboard-table-head" style={{
               display: 'grid', gridTemplateColumns: '52px 1fr 90px 80px',
               padding: '9px 16px', background: 'var(--bg-alt)',
               fontSize: 10.5, fontWeight: 700, color: 'var(--text-tert)',
@@ -341,6 +341,7 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
               const badge = rankBadge(rank);
               return (
                 <div
+                  className="leaderboard-table-grid leaderboard-table-row"
                   key={`${rank}-${e.name}`}
                   style={{
                     display: 'grid', gridTemplateColumns: '52px 1fr 90px 80px',
@@ -399,7 +400,7 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
         </div>
 
         {/* ── Right sidebar ────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 24 }}>
+        <div className="leaderboard-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 24 }}>
 
           {/* Your rank card */}
           <div style={{
@@ -416,7 +417,7 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', margin: '6px 0 18px' }}>
               {myRank <= 3 ? 'Top of the board!' : myRank <= 10 ? 'Top 10 — keep going!' : 'Keep practicing to climb'}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div className="leaderboard-rank-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 8px' }}>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 3 }}>Score</div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{myEntry.xp.toLocaleString()}</div>

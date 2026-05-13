@@ -20,7 +20,7 @@ export function PracticeSessionSidebar({
   const sessionStats = getPracticeSessionStats(sessionAnswers);
 
   return (
-    <div style={{ background: 'var(--bg)', borderRadius: 14, padding: '20px 16px', position: 'sticky', top: 16, border: '1px solid var(--border)' }}>
+    <div className="surface-card" style={{ borderRadius: 18, padding: '20px 16px' }}>
       <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', color: C.textTert, marginBottom: 14 }}>
         Session Navigator
       </div>

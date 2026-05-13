@@ -224,10 +224,10 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
   });
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', paddingBottom: 60 }}>
+    <div className="results-shell" style={{ maxWidth: 900, margin: '0 auto', paddingBottom: 60 }}>
 
       {/* ── Score Hero ──────────────────────────────────────────────────────── */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+      <motion.div className="results-hero" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: '28px 24px', textAlign: 'center', marginBottom: 16 }}>
 
         <div style={{ width: 64, height: 64, borderRadius: 18, background: '#dbeafe', border: '2px solid #2563eb40', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
@@ -250,7 +250,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
                   : `linear-gradient(90deg, ${C.danger}, #fb923c)` }} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, maxWidth: 560, margin: '0 auto' }}>
+        <div className="results-score-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, maxWidth: 560, margin: '0 auto' }}>
           {[
             { label: 'Correct',  value: correct,             color: '#00af9b' },
             { label: 'Wrong',    value: wrong,               color: C.danger },
@@ -267,7 +267,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
       </motion.div>
 
       {/* ── Subject & Topic Breakdown Table ─────────────────────────────────── */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+      <motion.div className="results-breakdown-card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, overflow: 'hidden', marginBottom: 16 }}>
 
         {/* Table header */}
@@ -277,7 +277,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
         </div>
 
         {/* Column labels */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 48px 48px 48px 48px 80px', padding: '8px 18px', background: C.bg, borderBottom: `1px solid ${C.border}`, gap: 4 }}>
+        <div className="results-breakdown-grid results-breakdown-head" style={{ display: 'grid', gridTemplateColumns: '1fr 48px 48px 48px 48px 80px', padding: '8px 18px', background: C.bg, borderBottom: `1px solid ${C.border}`, gap: 4 }}>
           {['Subject / Topic', 'Total', '✓', '✗', 'Skip', 'Accuracy'].map((h, i) => (
             <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i > 0 ? 'center' : 'left' }}>{h}</div>
           ))}
@@ -292,7 +292,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
             <div key={s.subject} style={{ borderBottom: `1px solid ${C.border}` }}>
 
               {/* Subject row */}
-              <button onClick={() => toggleSubject(s.subject)}
+              <button className="results-breakdown-grid results-breakdown-row" onClick={() => toggleSubject(s.subject)}
                 style={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 48px 48px 48px 48px 80px', gap: 4,
                   padding: '13px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -319,7 +319,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
 
               {/* Topic rows (expanded) */}
               {isExpanded && sortedTopics.map(t => (
-                <div key={t.topic}
+                <div className="results-breakdown-grid results-breakdown-topic" key={t.topic}
                   style={{ display: 'grid', gridTemplateColumns: '1fr 48px 48px 48px 48px 80px', gap: 4,
                     padding: '9px 18px 9px 48px', background: C.bg, borderTop: `1px solid ${C.border}`, alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -381,7 +381,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
               : 'Skipped';
 
             return (
-              <div key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderLeft: `3px solid ${borderColor}`, borderRadius: 12, padding: '14px 16px' }}>
+              <div className="results-review-card" key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderLeft: `3px solid ${borderColor}`, borderRadius: 12, padding: '14px 16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 11, color: C.textTert }}>
@@ -405,7 +405,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
                   </div>
                 </div>
                 <p style={{ fontSize: 13, color: C.text, marginBottom: 10, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{q.question}</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <div className="results-answer-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                   <div style={{ padding: '10px 12px', borderRadius: 10,
                     background: deleted ? C.blueDim : isAttempted && !isCorrect ? C.dangerDim : C.bg,
                     border: `1px solid ${deleted ? C.blue + '30' : isAttempted && !isCorrect ? C.danger + '40' : C.border}` }}>
@@ -513,7 +513,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
       )}
 
       {/* ── Actions ─────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 24 }}>
+      <div className="results-actions" style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 24 }}>
         <button onClick={() => { setExamSession(null); startMockExam(examSession.examName, examSession.year); }}
           style={{ padding: '10px 22px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: C.textSec, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
           <RotateCcw style={{ width: 14, height: 14 }} /> Retry

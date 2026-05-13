@@ -42,7 +42,7 @@ export function BrowseQuestionList({
   const hasActiveFilters = filterTopic !== 'All' || filterSubtopic !== 'All';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="browse-list-shell">
       {hasActiveFilters && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 14 }}>
           <span style={{ fontSize: 11, color: C.textTert, fontWeight: 600 }}>Filtered by:</span>
@@ -110,7 +110,7 @@ export function BrowseQuestionList({
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+      <div className="browse-filter-row">
         <div style={{ position: 'relative' }}>
           <Search
             style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: C.textTert }}
@@ -200,16 +200,7 @@ export function BrowseQuestionList({
         filteredQs.map((question, index) => (
           <div
             key={question.id}
-            style={{
-              padding: '14px 16px',
-              background: C.surface,
-              border: `1px solid ${C.border}`,
-              borderRadius: 10,
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 12,
-              transition: 'border-color 0.12s',
-            }}
+            className="browse-question-card"
             onMouseEnter={(event) => {
               event.currentTarget.style.borderColor = '#93c5fd';
             }}

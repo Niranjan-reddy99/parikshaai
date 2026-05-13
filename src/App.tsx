@@ -20,6 +20,7 @@ import {
   Loader2,
   RotateCcw,
   X,
+  Menu,
 } from "lucide-react";
 import { auth } from "./firebase";
 
@@ -165,10 +166,54 @@ function ViewLoadingFallback({
   );
 }
 
+function AppNavIcon({ name }: { name: "explore" | "bank" | "feed" | "progress" | "saved" }) {
+  const icons: Record<string, React.ReactNode> = {
+    explore: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3 4 7v6c0 5 3.4 7.8 8 8 4.6-.2 8-3 8-8V7l-8-4Z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    ),
+    bank: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6h18" />
+        <path d="M7 6v12" />
+        <path d="M17 6v12" />
+        <path d="M4 18h16" />
+        <path d="M12 10h.01" />
+      </svg>
+    ),
+    feed: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 11a9 9 0 0 1 9 9" />
+        <path d="M4 4a16 16 0 0 1 16 16" />
+        <circle cx="5" cy="19" r="1" />
+      </svg>
+    ),
+    progress: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" />
+        <path d="m7 14 4-4 4 3 6-6" />
+      </svg>
+    ),
+    saved: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+      </svg>
+    ),
+  };
+
+  return <>{icons[name]}</>;
+}
+
 function AppContent() {
   // ── Bookmarks ───────────────────────────────────────────────────────────────
   const [bookmarkMap, setBookmarkMap] = useState<Record<string, Question>>({});
   const bookmarkIdsRef = useRef<Set<string>>(new Set());
+  const [isMobileLayout, setIsMobileLayout] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 1024 : false
+  );
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // ── Premium / paywall ───────────────────────────────────────────────────────
   const [isPremium, setIsPremium] = useState(() => localStorage.getItem('pyq_premium') === '1');
@@ -215,6 +260,29 @@ function AppContent() {
 
   // ── Onboarding ───────────────────────────────────────────────────────────────
   const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 1023px)");
+    const sync = (matches: boolean) => setIsMobileLayout(matches);
+    sync(media.matches);
+    const listener = (event: MediaQueryListEvent) => sync(event.matches);
+    media.addEventListener("change", listener);
+    return () => media.removeEventListener("change", listener);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileLayout) setMobileNavOpen(false);
+  }, [isMobileLayout]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileNavOpen]);
 
   // ── User Stats (localStorage) ────────────────────────────────────────────────
   const [userStats, setUserStats] = useState<UserStats>(() =>
@@ -272,6 +340,10 @@ function AppContent() {
   const [selectedShiftLabel, setSelectedShiftLabel] = useState<string | null>(
     null
   );
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [view]);
   const [examPaperManifestCache, setExamPaperManifestCache] = useState<
     Record<string, ExamPaperManifest>
   >({});
@@ -356,6 +428,7 @@ function AppContent() {
   const explanationInFlightRef = useRef<Record<string, Promise<string | null>>>(
     {}
   );
+  const practiceQueueRef = useRef<Question[]>([]);
   const isRenderableExplanation = (text?: string | null) => {
     const value = (text || "").trim();
     return (
@@ -1758,6 +1831,10 @@ function AppContent() {
     );
   };
 
+  useEffect(() => {
+    practiceQueueRef.current = practiceQueue;
+  }, [practiceQueue]);
+
   const fetchQuestionAnswerMeta = async (
     questionId: string
   ): Promise<Partial<Question> | null> => {
@@ -1774,7 +1851,11 @@ function AppContent() {
 
   const fetchExplanationForQuestion = async (
     questionId: string,
-    options?: { background?: boolean; revealedAnswer?: string }
+    options?: {
+      background?: boolean;
+      deferUnavailable?: boolean;
+      revealedAnswer?: string;
+    }
   ): Promise<string | null> => {
     const existing = practiceQueue.find((item) => item.id === questionId);
     if (isRenderableExplanation(existing?.explanation)) {
@@ -1807,7 +1888,7 @@ function AppContent() {
           signal: controller.signal,
         });
         if (!res.ok) {
-          if (!options?.background) {
+          if (!options?.background && !options?.deferUnavailable) {
             updatePracticeQuestion(questionId, {
               explanation: UNAVAILABLE_EXPLANATION,
               ...(options?.revealedAnswer ? { answer: options.revealedAnswer } : {}),
@@ -1852,7 +1933,7 @@ function AppContent() {
         } else if (isRenderableExplanation(explanation)) {
           patch.explanation = explanation;
           explanationCacheRef.current[questionId] = explanation;
-        } else if (!explanation) {
+        } else if (!explanation && !options?.deferUnavailable) {
           patch.explanation = UNAVAILABLE_EXPLANATION;
         }
         if (Object.keys(patch).length) {
@@ -1860,7 +1941,7 @@ function AppContent() {
         }
         return isRenderableExplanation(explanation) ? explanation : null;
       } catch {
-        if (!options?.background) {
+        if (!options?.background && !options?.deferUnavailable) {
           updatePracticeQuestion(questionId, {
             explanation: UNAVAILABLE_EXPLANATION,
             ...(options?.revealedAnswer ? { answer: options.revealedAnswer } : {}),
@@ -1875,6 +1956,47 @@ function AppContent() {
 
     explanationInFlightRef.current[questionId] = promise;
     return promise;
+  };
+
+  const fetchFreshExplanationAfterAnswer = async (
+    questionId: string,
+    revealedAnswer?: string
+  ): Promise<boolean> => {
+    const retryDelaysMs = [0, 1200, 2200];
+    for (const delayMs of retryDelaysMs) {
+      if (delayMs > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+      }
+
+      const explanation = await fetchExplanationForQuestion(questionId, {
+        deferUnavailable: true,
+        revealedAnswer,
+      });
+      if (isRenderableExplanation(explanation)) {
+        return true;
+      }
+
+      const latestQuestion = practiceQueueRef.current.find(
+        (item) => item.id === questionId
+      );
+      const latestExplanation = latestQuestion?.explanation;
+      if (
+        latestExplanation === BLOCKED_EXPLANATION ||
+        latestExplanation === UNAVAILABLE_EXPLANATION ||
+        latestExplanation ===
+          "This question was deleted in the official final key." ||
+        latestExplanation ===
+          "The official key accepts more than one answer for this question."
+      ) {
+        return latestExplanation !== UNAVAILABLE_EXPLANATION;
+      }
+    }
+
+    updatePracticeQuestion(questionId, {
+      explanation: UNAVAILABLE_EXPLANATION,
+      ...(revealedAnswer ? { answer: revealedAnswer } : {}),
+    });
+    return false;
   };
 
   const handleAnswerSelect = async (key: string) => {
@@ -1947,15 +2069,10 @@ function AppContent() {
         });
       }
       if (needsExplanationFetch) {
-        void fetchExplanationForQuestion(questionId, {
-          revealedAnswer: answerMeta?.answer,
-        }).then((explanation) => {
-          if (!explanation) {
-            updatePracticeQuestion(questionId, {
-              explanation: UNAVAILABLE_EXPLANATION,
-            });
-          }
-        }).finally(() => {
+        void fetchFreshExplanationAfterAnswer(
+          questionId,
+          answerMeta?.answer
+        ).finally(() => {
           setPracticeExplanationLoading((prev) =>
             currentPracticeQ?.id === questionId ? false : prev
           );
@@ -2664,19 +2781,47 @@ function AppContent() {
     ? user.displayName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "U";
 
+  const mobilePrimaryNav = [
+    {
+      id: "explore",
+      label: "Explore",
+      icon: "explore" as const,
+      active: ["home", "commission", "exam-detail"].includes(view),
+      onClick: () => setView("home"),
+    },
+    {
+      id: "bank",
+      label: "Bank",
+      icon: "bank" as const,
+      active: view === "browse",
+      onClick: openQuestionBankHome,
+    },
+    {
+      id: "feed",
+      label: "Feed",
+      icon: "feed" as const,
+      active: view === "feed" || view === "pattern-practice",
+      onClick: () => setView("feed"),
+    },
+    {
+      id: "progress",
+      label: "Progress",
+      icon: "progress" as const,
+      active: ["dashboard", "leaderboard", "badges"].includes(view),
+      onClick: () => setView("dashboard"),
+    },
+    {
+      id: "saved",
+      label: "Saved",
+      icon: "saved" as const,
+      active: view === "bookmarks" || view === "profile",
+      onClick: () => setView("bookmarks"),
+    },
+  ];
+
   return (
     <ToastProvider>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "100vh",
-          overflow: "hidden",
-          background: "var(--bg-canvas)",
-          color: "var(--text)",
-          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-        }}
-      >
+      <div className="app-shell" style={{ display: "flex", flexDirection: "column", minHeight: "100vh", overflow: "hidden", color: "var(--text)" }}>
         {showOnboarding && user && (
           <OnboardingModal
             userName={user.displayName ?? "Aspirant"}
@@ -2698,47 +2843,145 @@ function AppContent() {
         )}
 
         {/* ── Top Bar ────────────────────────────────────────────────────────── */}
-        <div style={{
-          background: "var(--bg)",
-          borderBottom: "1px solid var(--border)",
-          height: 50,
-          display: "flex",
-          alignItems: "center",
-          padding: "0 22px",
-          gap: 32,
-          flexShrink: 0,
-          zIndex: 30,
-        }}>
-          {/* Brand */}
+        <div className="app-topbar">
           <div
-            onClick={() => setView("home")}
-            style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 15, color: "var(--text)", cursor: "pointer", userSelect: "none", flexShrink: 0 }}
+            style={{
+              minHeight: 64,
+              display: "flex",
+              alignItems: "center",
+              gap: 18,
+              padding: isMobileLayout ? "12px 16px" : "12px 22px",
+            }}
           >
-            <div style={{
-              width: 26, height: 26, borderRadius: 6,
-              background: "linear-gradient(135deg, #1e3a8a, #2563eb)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "white", fontWeight: 800, fontSize: 13,
-            }}>P</div>
-            Pariksha
+            <div
+              onClick={() => setView("home")}
+              style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 15, color: "var(--text)", cursor: "pointer", userSelect: "none", flexShrink: 0 }}
+            >
+              <div style={{
+                width: 30, height: 30, borderRadius: 9,
+                background: "linear-gradient(135deg, var(--brand-ink), var(--accent))",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "white", fontWeight: 800, fontSize: 13,
+              }}>P</div>
+              <div>
+                <div style={{ lineHeight: 1, letterSpacing: "-0.04em" }}>Pariksha</div>
+                <div className="desktop-only" style={{ marginTop: 3, fontSize: 10.5, fontWeight: 600, color: "var(--text-tert)" }}>
+                  Clean exam prep, question by question
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: isMobileLayout ? 10 : 14 }}>
+              {topSearchConfig && !isMobileLayout && (
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "0 12px",
+                  background: "rgba(255,255,255,0.9)",
+                  borderRadius: 14,
+                  width: 340,
+                  height: 40,
+                  color: "var(--text-tert)",
+                  border: "1px solid var(--border)",
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                    <circle cx="11" cy="11" r="7"/>
+                    <path d="m21 21-4.3-4.3"/>
+                  </svg>
+                  <input
+                    type="text"
+                    value={topSearchConfig.value}
+                    onChange={(event) => topSearchConfig.onChange(event.target.value)}
+                    placeholder={topSearchConfig.placeholder}
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      background: "transparent",
+                      outline: "none",
+                      color: "var(--text)",
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                    }}
+                  />
+                </div>
+              )}
+
+              {!isMobileLayout && userStats.streak > 0 && (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  padding: "5px 12px", background: "var(--warn-soft)",
+                  color: "var(--warn)", borderRadius: 999, fontSize: 12, fontWeight: 700,
+                }}>
+                  🔥 {userStats.streak}
+                </span>
+              )}
+
+              {dataLoading && (
+                <Loader2 style={{ width: 15, height: 15, color: C.accent }} className="animate-spin" />
+              )}
+
+              {!isMobileLayout && (
+                <span style={{ padding: "7px 14px", background: "var(--accent-soft)", color: "var(--accent)", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  Upgrade
+                </span>
+              )}
+
+              {isMobileLayout && (
+                <button
+                  type="button"
+                  onClick={() => setMobileNavOpen(true)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 14,
+                    border: "1px solid var(--border)",
+                    background: "rgba(255,255,255,0.88)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--text)",
+                    cursor: "pointer",
+                  }}
+                  aria-label="Open navigation"
+                >
+                  <Menu style={{ width: 18, height: 18 }} />
+                </button>
+              )}
+
+              <div
+                onClick={() => setView("profile")}
+                style={{
+                  width: isMobileLayout ? 34 : 32, height: isMobileLayout ? 34 : 32, borderRadius: "50%",
+                  background: "linear-gradient(135deg, #0f6cbd, #3b82f6)",
+                  color: "white", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontWeight: 700, fontSize: 12,
+                  overflow: "hidden", flexShrink: 0, cursor: "pointer",
+                  boxShadow: "0 10px 24px -16px rgba(15,108,189,0.6)",
+                }}
+              >
+                {user.photoURL
+                  ? <img src={user.photoURL} style={{ width: "100%", height: "100%", borderRadius: "50%" }} alt="" />
+                  : avatarInitials}
+              </div>
+            </div>
           </div>
 
-          {/* Right side */}
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
-            {topSearchConfig && (
+          {topSearchConfig && isMobileLayout && (
+            <div className="mobile-search-row">
               <div style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
                 padding: "0 12px",
-                background: "var(--bg-alt)",
-                borderRadius: 8,
-                width: 320,
-                height: 38,
+                background: "rgba(255,255,255,0.88)",
+                borderRadius: 16,
+                width: "100%",
+                height: 44,
                 color: "var(--text-tert)",
                 border: "1px solid var(--border)",
               }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
                   <circle cx="11" cy="11" r="7"/>
                   <path d="m21 21-4.3-4.3"/>
                 </svg>
@@ -2753,81 +2996,75 @@ function AppContent() {
                     background: "transparent",
                     outline: "none",
                     color: "var(--text)",
-                    fontSize: 13,
+                    fontSize: 14,
                     fontFamily: "inherit",
                   }}
                 />
               </div>
-            )}
-
-            {/* Streak */}
-            {userStats.streak > 0 && (
-              <span style={{
-                display: "inline-flex", alignItems: "center", gap: 4,
-                padding: "4px 10px", background: "var(--warn-soft)",
-                color: "#b45309", borderRadius: 6, fontSize: 12, fontWeight: 600,
-              }}>
-                🔥 {userStats.streak}
-              </span>
-            )}
-
-            {/* Loading indicator */}
-            {dataLoading && (
-              <Loader2 style={{ width: 15, height: 15, color: C.accent }} className="animate-spin" />
-            )}
-
-            {/* Premium pill */}
-            <span style={{ padding: "6px 14px", background: "#fff7e6", color: "#d97706", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              Premium
-            </span>
-
-            {/* Profile */}
-            <div
-              onClick={() => setView("profile")}
-              style={{
-                width: 28, height: 28, borderRadius: "50%",
-                background: "linear-gradient(135deg, #6366f1, #2563eb)",
-                color: "white", display: "flex", alignItems: "center",
-                justifyContent: "center", fontWeight: 700, fontSize: 12,
-                overflow: "hidden", flexShrink: 0, cursor: "pointer",
-              }}
-            >
-              {user.photoURL
-                ? <img src={user.photoURL} style={{ width: 28, height: 28, borderRadius: "50%" }} alt="" />
-                : avatarInitials}
             </div>
-
-          </div>
+          )}
         </div>
         {/* ── End Top Bar ─────────────────────────────────────────────────────── */}
 
+        {isMobileLayout && mobileNavOpen && (
+          <div className="mobile-drawer-backdrop" onClick={() => setMobileNavOpen(false)}>
+            <div className="nav-drawer-surface" onClick={(event) => event.stopPropagation()}>
+              <Navbar
+                user={user}
+                view={view}
+                commissionMap={commissionMap}
+                dataLoading={dataLoading}
+                streak={userStats.streak}
+                xp={userStats.xp}
+                examDropdownOpen={examDropdownOpen}
+                setExamDropdownOpen={setExamDropdownOpen}
+                dropdownHoveredCommission={dropdownHoveredCommission}
+                setDropdownHoveredCommission={setDropdownHoveredCommission}
+                selectedCommission={selectedCommission}
+                selectedExamType={selectedExamType}
+                selectedYear={selectedYear}
+                setView={setView}
+                openQuestionBankHome={openQuestionBankHome}
+                openCommission={openCommission}
+                openExam={openExam}
+                openPatternPractice={() => setView("pattern-practice")}
+                handleLogout={handleLogout}
+                mode="drawer"
+                onNavigate={() => setMobileNavOpen(false)}
+              />
+            </div>
+          </div>
+        )}
+
         {/* ── Body: sidebar + content ─────────────────────────────────────────── */}
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", flex: 1, overflow: "hidden" }}>
-          <Navbar
-            user={user}
-            view={view}
-            commissionMap={commissionMap}
-            dataLoading={dataLoading}
-            streak={userStats.streak}
-            xp={userStats.xp}
-            examDropdownOpen={examDropdownOpen}
-            setExamDropdownOpen={setExamDropdownOpen}
-            dropdownHoveredCommission={dropdownHoveredCommission}
-            setDropdownHoveredCommission={setDropdownHoveredCommission}
-            selectedCommission={selectedCommission}
-            selectedExamType={selectedExamType}
-            selectedYear={selectedYear}
-            setView={setView}
-            openQuestionBankHome={openQuestionBankHome}
-            openCommission={openCommission}
-            openExam={openExam}
-            openPatternPractice={() => setView("pattern-practice")}
-            handleLogout={handleLogout}
-          />
+        <div className="app-frame" style={{ flex: 1, overflow: "hidden" }}>
+          <div className="nav-sidebar">
+            <Navbar
+              user={user}
+              view={view}
+              commissionMap={commissionMap}
+              dataLoading={dataLoading}
+              streak={userStats.streak}
+              xp={userStats.xp}
+              examDropdownOpen={examDropdownOpen}
+              setExamDropdownOpen={setExamDropdownOpen}
+              dropdownHoveredCommission={dropdownHoveredCommission}
+              setDropdownHoveredCommission={setDropdownHoveredCommission}
+              selectedCommission={selectedCommission}
+              selectedExamType={selectedExamType}
+              selectedYear={selectedYear}
+              setView={setView}
+              openQuestionBankHome={openQuestionBankHome}
+              openCommission={openCommission}
+              openExam={openExam}
+              openPatternPractice={() => setView("pattern-practice")}
+              handleLogout={handleLogout}
+            />
+          </div>
 
           {/* Content column */}
-          <div style={{ overflowY: "auto", background: "var(--bg-canvas)" }}>
-            <div style={{ padding: "32px 40px 60px", maxWidth: 1400, margin: "0 auto" }}>
+          <div className="app-content-scroll">
+            <div className="app-content-inner">
             <AnimatePresence mode="wait">
               <motion.div
                 key={view}
@@ -3189,6 +3426,31 @@ function AppContent() {
           {/* end content column */}
         </div>
         {/* end body grid */}
+
+        {isMobileLayout && (
+          <div className="mobile-bottom-nav">
+            <div className="mobile-bottom-nav-grid">
+              {mobilePrimaryNav.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="mobile-nav-item"
+                  data-active={item.active}
+                  onClick={item.onClick}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                  }}
+                >
+                  <AppNavIcon name={item.icon} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {flagQuestion && (
           <FlagQuestionModal

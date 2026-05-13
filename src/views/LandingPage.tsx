@@ -140,7 +140,7 @@ export function LandingPage({ onLogin, onContinueGuest, catalogSummary, feedSumm
   const totalQDisplay = totalQ >= 1000 ? `${(totalQ / 1000).toFixed(1)}k+` : `${totalQ}+`;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', color: '#0f172a', fontFamily: "'Inter', sans-serif" }}>
+    <div className="landing-shell">
 
       {/* ── Navbar ─────────────────────────────────────────────────────────── */}
       <header style={{
@@ -148,7 +148,7 @@ export function LandingPage({ onLogin, onContinueGuest, catalogSummary, feedSumm
         background: 'rgba(248,250,252,0.9)', backdropFilter: 'blur(12px)',
         borderBottom: '1px solid #e2e8f0',
       }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="landing-header-inner" style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
               <rect width="32" height="32" rx="9" fill="#0f172a" />
@@ -156,7 +156,7 @@ export function LandingPage({ onLogin, onContinueGuest, catalogSummary, feedSumm
             </svg>
             <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.04em', color: '#0f172a' }}>Pariksha</span>
           </div>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <nav className="landing-nav-actions">
             <button
               onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
               style={{ padding: '8px 14px', border: 'none', background: 'none', color: '#475569', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', borderRadius: 8 }}
@@ -183,13 +183,7 @@ export function LandingPage({ onLogin, onContinueGuest, catalogSummary, feedSumm
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px' }}>
 
         {/* ── Hero ────────────────────────────────────────────────────────── */}
-        <section style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: 40,
-          alignItems: 'center',
-          padding: '64px 0 52px',
-        }}>
+        <section className="landing-hero">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#0f766e', marginBottom: 16 }}>
               Previous year questions, made usable

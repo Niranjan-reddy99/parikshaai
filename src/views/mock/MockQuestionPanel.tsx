@@ -29,7 +29,7 @@ export function MockQuestionPanel({
   onLoadMoreQuestions,
 }: MockQuestionPanelProps) {
   return (
-    <div className="glass-panel" style={{ borderRadius: 20, padding: '36px 36px' }}>
+    <div className="glass-panel" style={{ borderRadius: 24, padding: '24px 20px' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
         <span style={{ padding: '4px 12px', background: C.blueDim, color: C.blue, fontSize: 10, fontWeight: 700, borderRadius: 99, textTransform: 'uppercase' }}>{question.subject}</span>
         <span style={{ padding: '4px 12px', background: diffBg[question.difficulty] || C.bg, color: diffColor[question.difficulty] || C.textSec, fontSize: 10, fontWeight: 700, borderRadius: 99 }}>{question.difficulty}</span>
@@ -77,7 +77,7 @@ export function MockQuestionPanel({
         })}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+      <div className="mock-nav-row" style={{ paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
         <button
           disabled={currentIndex === 0}
           onClick={onPrevious}

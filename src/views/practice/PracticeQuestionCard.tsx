@@ -87,7 +87,7 @@ export function PracticeQuestionCard({
     );
 
   return (
-    <div className="glass-panel" style={{ borderRadius: 16, padding: '24px 28px', marginBottom: 16, transition: 'border-color 0.15s', border: `1px solid ${C.borderHover}` }}>
+    <div className="glass-panel practice-question-card">
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ padding: '3px 10px', background: 'rgba(96,165,250,0.12)', color: C.blue, fontSize: 10, fontWeight: 700, borderRadius: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -187,7 +187,7 @@ export function PracticeQuestionCard({
         <QuestionText text={question.question} hasImage={question.has_image} imageUrl={question.image_url} style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.65 }} />
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+      <div className="practice-option-list">
         {Object.entries(question.options).map(([optionKey, optionValue]) => {
           const state = getPracticeOptionState(question, optionKey, practiceAnswered, practiceSelectedOption);
           const styles = optionStyles[state];
@@ -375,7 +375,7 @@ export function PracticeQuestionCard({
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="practice-nav-row">
             <button
               onClick={prevPracticeQuestion}
               disabled={practiceIndex === 0}
@@ -399,7 +399,7 @@ export function PracticeQuestionCard({
                 Load Next 20 →
               </button>
             ) : (
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <button
                   onClick={() => startPractice(selectedExamName, selectedYear, practiceSubject, practiceTopic)}
                   style={{ padding: '8px 16px', background: 'var(--c-surface3)', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontWeight: 500, color: C.textSec, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}

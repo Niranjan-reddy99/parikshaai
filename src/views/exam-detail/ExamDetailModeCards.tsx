@@ -33,7 +33,7 @@ export function ExamDetailModeCards({
   startMockExam,
 }: ExamDetailModeCardsProps) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
+    <div className="exam-mode-grid">
       <button
         onClick={() => (yearLocked ? onLockedClick() : startPractice(selectedExamName, selectedYear))}
         className="glass-panel hover-lift"

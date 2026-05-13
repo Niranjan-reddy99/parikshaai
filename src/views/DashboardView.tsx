@@ -72,9 +72,9 @@ function CircularProgress({ pct }: { pct: number }) {
   );
 }
 
-function SectionCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function SectionCard({ children, style, className }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) {
   return (
-    <div style={{
+    <div className={className} style={{
       background: 'var(--bg)', border: '1px solid var(--border)',
       borderRadius: 12, padding: '18px 20px', ...style,
     }}>
@@ -362,10 +362,10 @@ export function DashboardView({
   });
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="dashboard-shell" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* ── Page header ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+      <div className="dashboard-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 3px', color: 'var(--text)', letterSpacing: '-0.3px' }}>
             My Progress
@@ -374,7 +374,7 @@ export function DashboardView({
             Performance insights across all subjects and exams
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+        <div className="dashboard-header-badges" style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 7,
             padding: '7px 13px', background: '#eff6ff',
@@ -403,7 +403,7 @@ export function DashboardView({
       </div>
 
       {/* ── Tabs ────────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 24, gap: 0 }}>
+      <div className="dashboard-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 24, gap: 0 }}>
         <button style={tabStyle(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
         <button style={tabStyle(tab === 'strengths')} onClick={() => setTab('strengths')}>Strengths &amp; Weaknesses</button>
         <button style={tabStyle(tab === 'topic')} onClick={() => setTab('topic')}>Topic Analysis</button>
@@ -439,7 +439,7 @@ export function DashboardView({
           ) : (
             <>
               {/* Stat cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
+              <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
 
                 {/* Accuracy */}
                 <div style={{
@@ -528,7 +528,7 @@ export function DashboardView({
               </div>
 
               {/* Main 2-col layout */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 20, alignItems: 'start' }}>
+              <div className="dashboard-main-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 20, alignItems: 'start' }}>
 
                 {/* Left column */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -561,7 +561,7 @@ export function DashboardView({
                   </SectionCard>
 
                   {/* Charts row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div className="dashboard-chart-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
                     {/* Accuracy by Section */}
                     <SectionCard>
@@ -624,7 +624,7 @@ export function DashboardView({
                 </div>
 
                 {/* Right sidebar */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 24 }}>
+                <div className="dashboard-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 24 }}>
 
                   {/* Weak Areas */}
                   <SectionCard>
@@ -727,7 +727,7 @@ export function DashboardView({
       {/* ── STRENGTHS & WEAKNESSES TAB ──────────────────────────────────────── */}
       {tab === 'strengths' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+          <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {[
               { label: 'Overall Accuracy', value: `${overallAccuracy}%`, hint: overallAccuracy >= BENCHMARK ? 'On track' : `${Math.max(BENCHMARK - overallAccuracy, 0)}% below target`, color: accuracyColor },
               { label: 'Strong Subjects', value: strongSubjects.length, hint: strongSubjects.length > 0 ? `${strongSubjects.map(s => s.subject.split(' ')[0]).join(', ')}` : 'Practice to identify', color: '#16a34a' },
@@ -742,7 +742,7 @@ export function DashboardView({
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 20 }}>
+          <div className="dashboard-split-grid" style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 20 }}>
             <SectionCard>
               <SectionHeader title="Strongest Subjects" />
               {strongSubjects.length === 0 ? (
@@ -799,7 +799,7 @@ export function DashboardView({
             </SectionCard>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div className="dashboard-half-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
             <SectionCard>
               <SectionHeader title="Performance Signals" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -844,7 +844,7 @@ export function DashboardView({
       {/* ── TOPIC ANALYSIS TAB ──────────────────────────────────────────────── */}
       {tab === 'topic' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+          <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {[
               { label: 'Subjects Touched', value: topicCoverageSummary.totalSubjectsTouched, hint: 'Breadth of your practice', color: '#2563eb' },
               { label: 'Topics Seen', value: topicCoverageSummary.totalTopicsTouched, hint: 'From recent sessions', color: '#7c3aed' },
@@ -859,7 +859,7 @@ export function DashboardView({
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 20 }}>
+          <div className="dashboard-split-grid" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 20 }}>
             <SectionCard>
               <SectionHeader title="Recent Topic Coverage" />
               {topicRows.length === 0 ? (
@@ -926,7 +926,7 @@ export function DashboardView({
       {/* ── TEST ANALYSIS TAB ───────────────────────────────────────────────── */}
       {tab === 'test-analysis' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+          <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {[
               { label: 'Attempts Reviewed', value: testReviewSummary.total, hint: 'Latest answered questions in view', color: '#2563eb' },
               { label: 'Recent Accuracy', value: `${testReviewSummary.accuracy}%`, hint: `${testReviewSummary.correct} correct / ${testReviewSummary.wrong} wrong`, color: testReviewSummary.accuracy >= BENCHMARK ? '#16a34a' : '#ef4444' },
@@ -941,7 +941,7 @@ export function DashboardView({
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div className="dashboard-half-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
             <SectionCard>
               <SectionHeader title="Recent Attempt Accuracy" />
               {recentAccuracyTrend.length < 2 ? (
@@ -989,7 +989,7 @@ export function DashboardView({
             </SectionCard>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 20 }}>
+          <div className="dashboard-split-grid" style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 20 }}>
             <SectionCard>
               <SectionHeader title="Mistake Concentration" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1026,7 +1026,7 @@ export function DashboardView({
               </div>
             </SectionCard>
 
-            <SectionCard>
+            <SectionCard className="dashboard-review-card">
               <SectionHeader title="Reviewer Notes" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                 {reviewHighlights.length === 0 ? (
@@ -1038,7 +1038,7 @@ export function DashboardView({
                 ))}
               </div>
 
-              <div style={{
+              <div className="dashboard-review-table-head" style={{
                 display: 'grid', gridTemplateColumns: '1fr 110px 110px 84px 84px',
                 padding: '8px 12px', background: 'var(--bg-alt)',
                 borderRadius: '8px 8px 0 0', fontSize: 11, fontWeight: 700,
@@ -1057,6 +1057,7 @@ export function DashboardView({
                 const paceColor = pace === 'Fast' ? '#16a34a' : pace === 'Balanced' ? '#2563eb' : '#f59e0b';
                 return (
                   <div
+                    className="dashboard-review-table-row"
                     key={i}
                     style={{
                       display: 'grid', gridTemplateColumns: '1fr 110px 110px 84px 84px',

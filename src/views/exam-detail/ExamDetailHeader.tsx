@@ -25,8 +25,8 @@ export function ExamDetailHeader({
   onBack,
 }: ExamDetailHeaderProps) {
   return (
-    <div className="glass-panel" style={{ borderRadius: 24, padding: '24px 26px', marginBottom: 24, border: `1px solid ${C.borderHover}` }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+    <div className="glass-panel" style={{ borderRadius: 24, padding: '24px 22px', marginBottom: 24, border: `1px solid ${C.borderHover}` }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
         <button
           className="hover-lift"
           onClick={onBack}

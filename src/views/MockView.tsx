@@ -53,28 +53,32 @@ export function MockView({ examSession, setExamSession, examTimer, finishExam, l
         onSubmit={handleSubmitExam}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 20, alignItems: 'start' }}>
-        <MockQuestionPanel
-          question={currentQuestion}
-          currentIndex={examSession.currentIndex}
-          loadedCount={loaded}
-          hasMore={!!examSession.hasMore}
-          loadingMoreQuestions={loadingMoreQuestions}
-          selectedAnswer={examSession.answers[examSession.currentIndex]}
-          onSelectAnswer={selectAnswer}
-          onPrevious={() => goTo(examSession.currentIndex - 1)}
-          onNext={() => goTo(examSession.currentIndex + 1)}
-          onLoadMoreQuestions={loadMoreQuestions}
-        />
+      <div className="mock-layout">
+        <div className="mock-main-column">
+          <MockQuestionPanel
+            question={currentQuestion}
+            currentIndex={examSession.currentIndex}
+            loadedCount={loaded}
+            hasMore={!!examSession.hasMore}
+            loadingMoreQuestions={loadingMoreQuestions}
+            selectedAnswer={examSession.answers[examSession.currentIndex]}
+            onSelectAnswer={selectAnswer}
+            onPrevious={() => goTo(examSession.currentIndex - 1)}
+            onNext={() => goTo(examSession.currentIndex + 1)}
+            onLoadMoreQuestions={loadMoreQuestions}
+          />
+        </div>
 
-        <MockQuestionPalette
-          loadedCount={examSession.questions.length}
-          currentIndex={examSession.currentIndex}
-          answered={answered}
-          total={total}
-          answers={examSession.answers}
-          onGoTo={goTo}
-        />
+        <div className="mock-sidebar-card">
+          <MockQuestionPalette
+            loadedCount={examSession.questions.length}
+            currentIndex={examSession.currentIndex}
+            answered={answered}
+            total={total}
+            answers={examSession.answers}
+            onGoTo={goTo}
+          />
+        </div>
       </div>
     </div>
   );

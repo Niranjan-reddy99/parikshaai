@@ -468,7 +468,7 @@ export function FeedView({ subjects, startPractice, startTopicPractice, prefetch
         <div style={{ fontSize: 13, color: 'var(--text-sec)', marginBottom: 20 }}>
           Pick a commission to explore its exam papers and topic patterns.
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 16 }}>
+        <div className="feed-commission-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 16 }}>
           {commissions.map(c => (
             <CommissionCard
               key={c.key}
@@ -484,7 +484,7 @@ export function FeedView({ subjects, startPractice, startTopicPractice, prefetch
   }
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="feed-shell" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', color: 'var(--text)', letterSpacing: '-0.3px' }}>
           PYQ Feed
@@ -494,7 +494,7 @@ export function FeedView({ subjects, startPractice, startTopicPractice, prefetch
         </p>
       </div>
 
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 22 }}>
+      <div className="feed-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 22 }}>
         <button style={tabStyle(tab === 'by-topic')} onClick={() => { setTab('by-topic'); setFilterSubject('All'); }}>
           By Topic
         </button>
@@ -509,7 +509,7 @@ export function FeedView({ subjects, startPractice, startTopicPractice, prefetch
         </div>
       ) : tab === 'by-topic' ? (
         <>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+          <div className="feed-toolbar" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
             <SubjectPills subjects={subjectNames} selected={filterSubject} onChange={setFilterSubject} />
             <div style={{ display: 'flex', gap: 6, flexShrink: 0, paddingTop: 2 }}>
               {(['count', 'az'] as SortMode[]).map(m => (

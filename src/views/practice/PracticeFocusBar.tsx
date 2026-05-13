@@ -39,15 +39,16 @@ export function PracticeFocusBar({
   return (
     <div
       style={{
-        background: 'var(--bg)',
-        borderRadius: 14,
-        padding: '12px 16px',
+        background: 'rgba(255,255,255,0.92)',
+        borderRadius: 18,
+        padding: '14px 16px',
         marginBottom: 16,
         border: `1px solid var(--border)`,
+        boxShadow: '0 16px 30px -28px rgba(15,23,42,0.18)',
       }}
     >
       {/* Row 1: back + exam name + mode */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <button
           onClick={onBack}
           style={{
@@ -65,18 +66,18 @@ export function PracticeFocusBar({
         <span style={{ fontSize: 12.5, fontWeight: 600, color: C.text, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {displayName}{selectedYear > 0 ? ` · ${selectedYear}` : ''}
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#34D399', flexShrink: 0 }}>
-          <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#34D399', boxShadow: '0 0 5px #34D39960' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--green)', flexShrink: 0, padding: '4px 9px', borderRadius: 999, background: 'var(--green-soft)', fontWeight: 700 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 5px rgba(15,159,140,0.35)' }} />
           Practice
         </div>
       </div>
 
       {/* Row 2: counter + progress bar + filters */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: C.textTert, flexShrink: 0, minWidth: 42 }}>
           {practiceIndex + 1}/{practiceQueueLength}
         </span>
-        <div style={{ flex: 1, height: 4, background: 'var(--bg-canvas)', borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{ flex: 1, minWidth: 140, height: 5, background: 'var(--bg-canvas)', borderRadius: 4, overflow: 'hidden' }}>
           <motion.div
             style={{ height: '100%', background: '#2563eb', borderRadius: 4 }}
             initial={{ width: 0 }}
@@ -87,7 +88,7 @@ export function PracticeFocusBar({
         {practiceInitLoading && (
           <Loader2 style={{ width: 12, height: 12, animation: 'spin 1s linear infinite', color: C.blue, flexShrink: 0 }} />
         )}
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
           {[
             { value: practiceSubject, placeholder: 'All Subjects', options: ['All', ...availableSubjects], onChange: (v: string) => startPractice(selectedExamName, selectedYear, v, 'All') },
             { value: practiceTopic, placeholder: 'All Topics', options: ['All', ...availableTopics], onChange: (v: string) => startPractice(selectedExamName, selectedYear, practiceSubject, v) },
@@ -96,7 +97,7 @@ export function PracticeFocusBar({
               key={i}
               value={sel.value}
               onChange={e => sel.onChange(e.target.value)}
-              style={{ fontSize: 11, background: 'var(--bg-alt)', border: `1px solid var(--border)`, borderRadius: 6, padding: '4px 8px', color: C.textSec, cursor: 'pointer', maxWidth: 112, fontFamily: 'inherit' }}
+              style={{ fontSize: 11.5, background: 'var(--bg-alt)', border: `1px solid var(--border)`, borderRadius: 10, padding: '7px 10px', color: C.textSec, cursor: 'pointer', maxWidth: 132, fontFamily: 'inherit' }}
             >
               <option value="All">{sel.placeholder}</option>
               {sel.options.filter(o => o !== 'All').map((o, oi) => <option key={`${o}-${oi}`} value={o}>{o}</option>)}

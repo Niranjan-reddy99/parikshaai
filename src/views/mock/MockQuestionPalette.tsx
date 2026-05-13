@@ -18,7 +18,7 @@ export function MockQuestionPalette({
   onGoTo,
 }: MockQuestionPaletteProps) {
   return (
-    <div className="glass-panel" style={{ borderRadius: 16, padding: '24px 20px', position: 'sticky', top: 0 }}>
+    <div className="glass-panel" style={{ borderRadius: 18, padding: '22px 18px' }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: C.textSec, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Navigator</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5, marginBottom: 14 }}>
         {Array.from({ length: loadedCount }).map((_, index) => {

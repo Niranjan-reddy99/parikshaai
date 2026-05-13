@@ -127,8 +127,8 @@ export function PracticeView({
   // SECTION: Render Practice UI
   // =========================
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 20, alignItems: 'start' }}>
-      <div>
+    <div className="practice-layout">
+      <div className="practice-main-column">
         <PracticeFocusBar
           practiceIndex={practiceIndex}
           practiceQueueLength={practiceQueue.length}
@@ -185,13 +185,15 @@ export function PracticeView({
       </div>
 
       {practiceQueue.length > 0 && (
-        <PracticeSessionSidebar
-          practiceIndex={practiceIndex}
-          practiceQueueLength={practiceQueue.length}
-          sessionAnswers={sessionAnswers}
-          activeQuestionRef={activeQRef}
-          jumpToPracticeQuestion={jumpToPracticeQuestion}
-        />
+        <div className="practice-sidebar-card">
+          <PracticeSessionSidebar
+            practiceIndex={practiceIndex}
+            practiceQueueLength={practiceQueue.length}
+            sessionAnswers={sessionAnswers}
+            activeQuestionRef={activeQRef}
+            jumpToPracticeQuestion={jumpToPracticeQuestion}
+          />
+        </div>
       )}
     </div>
   );

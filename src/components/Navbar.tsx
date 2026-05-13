@@ -24,6 +24,8 @@ interface NavbarProps {
   openExam: (examName: string, commission: string, examType: string) => void;
   openPatternPractice: () => void;
   handleLogout: () => void;
+  mode?: 'sidebar' | 'drawer';
+  onNavigate?: () => void;
 }
 
 function NavIcon({ name }: { name: string }) {
@@ -126,10 +128,13 @@ interface NavItemDef {
 export function Navbar({
   user, view, xp,
   setView, openQuestionBankHome, openPatternPractice, handleLogout,
+  mode = 'sidebar',
+  onNavigate,
 }: NavbarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const { level, levelName, xpNext } = xpToLevel(xp);
   const xpProgress = Math.min(100, Math.round((xp / xpNext) * 100));
+  const isDrawer = mode === 'drawer';
 
   const isHomeActive = ['home', 'commission', 'exam-detail'].includes(view);
 
@@ -195,7 +200,10 @@ export function Navbar({
     return (
       <div
         key={item.id}
-        onClick={item.onClick}
+        onClick={() => {
+          item.onClick();
+          onNavigate?.();
+        }}
         onMouseEnter={() => setHoveredItem(item.id)}
         onMouseLeave={() => setHoveredItem(null)}
         style={navItemStyle(active, hovered)}
@@ -215,18 +223,20 @@ export function Navbar({
 
   return (
     <aside style={{
-      background: 'var(--bg)',
-      borderRight: '1px solid var(--border)',
+      background: isDrawer ? 'transparent' : 'rgba(255,255,255,0.82)',
+      backdropFilter: 'blur(18px)',
+      borderRight: isDrawer ? 'none' : '1px solid var(--border)',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
       zIndex: 20,
       height: '100%',
+      width: isDrawer ? '100%' : 248,
     }}>
 
       {/* Brand logo */}
       <div style={{
-        padding: '16px 14px 12px',
+        padding: isDrawer ? '20px 18px 14px' : '18px 16px 14px',
         borderBottom: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0,
       }}>
@@ -235,8 +245,10 @@ export function Navbar({
           <path d="M9 22V10l7 4 7-4v12l-7-4z" fill="#5eead4" />
         </svg>
         <div>
-          <div style={{ fontSize: 14.5, fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', lineHeight: 1 }}>Pariksha</div>
-          <div style={{ fontSize: 10, color: 'var(--text-tert)', marginTop: 2 }}>PYQ Practice</div>
+          <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', lineHeight: 1 }}>Pariksha</div>
+          <div style={{ fontSize: 10.5, color: 'var(--text-tert)', marginTop: 3 }}>
+            {isDrawer ? 'Navigation' : 'PYQ workspace'}
+          </div>
         </div>
       </div>
 
@@ -258,7 +270,10 @@ export function Navbar({
         {/* LABS */}
         <SectionLabel label="Labs" />
         <div
-          onClick={openPatternPractice}
+          onClick={() => {
+            openPatternPractice();
+            onNavigate?.();
+          }}
           onMouseEnter={() => setHoveredItem('pattern')}
           onMouseLeave={() => setHoveredItem(null)}
           style={navItemStyle(view === 'pattern-practice', hoveredItem === 'pattern')}
@@ -281,7 +296,10 @@ export function Navbar({
               Sign in to track progress and streaks.
             </div>
             <button
-              onClick={handleLogout}
+              onClick={() => {
+                handleLogout();
+                onNavigate?.();
+              }}
               style={{ width: '100%', padding: '7px', background: 'var(--text)', color: 'white', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               Sign in with Google
@@ -313,7 +331,10 @@ export function Navbar({
         )}
 
         <div
-          onClick={handleLogout}
+          onClick={() => {
+            handleLogout();
+            onNavigate?.();
+          }}
           onMouseEnter={() => setHoveredItem('logout')}
           onMouseLeave={() => setHoveredItem(null)}
           style={{

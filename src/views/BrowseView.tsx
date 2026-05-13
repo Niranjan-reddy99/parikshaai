@@ -92,8 +92,8 @@ export function BrowseView({
   // SECTION: Render Browse UI
   // =========================
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
+    <div className="browse-shell">
+      <div className="browse-header">
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 3 }}>
             {selectedExamName || selectedExamType}
@@ -102,7 +102,7 @@ export function BrowseView({
             {selectedYear} · {filteredQs.length} loaded of {totalCount} questions
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+        <div className="browse-header-actions">
           <button onClick={handleShowPicker}
             style={{ padding: '7px 14px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.textSec, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
             Change Exam <ChevronRight style={{ width: 13, height: 13 }} />

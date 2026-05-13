@@ -64,7 +64,7 @@ export function ExamDetailView({
   // SECTION: Render Exam Detail
   // =========================
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto' }}>
+    <div className="exam-detail-shell">
       <ExamDetailHeader
         selectedCommission={selectedCommission}
         selectedExamType={selectedExamType}

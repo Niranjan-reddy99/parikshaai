@@ -22,10 +22,10 @@ export function BookmarksView({ bookmarkMap, onRemove, onClearAll, onPracticeAll
   const questions = Object.values(bookmarkMap);
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif", maxWidth: 760, margin: '0 auto' }}>
+    <div className="bookmarks-shell" style={{ fontFamily: "'Inter', sans-serif", maxWidth: 760, margin: '0 auto' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="bookmarks-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: 'var(--text)', letterSpacing: '-0.3px' }}>Bookmarks</h1>
@@ -40,7 +40,7 @@ export function BookmarksView({ bookmarkMap, onRemove, onClearAll, onPracticeAll
           </p>
         </div>
         {questions.length > 0 && (
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="bookmarks-actions" style={{ display: 'flex', gap: 8 }}>
             {confirmClear ? (
               <>
                 <button
@@ -108,6 +108,7 @@ function BookmarkCard({ q, onRemove }: { q: Question; onRemove: () => void }) {
 
   return (
     <div
+      className="bookmark-card"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{

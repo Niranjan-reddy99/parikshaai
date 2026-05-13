@@ -162,19 +162,21 @@ export function HomeView({
   ];
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif", display: 'grid', gridTemplateColumns: '1fr 256px', gap: 20, alignItems: 'start' }}>
+    <div className="home-layout" style={{ fontFamily: "var(--font-sans)" }}>
 
       {/* ── LEFT: main content ─────────────────────────────────────────── */}
-      <div>
+      <div className="home-main-column">
 
         {/* Greeting banner */}
         <div style={{
-          background: 'linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#1d4ed8 100%)',
-          borderRadius: 14, padding: '20px 24px', marginBottom: 20,
+          background: 'linear-gradient(145deg,#10243e 0%,#164a74 52%,#0f6cbd 100%)',
+          borderRadius: 24, padding: '24px 24px', marginBottom: 24,
           position: 'relative', overflow: 'hidden',
+          boxShadow: '0 24px 48px -28px rgba(15,23,42,0.45)',
         }}>
-          <div style={{ position: 'absolute', right: -20, top: -20, width: 130, height: 130, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', right: 40, bottom: -40, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', right: -28, top: -28, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', right: 38, bottom: -56, width: 108, height: 108, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent)' }} />
 
           {/* Sarnath SVG placeholder in top-right */}
           <div style={{ position: 'absolute', right: 24, top: '50%', transform: 'translateY(-50%)', opacity: 0.15, pointerEvents: 'none' }}>
@@ -186,10 +188,10 @@ export function HomeView({
           </div>
 
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 4, letterSpacing: '-0.2px' }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', marginBottom: 6, letterSpacing: '-0.03em' }}>
               Hi, {firstName}
             </div>
-            <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', marginBottom: 14 }}>
+            <div style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(255,255,255,0.72)', marginBottom: 16, maxWidth: 520 }}>
               {goalPct >= 100
                 ? 'Daily goal complete. Strong work.'
                 : todayCount === 0
@@ -218,11 +220,14 @@ export function HomeView({
         </div>
 
         {/* Quick Practice Set */}
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Quick Practice</h2>
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', margin: 0 }}>Quick Practice</h2>
+              <p style={{ fontSize: 12, color: 'var(--text-tert)', margin: '3px 0 0' }}>Jump into the most useful practice modes without hunting through menus.</p>
+            </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+          <div className="home-quick-grid">
             {quickShortcuts.map((s, i) => {
               const hov = hoveredShortcut === i;
               return (
@@ -233,10 +238,11 @@ export function HomeView({
                   onMouseLeave={() => setHoveredShortcut(null)}
                   style={{
                     background: 'var(--bg)', border: `1px solid ${hov ? '#94a3b8' : 'var(--border)'}`,
-                    borderRadius: 12, padding: '14px 16px', cursor: 'pointer',
-                    boxShadow: hov ? '0 4px 16px rgba(15,23,42,0.08)' : 'none',
+                    borderRadius: 18, padding: '16px 16px', cursor: 'pointer',
+                    boxShadow: hov ? '0 16px 30px -24px rgba(15,23,42,0.25)' : '0 12px 24px -28px rgba(15,23,42,0.15)',
                     transition: 'border-color 0.12s, box-shadow 0.12s',
                     display: 'flex', flexDirection: 'column', gap: 10,
+                    minHeight: 136,
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -264,7 +270,7 @@ export function HomeView({
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
-              <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: '0 0 2px' }}>Previous Year Questions</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', margin: '0 0 2px' }}>Previous Year Questions</h2>
               <p style={{ fontSize: 12, color: 'var(--text-tert)', margin: 0 }}>Understand the examiner's mindset by practicing PYQs</p>
             </div>
             <button onClick={openQuestionBankHome} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'inherit', flexShrink: 0 }}>
@@ -272,7 +278,7 @@ export function HomeView({
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 10 }}>
+          <div className="home-commission-grid">
             {commissionStats.map(({ commission, totalQs, allYears, papers, meta }) => {
               const hov = hoveredCommission === commission;
               return (
@@ -282,15 +288,15 @@ export function HomeView({
                   onMouseEnter={() => setHoveredCommission(commission)}
                   onMouseLeave={() => setHoveredCommission(null)}
                   style={{
-                    borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
+                    borderRadius: 18, overflow: 'hidden', cursor: 'pointer',
                     background: 'var(--bg)', border: `1px solid ${hov ? '#94a3b8' : 'var(--border)'}`,
                     transform: hov ? 'translateY(-2px)' : 'none',
-                    boxShadow: hov ? '0 6px 20px rgba(15,23,42,0.09)' : 'none',
+                    boxShadow: hov ? '0 18px 34px -24px rgba(15,23,42,0.22)' : '0 12px 24px -28px rgba(15,23,42,0.14)',
                     transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.12s',
                   }}
                 >
-                  <div style={{ height: 4, background: meta?.gradient || '#475569' }} />
-                  <div style={{ padding: '12px 14px' }}>
+                  <div style={{ height: 5, background: meta?.gradient || '#475569' }} />
+                  <div style={{ padding: '14px 15px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
                       <div style={{
                         width: 32, height: 32, borderRadius: 9, flexShrink: 0,
@@ -330,10 +336,10 @@ export function HomeView({
       </div>
 
       {/* ── RIGHT: sticky sidebar ──────────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'sticky', top: 24 }}>
+      <div className="home-sidebar">
 
         {/* Days to Prelims */}
-        <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' }}>
+        <div className="surface-card" style={{ borderRadius: 20, padding: '18px 20px' }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tert)', marginBottom: 6 }}>Days left to Prelims 2027</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
             <div style={{ fontSize: 42, fontWeight: 900, color: 'var(--text)', lineHeight: 1, letterSpacing: '-2px' }}>
@@ -348,9 +354,9 @@ export function HomeView({
         </div>
 
         {/* Today's Activity */}
-        <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
+        <div className="surface-card" style={{ borderRadius: 20, padding: '16px 18px' }}>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>Today's Activity</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+          <div className="home-sidebar-metrics">
             {[
               {
                 value: todayCount,
@@ -388,7 +394,7 @@ export function HomeView({
         </div>
 
         {/* Streak */}
-        <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
+        <div className="surface-card" style={{ borderRadius: 20, padding: '16px 18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
