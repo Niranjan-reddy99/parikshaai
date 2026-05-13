@@ -1,20 +1,41 @@
 import { API_BASE } from './api';
+import { onIdTokenChanged } from 'firebase/auth';
+import { auth } from '../firebase';
 
-const _rawAdminKey = import.meta.env.VITE_ADMIN_KEY as string | undefined;
+let adminAuthToken = '';
+const rawAdminKey =
+  import.meta.env.DEV
+    ? (import.meta.env.VITE_ADMIN_KEY as string | undefined)
+    : undefined;
 
-if (!_rawAdminKey && import.meta.env.PROD) {
-  console.error(
-    '[config] VITE_ADMIN_KEY is not set. Admin endpoints will be inaccessible.'
-  );
+onIdTokenChanged(auth, async (user) => {
+  if (!user) {
+    adminAuthToken = '';
+    return;
+  }
+  try {
+    adminAuthToken = await user.getIdToken();
+  } catch {
+    adminAuthToken = '';
+  }
+});
+
+export function setAdminAuthToken(token: string | null | undefined) {
+  adminAuthToken = (token || '').trim();
 }
 
-export const ADMIN_KEY = _rawAdminKey || '';
+export function hasAdminAuth() {
+  return Boolean(adminAuthToken || rawAdminKey);
+}
 
 export function adminHeaders(): HeadersInit {
-  if (!ADMIN_KEY) {
-    throw new Error('VITE_ADMIN_KEY is required for admin frontend requests.');
+  if (adminAuthToken) {
+    return { Authorization: `Bearer ${adminAuthToken}` };
   }
-  return { 'x-admin-key': ADMIN_KEY };
+  if (rawAdminKey) {
+    return { 'x-admin-key': rawAdminKey };
+  }
+  throw new Error('Admin sign-in is required for admin requests.');
 }
 
 export { API_BASE };

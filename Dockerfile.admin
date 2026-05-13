@@ -6,12 +6,10 @@ COPY package.json package-lock.json* ./
 RUN npm install
 
 COPY frontend ./frontend
+COPY firebase-applet-config.json ./firebase-applet-config.json
 
 ARG VITE_ADMIN_API_URL
 ENV VITE_ADMIN_API_URL=$VITE_ADMIN_API_URL
-
-ARG VITE_ADMIN_KEY
-ENV VITE_ADMIN_KEY=$VITE_ADMIN_KEY
 
 RUN npm run build:admin
 
@@ -23,4 +21,4 @@ RUN npm install -g serve
 
 COPY --from=builder /app/frontend/dist ./frontend/dist
 
-CMD ["sh", "-c", "printf 'window.__ADMIN_APP_CONFIG__={VITE_ADMIN_API_URL:\"%s\",VITE_ADMIN_KEY:\"%s\"};\\n' \"$VITE_ADMIN_API_URL\" \"$VITE_ADMIN_KEY\" > /app/frontend/dist/runtime-config.js && serve -s /app/frontend/dist -l ${PORT:-3000}"]
+CMD ["sh", "-c", "printf 'window.__ADMIN_APP_CONFIG__={VITE_ADMIN_API_URL:\"%s\"};\\n' \"$VITE_ADMIN_API_URL\" > /app/frontend/dist/runtime-config.js && serve -s /app/frontend/dist -l ${PORT:-3000}"]

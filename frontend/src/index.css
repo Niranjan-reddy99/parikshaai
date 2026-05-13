@@ -84,6 +84,33 @@ textarea {
   min-width: 280px;
 }
 
+.auth-card {
+  align-items: center;
+}
+
+.auth-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 280px;
+}
+
+.auth-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: #eff4ff;
+  color: #21406d;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hero-signout {
+  align-self: center;
+}
+
 .meta-chip,
 .badge,
 .live-pill {

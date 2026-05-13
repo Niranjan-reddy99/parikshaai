@@ -2,7 +2,6 @@ declare global {
   interface Window {
     __ADMIN_APP_CONFIG__?: {
       VITE_ADMIN_API_URL?: string;
-      VITE_ADMIN_KEY?: string;
     };
   }
 }

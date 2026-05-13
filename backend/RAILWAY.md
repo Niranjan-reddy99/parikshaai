@@ -25,6 +25,7 @@ APP_ROLE=public
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_KEY=your-supabase-service-or-secret-key
 ADMIN_API_KEY=your-long-random-admin-secret
+ADMIN_EMAILS=you@example.com,teammate@example.com
 GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 GOOGLE_CLOUD_LOCATION=us-central1
 FIREBASE_PROJECT_ID=your-firebase-project-id
@@ -78,10 +79,12 @@ Use the repo root `/` and set:
 ```env
 RAILWAY_DOCKERFILE_PATH=Dockerfile.admin
 VITE_ADMIN_API_URL=https://your-admin-api.up.railway.app
-VITE_ADMIN_KEY=the-same-value-as-ADMIN_API_KEY
 ```
 
 Generate a public domain and point it to port `8080` if Railway asks for the target port manually.
+
+The admin frontend now uses Firebase sign-in plus backend `ADMIN_EMAILS`.
+Do not expose `ADMIN_API_KEY` to the browser.
 
 ## 5. Firebase
 

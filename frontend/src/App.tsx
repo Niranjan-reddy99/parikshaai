@@ -13,7 +13,15 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { ADMIN_KEY, API_BASE, adminHeaders } from './lib/adminApi';
+import {
+  GoogleAuthProvider,
+  User,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
+import { API_BASE, adminHeaders, hasAdminAuth, setAdminAuthToken } from './lib/adminApi';
+import { auth } from './firebase';
 
 type Phase = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
 type Mode = 'auto' | 'answer_key' | 'visual' | 'cbt' | 'pattern';
@@ -439,11 +447,36 @@ export default function App() {
   const [renameExamDraft, setRenameExamDraft] = useState('');
   const [publishingPaper, setPublishingPaper] = useState(false);
   const [renamingExam, setRenamingExam] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const answerKeyInputRef = useRef<HTMLInputElement | null>(null);
   const pollRef = useRef<number | null>(null);
   const lastProgressRef = useRef(-1);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      setAuthError('');
+      setUser(nextUser);
+      if (!nextUser) {
+        setAdminAuthToken(null);
+        setAuthLoading(false);
+        return;
+      }
+      try {
+        const token = await nextUser.getIdToken();
+        setAdminAuthToken(token);
+      } catch (tokenError: any) {
+        setAdminAuthToken(null);
+        setAuthError(tokenError?.message || 'Could not prepare the admin session.');
+      } finally {
+        setAuthLoading(false);
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   const canSubmit =
     !!file &&
@@ -665,6 +698,7 @@ export default function App() {
   );
 
   useEffect(() => {
+    if (!user || !hasAdminAuth()) return;
     void loadRecentJobs();
     const savedJob = localStorage.getItem(ACTIVE_JOB_KEY);
     if (savedJob) {
@@ -680,7 +714,7 @@ export default function App() {
     return () => {
       clearPolling();
     };
-  }, [clearPolling, loadRecentJobs, pollJob]);
+  }, [clearPolling, loadRecentJobs, pollJob, user]);
 
   const handleSubmit = useCallback(
     async (options?: { forceReplace?: boolean; replaceExisting?: boolean }) => {
@@ -953,6 +987,86 @@ export default function App() {
     }
   }, [loadReviewWorkspace, reviewTarget]);
 
+  const handleAdminSignIn = useCallback(async () => {
+    setAuthError('');
+    setAuthLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const token = await result.user.getIdToken();
+      setAdminAuthToken(token);
+      setUser(result.user);
+    } catch (signInError: any) {
+      setAuthError(signInError?.message || 'Google sign-in failed.');
+    } finally {
+      setAuthLoading(false);
+    }
+  }, []);
+
+  const handleAdminSignOut = useCallback(async () => {
+    setAuthError('');
+    try {
+      await signOut(auth);
+      setAdminAuthToken(null);
+      setUser(null);
+      clearPolling();
+      localStorage.removeItem(ACTIVE_JOB_KEY);
+    } catch (signOutError: any) {
+      setAuthError(signOutError?.message || 'Could not sign out.');
+    }
+  }, [clearPolling]);
+
+  if (authLoading) {
+    return (
+      <div className="admin-shell">
+        <div className="hero-card auth-card">
+          <div>
+            <div className="hero-kicker">Admin Access</div>
+            <h1>Checking your admin session</h1>
+            <p className="hero-copy">
+              We are verifying your Google sign-in before exposing upload and publish tools.
+            </p>
+          </div>
+          <div className="auth-status-pill">
+            <Loader2 size={16} className="spin" />
+            Preparing secure admin access
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !hasAdminAuth()) {
+    return (
+      <div className="admin-shell">
+        <div className="hero-card auth-card">
+          <div>
+            <div className="hero-kicker">Private Admin Workspace</div>
+            <h1>Sign in to continue</h1>
+            <p className="hero-copy">
+              The admin console now uses Firebase-authenticated access instead of a browser-exposed secret key.
+            </p>
+            {authError ? (
+              <div className="alert-card alert-danger compact-alert" style={{ marginTop: 16 }}>
+                <AlertCircle size={16} />
+                <div>
+                  <strong>Could not start admin session</strong>
+                  <p>{authError}</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <div className="auth-actions">
+            <button className="primary-button" onClick={() => void handleAdminSignIn()}>
+              <Shield size={16} />
+              Sign in with Google
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-shell">
       <div className="hero-card">
@@ -969,10 +1083,19 @@ export default function App() {
             <Shield size={15} />
             Admin API: {API_BASE}
           </div>
-          <div className={`meta-chip ${ADMIN_KEY ? 'meta-chip-ok' : 'meta-chip-danger'}`}>
-            {ADMIN_KEY ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
-            {ADMIN_KEY ? 'Admin key loaded' : 'Missing VITE_ADMIN_KEY'}
+          <div className="meta-chip meta-chip-ok">
+            <CheckCircle2 size={15} />
+            Signed in as {user.email || 'admin user'}
           </div>
+          <button className="ghost-button hero-signout" onClick={() => void handleAdminSignOut()}>
+            Sign out
+          </button>
+          {authError ? (
+            <div className="meta-chip meta-chip-danger">
+              <AlertCircle size={15} />
+              {authError}
+            </div>
+          ) : null}
         </div>
       </div>
 

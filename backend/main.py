@@ -229,6 +229,11 @@ _raw_admin_key = os.getenv("ADMIN_API_KEY")
 if not _raw_admin_key:
     raise RuntimeError("ADMIN_API_KEY env var is not set — refusing to start without it")
 ADMIN_API_KEY = _raw_admin_key
+ADMIN_EMAILS = {
+    email.strip().lower()
+    for email in os.getenv("ADMIN_EMAILS", "").split(",")
+    if email.strip()
+}
 
 # ── In-process metadata cache ─────────────────────────────
 # /questions/meta is called on every user login. Cache the result for
@@ -2079,10 +2084,34 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
         raise HTTPException(401, str(e))
 
 
-async def verify_admin(x_admin_key: str = Header(None)):
-    """Simple API key auth for admin endpoints."""
-    if not x_admin_key or x_admin_key != ADMIN_API_KEY:
-        raise HTTPException(403, "Invalid admin API key")
+async def verify_admin(
+    x_admin_key: str = Header(None),
+    authorization: str = Header(None),
+):
+    """Allow either backend-only API key auth or Firebase-authenticated admins."""
+    if x_admin_key and x_admin_key == ADMIN_API_KEY:
+        return {"auth_mode": "api_key"}
+
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split("Bearer ", 1)[1].strip()
+        if not token:
+            raise HTTPException(403, "Missing admin bearer token")
+        try:
+            claims = verify_firebase_token(token)
+        except ValueError as e:
+            raise HTTPException(401, str(e))
+
+        email = str(claims.get("email") or "").strip().lower()
+        if not ADMIN_EMAILS:
+            raise HTTPException(
+                403,
+                "ADMIN_EMAILS is not configured on the backend.",
+            )
+        if not email or email not in ADMIN_EMAILS:
+            raise HTTPException(403, "Signed-in user is not allowed to access admin routes.")
+        return claims
+
+    raise HTTPException(403, "Invalid admin authentication")
 
 
 @app.post("/admin/pattern-book/classify-pages", dependencies=[Depends(verify_admin)])

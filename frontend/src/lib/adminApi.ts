@@ -1,19 +1,41 @@
 import { API_BASE } from './api';
+import { onIdTokenChanged } from 'firebase/auth';
+import { auth } from '../firebase';
 
-const runtimeAdminKey =
-  typeof window !== 'undefined'
-    ? window.__ADMIN_APP_CONFIG__?.VITE_ADMIN_KEY
+let adminAuthToken = '';
+const rawAdminKey =
+  import.meta.env.DEV
+    ? (import.meta.env.VITE_ADMIN_KEY as string | undefined)
     : undefined;
 
-const rawAdminKey = runtimeAdminKey || (import.meta.env.VITE_ADMIN_KEY as string | undefined);
+onIdTokenChanged(auth, async (user) => {
+  if (!user) {
+    adminAuthToken = '';
+    return;
+  }
+  try {
+    adminAuthToken = await user.getIdToken();
+  } catch {
+    adminAuthToken = '';
+  }
+});
 
-export const ADMIN_KEY = rawAdminKey || '';
+export function setAdminAuthToken(token: string | null | undefined) {
+  adminAuthToken = (token || '').trim();
+}
+
+export function hasAdminAuth() {
+  return Boolean(adminAuthToken || rawAdminKey);
+}
 
 export function adminHeaders(): HeadersInit {
-  if (!ADMIN_KEY) {
-    throw new Error('VITE_ADMIN_KEY is required for the admin upload frontend.');
+  if (adminAuthToken) {
+    return { Authorization: `Bearer ${adminAuthToken}` };
   }
-  return { 'x-admin-key': ADMIN_KEY };
+  if (rawAdminKey) {
+    return { 'x-admin-key': rawAdminKey };
+  }
+  throw new Error('Admin sign-in is required for admin frontend requests.');
 }
 
 export { API_BASE };
