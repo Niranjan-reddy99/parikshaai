@@ -5,6 +5,7 @@ Uses Vertex AI (same as pipeline.py) — requires GOOGLE_CLOUD_PROJECT in backen
 
 Skips:
   - Questions with no correct_answer (no answer key uploaded)
+  - Questions that still have needs_review=true (answer not verified yet)
   - Questions that already have an explanation
 
 Usage:
@@ -83,7 +84,7 @@ def fetch_all_questions() -> list[dict]:
     offset = 0
     while True:
         q = sb.table("questions").select(
-            "id, exam_name, exam_year, question_text, option_a, option_b, option_c, option_d, correct_answer"
+            "id, exam_name, exam_year, question_text, option_a, option_b, option_c, option_d, correct_answer, needs_review"
         ).eq("is_active", True).not_.is_("correct_answer", "null").neq("correct_answer", "").neq("correct_answer", "?")
         if EXAM_FILTER:
             parts = EXAM_FILTER.rsplit(" ", 1)
@@ -181,12 +182,22 @@ def main() -> None:
     all_qs = fetch_all_questions()
     print(f"  Found {len(all_qs)} questions with an answer key")
 
-    ids = [q["id"] for q in all_qs]
+    valid_answer = {"A", "B", "C", "D"}
+    eligible = [
+        q for q in all_qs
+        if str(q.get("correct_answer") or "").strip().upper() in valid_answer
+        and not bool(q.get("needs_review"))
+    ]
+    skipped_unverified = len(all_qs) - len(eligible)
+    if skipped_unverified:
+        print(f"  Skipping {skipped_unverified} unverified/invalid questions")
+
+    ids = [q["id"] for q in eligible]
     print("🔍 Checking existing explanations...")
     existing_ids = fetch_existing_ids(ids)
     print(f"  Already have explanations: {len(existing_ids)}")
 
-    pending = [q for q in all_qs if q["id"] not in existing_ids]
+    pending = [q for q in eligible if q["id"] not in existing_ids]
     print(f"  Missing explanations: {len(pending)}")
 
     if not pending:

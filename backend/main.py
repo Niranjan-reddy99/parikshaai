@@ -1280,6 +1280,31 @@ def _count_explanations(question_ids: list[str]) -> int:
     return total
 
 
+def _explanation_coverage_summary(rows: list[dict]) -> dict:
+    valid_answer = {"A", "B", "C", "D"}
+    all_ids = [str(row.get("id") or "") for row in rows if row.get("id")]
+    eligible_ids = [
+        str(row.get("id") or "")
+        for row in rows
+        if row.get("id")
+        and str(row.get("correct_answer") or "").strip().upper() in valid_answer
+        and not bool(row.get("needs_review"))
+    ]
+    all_generated = _count_explanations(all_ids)
+    eligible_generated = _count_explanations(eligible_ids) if eligible_ids else 0
+    eligible_total = len(eligible_ids)
+    return {
+        "generated": all_generated,
+        "missing": max(0, len(all_ids) - all_generated),
+        "coverage_pct": round((all_generated / max(len(all_ids), 1)) * 100, 1),
+        "eligible_total": eligible_total,
+        "eligible_generated": eligible_generated,
+        "eligible_missing": max(0, eligible_total - eligible_generated),
+        "eligible_coverage_pct": round((eligible_generated / max(eligible_total, 1)) * 100, 1),
+        "unverified_or_invalid": max(0, len(all_ids) - eligible_total),
+    }
+
+
 def _explanation_contradicts_answer(explanation: str, correct_answer: str) -> bool:
     """Return True when explanation text clearly points to a different option."""
     text = str(explanation or "").strip()
@@ -1340,7 +1365,7 @@ def _exam_quality_report(exam_name: str, exam_year: int) -> dict:
     generic_subject_count = sum(1 for q in rows if (q.get("subject") or "").strip() in {"General Knowledge", "Unclassified", ""})
     generic_topic_count = sum(1 for q in rows if (q.get("topic") or "").strip() in {"General", "Unclassified", ""})
     empty_subtopic_count = sum(1 for q in rows if not (q.get("subtopic") or "").strip())
-    explanation_count = _count_explanations([q["id"] for q in rows])
+    explanation_summary = _explanation_coverage_summary(rows)
     canonical_count = _canonical_student_question_count(exam_name, exam_year)
 
     return {
@@ -1376,9 +1401,7 @@ def _exam_quality_report(exam_name: str, exam_year: int) -> dict:
             "empty_subtopics": empty_subtopic_count,
         },
         "explanations": {
-            "generated": explanation_count,
-            "missing": max(0, len(rows) - explanation_count),
-            "coverage_pct": round((explanation_count / max(len(rows), 1)) * 100, 1),
+            **explanation_summary,
         },
         "repair_queue_summary": {
             "rows": len(repair_queue),
@@ -4384,11 +4407,15 @@ async def admin_repair_queue(
                 contradiction_by_qid=contradiction_by_qid,
             )
             assessment = _paper_publish_assessment(active_rows, queue)
+            explanation_summary = _explanation_coverage_summary(active_rows)
+            verified_answer_count = sum(1 for row in active_rows if not bool(row.get("needs_review")))
             items.extend(queue)
             exam_reports.append({
                 "exam": f"{current_exam_name} {current_exam_year}",
                 "exam_name": current_exam_name,
                 "exam_year": current_exam_year,
+                "verified_answer_count": verified_answer_count,
+                "explanations": explanation_summary,
                 **assessment,
             })
 
@@ -4821,10 +4848,15 @@ def admin_publish_paper(
             mark_paper_lifecycle(paper_id, "ingested", publish_status=publish_status, sb=supabase)
             paper["lifecycle_status"] = "ingested"
 
+        explanation_summary = _explanation_coverage_summary(
+            _question_rows_for_exam(target_exam_name, exam_year, is_active=True, latest_only=True)
+        )
+
         _invalidate_meta_cache()
         return {
             "status": "published",
             "paper": paper,
+            "explanations": explanation_summary,
             "message": (
                 "Paper published to the learner app."
                 if publish_status == "publishable"
@@ -4954,9 +4986,20 @@ def admin_generate_explanations(
     """
     try:
         from pipeline import generate_explanations_bulk
-        result = generate_explanations_bulk(exam_name, exam_year)
+        target_exam_name = _resolve_admin_exam_name(exam_name, exam_year)
+        result = generate_explanations_bulk(target_exam_name, exam_year)
+        coverage = _explanation_coverage_summary(
+            _question_rows_for_exam(target_exam_name, exam_year, is_active=True, latest_only=True)
+        )
         _invalidate_meta_cache()
-        return result
+        return {
+            **result,
+            "coverage": coverage,
+            "message": (
+                f"Generated {result.get('generated', 0)} explanation(s). "
+                f"{coverage['eligible_generated']}/{coverage['eligible_total']} verified questions now have explanations."
+            ),
+        }
     except Exception as e:
         raise HTTPException(500, f"Explanation generation error: {e}")
 

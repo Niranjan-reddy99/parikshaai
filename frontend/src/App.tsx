@@ -50,6 +50,17 @@ type ReviewTarget = {
   examYear: number;
 };
 
+type ExplanationCoverage = {
+  generated: number;
+  missing: number;
+  coverage_pct: number;
+  eligible_total: number;
+  eligible_generated: number;
+  eligible_missing: number;
+  eligible_coverage_pct: number;
+  unverified_or_invalid: number;
+};
+
 type RepairQueuePaper = {
   exam: string;
   exam_name: string;
@@ -62,6 +73,8 @@ type RepairQueuePaper = {
   hidden_question_count: number;
   paper_blocker_count: number;
   row_blocker_count: number;
+  verified_answer_count?: number;
+  explanations?: ExplanationCoverage;
 };
 
 type RepairQueueItem = {
@@ -447,6 +460,7 @@ export default function App() {
   const [renameExamDraft, setRenameExamDraft] = useState('');
   const [publishingPaper, setPublishingPaper] = useState(false);
   const [renamingExam, setRenamingExam] = useState(false);
+  const [generatingExplanations, setGeneratingExplanations] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
@@ -987,6 +1001,41 @@ export default function App() {
     }
   }, [loadReviewWorkspace, reviewTarget]);
 
+  const handleGenerateExplanations = useCallback(async () => {
+    if (!reviewTarget) return;
+
+    setGeneratingExplanations(true);
+    setReviewError('');
+    setReviewActionMessage('');
+    try {
+      const params = new URLSearchParams({
+        exam_name: reviewTarget.examName,
+        exam_year: String(reviewTarget.examYear),
+      });
+      const res = await fetch(`${API_BASE}/admin/generate-explanations?${params.toString()}`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || data.message || `Explanation generation failed (${res.status})`);
+      }
+      setReviewActionTone('success');
+      setReviewActionMessage(
+        data.message ||
+          `Generated ${data.generated || 0} explanation(s) for verified questions.`
+      );
+      await loadReviewWorkspace(reviewTarget);
+    } catch (generationError: any) {
+      setReviewActionTone('danger');
+      setReviewActionMessage(
+        generationError?.message || 'Could not generate explanations for this paper.'
+      );
+    } finally {
+      setGeneratingExplanations(false);
+    }
+  }, [loadReviewWorkspace, reviewTarget]);
+
   const handleAdminSignIn = useCallback(async () => {
     setAuthError('');
     setAuthLoading(true);
@@ -1410,6 +1459,18 @@ export default function App() {
                   <span>Reupload needed</span>
                   <strong>{reviewWorkspace.paper.reupload_needed ? 'Yes' : 'No'}</strong>
                 </div>
+                <div className="stat-card">
+                  <span>Verified answers</span>
+                  <strong>{reviewWorkspace.paper.verified_answer_count ?? '—'}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>Explanation coverage</span>
+                  <strong>
+                    {reviewWorkspace.paper.explanations
+                      ? `${reviewWorkspace.paper.explanations.eligible_generated}/${reviewWorkspace.paper.explanations.eligible_total}`
+                      : '—'}
+                  </strong>
+                </div>
               </div>
 
               <div className="helper-note">
@@ -1419,6 +1480,16 @@ export default function App() {
                   ? 'This paper can go public, but some rows will stay hidden until you repair them.'
                   : 'This paper is clean enough for the learner app right now.'}
               </div>
+
+              {reviewWorkspace.paper.explanations ? (
+                <div className="helper-note">
+                  {reviewWorkspace.paper.explanations.eligible_missing > 0
+                    ? `${reviewWorkspace.paper.explanations.eligible_missing} verified question(s) still need explanations. ${reviewWorkspace.paper.explanations.unverified_or_invalid} question(s) are still unverified or missing a valid answer, so explanation coverage cannot reach 100% yet.`
+                    : reviewWorkspace.paper.explanations.unverified_or_invalid > 0
+                    ? `All verified questions already have explanations. ${reviewWorkspace.paper.explanations.unverified_or_invalid} question(s) are still unverified or missing a valid answer.`
+                    : 'All verified questions already have explanations.'}
+                </div>
+              ) : null}
 
               <div className="panel-subsection">
                 <div className="section-kicker">Paper actions</div>
@@ -1445,6 +1516,14 @@ export default function App() {
                   >
                     {renamingExam ? <Loader2 size={16} className="spin" /> : <FilePenLine size={16} />}
                     Rename exam
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => void handleGenerateExplanations()}
+                    disabled={generatingExplanations || !reviewTarget}
+                  >
+                    {generatingExplanations ? <Loader2 size={16} className="spin" /> : <FileText size={16} />}
+                    Generate explanations
                   </button>
                   <button
                     className="primary-button"
