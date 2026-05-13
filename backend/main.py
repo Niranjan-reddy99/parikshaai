@@ -48,6 +48,21 @@ _UPLOAD_PDF_DIR.mkdir(parents=True, exist_ok=True)
 
 @lru_cache(maxsize=1)
 def _get_main_genai_client():
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    use_vertex_value = (os.getenv("GOOGLE_GENAI_USE_VERTEXAI") or "").strip().lower()
+    force_vertex = use_vertex_value in {"1", "true", "yes"}
+    force_api_key = use_vertex_value in {"0", "false", "no"}
+    use_vertex = force_vertex or (bool(os.getenv("GOOGLE_CLOUD_PROJECT")) and not force_api_key)
+    if api_key and not use_vertex:
+        return _genai_main.Client(api_key=api_key)
+    raw_credentials = (
+        os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+        or os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+    )
+    if raw_credentials and not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+        credentials_path = Path(tempfile.gettempdir()) / "google-application-credentials.json"
+        credentials_path.write_text(raw_credentials, encoding="utf-8")
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(credentials_path)
     return _genai_main.Client(
         vertexai=True,
         project=os.getenv("GOOGLE_CLOUD_PROJECT"),
