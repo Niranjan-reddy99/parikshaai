@@ -1191,7 +1191,7 @@ def _question_rows_for_exam(
         if selected_paper_ids is not None:
             batch = [
                 row for row in batch
-                if (not row.get("paper_id")) or str(row.get("paper_id")) in selected_paper_ids
+                if row.get("paper_id") and str(row.get("paper_id")) in selected_paper_ids
             ]
         rows.extend(batch)
         if len(r.data or []) < 1000:
@@ -5632,7 +5632,7 @@ async def admin_list_all_questions(
             if selected_paper_ids is not None:
                 batch = [
                     row for row in batch
-                    if (not row.get("paper_id")) or str(row.get("paper_id")) in selected_paper_ids
+                    if row.get("paper_id") and str(row.get("paper_id")) in selected_paper_ids
                 ]
             all_rows.extend(batch)
             if len(raw_batch) < 1000:
