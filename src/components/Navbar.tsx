@@ -246,9 +246,11 @@ export function Navbar({
         </svg>
         <div>
           <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', lineHeight: 1 }}>Pariksha</div>
-          <div style={{ fontSize: 10.5, color: 'var(--text-tert)', marginTop: 3 }}>
-            {isDrawer ? 'Navigation' : 'PYQ workspace'}
-          </div>
+          {isDrawer ? (
+            <div style={{ fontSize: 10.5, color: 'var(--text-tert)', marginTop: 3 }}>
+              Navigation
+            </div>
+          ) : null}
         </div>
       </div>
 

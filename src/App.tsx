@@ -2605,61 +2605,6 @@ function AppContent() {
     view,
   ]);
 
-  const pageMeta = useMemo(() => {
-    if (view === "home") {
-      return {
-        title: "PYQ Workspace",
-        subtitle: "Focused exam prep, without the clutter",
-      };
-    }
-    if (view === "browse") {
-      return {
-        title: "Question Bank",
-        subtitle: "Search and filter questions across papers",
-      };
-    }
-    if (view === "commission") {
-      return {
-        title: selectedCommission || "Commission Papers",
-        subtitle: "Browse papers and exam collections",
-      };
-    }
-    if (view === "exam-detail") {
-      return {
-        title: selectedExamName || "Exam Detail",
-        subtitle: "Choose the right mode and paper",
-      };
-    }
-    if (view === "dashboard") {
-      return {
-        title: "My Progress",
-        subtitle: "Performance, patterns, and improvement areas",
-      };
-    }
-    if (view === "leaderboard") {
-      return {
-        title: "Leaderboard",
-        subtitle: "See how your pace compares",
-      };
-    }
-    if (view === "feed") {
-      return {
-        title: "PYQ Feed",
-        subtitle: "High-yield topic patterns across exams",
-      };
-    }
-    if (view === "bookmarks") {
-      return {
-        title: "Bookmarks",
-        subtitle: "Questions saved for focused review",
-      };
-    }
-    return {
-      title: "Pariksha",
-      subtitle: "Clean exam prep, question by question",
-    };
-  }, [selectedCommission, selectedExamName, view]);
-
   // ── Computed ────────────────────────────────────────────────────────────────
 
   const commissionMap = useMemo(
@@ -2923,16 +2868,7 @@ function AppContent() {
                   <div style={{ lineHeight: 1, letterSpacing: "-0.04em" }}>Pariksha</div>
                 </div>
               </div>
-            ) : (
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.04em", lineHeight: 1.1 }}>
-                  {pageMeta.title}
-                </div>
-                <div style={{ marginTop: 4, fontSize: 11.5, fontWeight: 600, color: "var(--text-tert)" }}>
-                  {pageMeta.subtitle}
-                </div>
-              </div>
-            )}
+            ) : <div style={{ minWidth: 0, flex: 1 }} />}
 
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: isMobileLayout ? 10 : 14 }}>
               {topSearchConfig && !isMobileLayout && (
