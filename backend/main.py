@@ -235,6 +235,10 @@ ADMIN_EMAILS = {
     if email.strip()
 }
 
+
+def _admin_disable_paper_locks() -> bool:
+    return os.getenv("ADMIN_DISABLE_PAPER_LOCKS", "").strip().lower() in {"1", "true", "yes", "on"}
+
 # ── In-process metadata cache ─────────────────────────────
 # /questions/meta is called on every user login. Cache the result for
 # 2 minutes so 100 simultaneous logins = 1 Supabase query, not 100.
@@ -568,6 +572,7 @@ def _topic_first_page_questions(
         "id", "question_text", "option_a", "option_b", "option_c", "option_d",
         "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
         "question_type", "concept", "question_number", "needs_review", "has_image", "image_url", "paper_id", "practice_ready", "updated_at",
+        "pattern_tag", "trap_tag", "skill_tag", "question_style",
     ]
     if "is_active" in supported_cols and "is_active" not in base_cols:
         base_cols.append("is_active")
@@ -660,6 +665,7 @@ def _topic_bucket_questions(
         "id", "question_text", "option_a", "option_b", "option_c", "option_d",
         "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
         "question_type", "concept", "question_number", "needs_review", "has_image", "image_url", "paper_id", "practice_ready", "updated_at",
+        "pattern_tag", "trap_tag", "skill_tag", "question_style",
     ]
     if "is_active" in supported_cols and "is_active" not in base_cols:
         base_cols.append("is_active")
@@ -1898,6 +1904,19 @@ def _paper_publish_assessment(rows: list[dict], queue: list[dict]) -> dict:
         item.get("question_id") == row.get("id") and item["publish_blocker"] == "row"
         for item in queue
     )]
+    if _admin_disable_paper_locks():
+        return {
+            "publishable": bool(rows),
+            "likely_publishable_with_hidden_rows": bool(rows) and bool(row_blockers),
+            "blocked": False,
+            "reupload_needed": False,
+            "visible_question_count": len(visible_rows),
+            "hidden_question_count": len(row_blockers),
+            "paper_blocker_count": 0,
+            "row_blocker_count": len(row_blockers),
+            "structural_failure_count": len(structural_row_blockers),
+            "structural_failure_threshold": threshold,
+        }
     likely_publishable_with_hidden_rows = bool(rows) and not paper_blockers and bool(row_blockers)
     return {
         "publishable": bool(rows) and not paper_blockers,
@@ -3006,6 +3025,10 @@ class AttemptCreate(BaseModel):
     time_taken_seconds: Optional[int] = None
     exam_name: Optional[str] = None
     subject: Optional[str] = None
+    topic: Optional[str] = None
+    subtopic: Optional[str] = None
+    pattern_tag: Optional[str] = None
+    mode: Optional[str] = "practice"
 
 
 _LEADERBOARD_KNOWN_COMMISSIONS = (
@@ -3349,6 +3372,10 @@ def record_attempt(attempt: AttemptCreate, user: dict = Depends(get_current_user
             "time_taken_s": int(attempt.time_taken_seconds or 0),
             "exam_name": attempt.exam_name,
             "subject": attempt.subject,
+            "topic": attempt.topic,
+            "subtopic": attempt.subtopic,
+            "pattern_tag": attempt.pattern_tag,
+            "mode": attempt.mode or "practice",
             "attempted_at": attempted_at,
         }).execute()
         inserted = res.data or []
@@ -3532,25 +3559,85 @@ def sync_local_stats(payload: SyncLocalPayload, user: dict = Depends(get_current
 
 @app.get("/user/weakness-report")
 def get_weakness_report(user: dict = Depends(get_current_user)):
-    """Return subjects sorted by accuracy (weakest first)."""
+    """Return per-subject, per-topic, and per-pattern accuracy sorted weakest-first."""
     uid = user["uid"]
+
+    # Pull last 500 attempts for deep aggregation
     try:
-        row = supabase.table("user_stats_cache").select("by_subject").eq("firebase_uid", uid).maybe_single().execute()
-        by_subject: dict = (row.data or {}).get("by_subject") or {}
+        res = supabase.table("user_attempts") \
+            .select("subject, topic, subtopic, pattern_tag, is_correct") \
+            .eq("firebase_uid", uid) \
+            .order("attempted_at", desc=True) \
+            .limit(500) \
+            .execute()
+        rows: list[dict] = res.data or []
     except Exception:
-        by_subject = {}
+        rows = []
 
-    report = []
-    for subject, counts in by_subject.items():
-        total = counts.get("total", 0)
-        correct = counts.get("correct", 0)
-        if total == 0:
-            continue
-        accuracy = round(correct / total * 100, 1)
-        report.append({"subject": subject, "accuracy": accuracy, "total": total, "correct": correct})
+    by_subject: dict[str, dict] = {}
+    by_topic: dict[str, dict] = {}
+    by_pattern: dict[str, dict] = {}
 
-    report.sort(key=lambda x: x["accuracy"])
-    return {"weaknesses": report}
+    for r in rows:
+        correct = bool(r.get("is_correct"))
+        subject = r.get("subject") or "General"
+        topic = r.get("topic") or "General"
+        subtopic = r.get("subtopic") or ""
+        pattern = r.get("pattern_tag") or ""
+
+        s = by_subject.setdefault(subject, {"correct": 0, "total": 0})
+        s["total"] += 1
+        if correct:
+            s["correct"] += 1
+
+        topic_key = f"{subject}::{topic}"
+        t = by_topic.setdefault(topic_key, {"subject": subject, "topic": topic, "subtopic": subtopic, "correct": 0, "total": 0})
+        t["total"] += 1
+        if correct:
+            t["correct"] += 1
+
+        if pattern:
+            p = by_pattern.setdefault(pattern, {"pattern_tag": pattern, "correct": 0, "total": 0})
+            p["total"] += 1
+            if correct:
+                p["correct"] += 1
+
+    def _accuracy(c: int, t: int) -> float:
+        return round(c / t * 100, 1) if t > 0 else 0.0
+
+    subject_report = sorted(
+        [{"subject": s, "accuracy": _accuracy(v["correct"], v["total"]), "total": v["total"], "correct": v["correct"]}
+         for s, v in by_subject.items() if v["total"] >= 3],
+        key=lambda x: x["accuracy"]
+    )
+    topic_report = sorted(
+        [{"subject": v["subject"], "topic": v["topic"], "subtopic": v["subtopic"],
+          "accuracy": _accuracy(v["correct"], v["total"]), "total": v["total"], "correct": v["correct"]}
+         for v in by_topic.values() if v["total"] >= 2],
+        key=lambda x: x["accuracy"]
+    )
+    pattern_report = sorted(
+        [{"pattern_tag": v["pattern_tag"], "accuracy": _accuracy(v["correct"], v["total"]),
+          "total": v["total"], "correct": v["correct"]}
+         for v in by_pattern.values() if v["total"] >= 2],
+        key=lambda x: x["accuracy"]
+    )
+
+    return {
+        "weaknesses": subject_report,
+        "topic_weaknesses": topic_report[:10],
+        "pattern_weaknesses": pattern_report,
+    }
+
+
+@app.get("/admin/pattern-tag-values", dependencies=[Depends(verify_admin)])
+def admin_get_pattern_tag_values():
+    return {
+        "pattern_tags": PATTERN_TAG_VALUES,
+        "trap_tags": TRAP_TAG_VALUES,
+        "skill_tags": SKILL_TAG_VALUES,
+        "question_styles": QUESTION_STYLE_VALUES,
+    }
 
 
 # ══════════════════════════════════════════════════════════
@@ -4543,6 +4630,23 @@ def admin_reset_job(job_id: str):
     return {"job_id": job_id, "previous_status": r.data["status"], "reset_to": "failed"}
 
 
+PATTERN_TAG_VALUES = [
+    "statement-based", "assertion-reason", "chronology", "match-the-following",
+    "factual-recall", "concept-application", "elimination", "article-provision",
+    "committee-mapping",
+]
+TRAP_TAG_VALUES = [
+    "absolute-wording", "negation", "except-not", "all-of-above", "double-negation",
+    "partial-truth",
+]
+SKILL_TAG_VALUES = [
+    "elimination", "recall", "inference", "application", "analysis",
+]
+QUESTION_STYLE_VALUES = [
+    "direct", "indirect", "analytical", "comparative", "definitional",
+]
+
+
 class QuestionUpdate(BaseModel):
     is_active: Optional[bool] = None
     needs_review: Optional[bool] = None
@@ -4560,6 +4664,10 @@ class QuestionUpdate(BaseModel):
     answer_status: Optional[str] = None
     has_image: Optional[bool] = None
     image_url: Optional[str] = None
+    pattern_tag: Optional[str] = None
+    trap_tag: Optional[str] = None
+    skill_tag: Optional[str] = None
+    question_style: Optional[str] = None
 
 
 @app.patch("/admin/questions/{question_id}", dependencies=[Depends(verify_admin)])
@@ -4820,6 +4928,44 @@ def admin_publish_paper(
 
         sync_paper_question_counts(paper_id, sb=supabase)
 
+        active_rows = _question_rows_for_exam(
+            target_exam_name,
+            exam_year,
+            is_active=True,
+            latest_only=True,
+        )
+        audit_rows = _question_rows_for_exam(
+            target_exam_name,
+            exam_year,
+            is_active=None,
+            latest_only=True,
+        )
+        queue = _build_exam_repair_queue(
+            target_exam_name,
+            exam_year,
+            audit_rows,
+            contradiction_by_qid={},
+        )
+        assessment = _paper_publish_assessment(active_rows, queue)
+        recomputed_publish_status = "blocked"
+        if assessment["reupload_needed"]:
+            recomputed_publish_status = "reupload_needed"
+        elif assessment["publishable"] and assessment["hidden_question_count"] > 0:
+            recomputed_publish_status = "publishable_with_hidden_rows"
+        elif assessment["publishable"]:
+            recomputed_publish_status = "publishable"
+
+        try:
+            supabase.table("papers").update({
+                "question_count": len(audit_rows),
+                "visible_question_count": assessment["visible_question_count"],
+                "hidden_question_count": assessment["hidden_question_count"],
+                "publish_status": recomputed_publish_status,
+                "lifecycle_status": "ingested" if audit_rows else "processing",
+            }).eq("id", paper_id).execute()
+        except Exception:
+            pass
+
         paper_res = (
             supabase.table("papers")
             .select(
@@ -4835,7 +4981,11 @@ def admin_publish_paper(
             raise HTTPException(404, "Paper not found after publish refresh.")
 
         paper = rows[0]
-        publish_status = str(paper.get("publish_status") or "")
+        publish_status = recomputed_publish_status or str(paper.get("publish_status") or "")
+        paper["publish_status"] = publish_status
+        paper["visible_question_count"] = assessment["visible_question_count"]
+        paper["hidden_question_count"] = assessment["hidden_question_count"]
+        paper["question_count"] = len(audit_rows)
         lifecycle_status = str(paper.get("lifecycle_status") or "")
 
         if publish_status not in {"publishable", "publishable_with_hidden_rows"}:

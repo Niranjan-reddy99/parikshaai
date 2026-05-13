@@ -15,6 +15,7 @@ ALTER TABLE questions ADD COLUMN IF NOT EXISTS issue_codes JSONB DEFAULT '[]'::j
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS tagging_status VARCHAR(30) DEFAULT 'weak';
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS review_required BOOLEAN DEFAULT TRUE;
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS confidence_score INTEGER DEFAULT 0;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS practice_ready BOOLEAN DEFAULT FALSE;
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS canonical_subject VARCHAR(100);
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS canonical_topic_family VARCHAR(200);
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS canonical_subtopic_family VARCHAR(200);
@@ -55,6 +56,7 @@ CREATE INDEX IF NOT EXISTS idx_q_tagging_status ON questions(tagging_status);
 CREATE INDEX IF NOT EXISTS idx_q_review_required ON questions(review_required);
 CREATE INDEX IF NOT EXISTS idx_q_confidence_score ON questions(confidence_score);
 CREATE INDEX IF NOT EXISTS idx_q_public_visibility ON questions(public_visibility);
+CREATE INDEX IF NOT EXISTS idx_q_practice_ready ON questions(practice_ready);
 
 -- Partial composite indexes (only scan active rows = faster)
 CREATE INDEX IF NOT EXISTS idx_q_subject_year ON questions(subject, exam_year) WHERE is_active = TRUE;
@@ -128,6 +130,211 @@ BEGIN
             FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE SET NULL;
     END IF;
 END $$;
+
+-- Step 5b: Normalize and deduplicate legacy paper rows before adding unique indexes.
+-- Older environments may already contain duplicate `(paper_key, upload_version)` rows
+-- from pre-normalized uploads or repeated migration attempts.
+UPDATE papers
+SET paper_key = lower(regexp_replace(coalesce(exam_name, ''), '\s+', ' ', 'g')) || '::' || exam_year::text
+WHERE coalesce(paper_key, '') = ''
+   OR paper_key <> lower(regexp_replace(coalesce(exam_name, ''), '\s+', ' ', 'g')) || '::' || exam_year::text;
+
+WITH ranked_papers AS (
+    SELECT
+        id,
+        paper_key,
+        upload_version,
+        ROW_NUMBER() OVER (
+            PARTITION BY paper_key, upload_version
+            ORDER BY
+                COALESCE(question_count, 0) DESC,
+                COALESCE(visible_question_count, 0) DESC,
+                COALESCE(hidden_question_count, 0) DESC,
+                COALESCE(updated_at, created_at, NOW()) DESC,
+                created_at DESC,
+                id DESC
+        ) AS rank_in_group
+    FROM papers
+),
+paper_dupes AS (
+    SELECT
+        ranked.id AS duplicate_id,
+        keeper.id AS keeper_id
+    FROM ranked_papers ranked
+    JOIN ranked_papers keeper
+      ON keeper.paper_key = ranked.paper_key
+     AND keeper.upload_version = ranked.upload_version
+     AND keeper.rank_in_group = 1
+    WHERE ranked.rank_in_group > 1
+)
+UPDATE questions q
+SET paper_id = d.keeper_id
+FROM paper_dupes d
+WHERE q.paper_id = d.duplicate_id;
+
+WITH ranked_papers AS (
+    SELECT
+        id,
+        paper_key,
+        upload_version,
+        ROW_NUMBER() OVER (
+            PARTITION BY paper_key, upload_version
+            ORDER BY
+                COALESCE(question_count, 0) DESC,
+                COALESCE(visible_question_count, 0) DESC,
+                COALESCE(hidden_question_count, 0) DESC,
+                COALESCE(updated_at, created_at, NOW()) DESC,
+                created_at DESC,
+                id DESC
+        ) AS rank_in_group
+    FROM papers
+),
+paper_dupes AS (
+    SELECT
+        ranked.id AS duplicate_id,
+        keeper.id AS keeper_id
+    FROM ranked_papers ranked
+    JOIN ranked_papers keeper
+      ON keeper.paper_key = ranked.paper_key
+     AND keeper.upload_version = ranked.upload_version
+     AND keeper.rank_in_group = 1
+    WHERE ranked.rank_in_group > 1
+)
+UPDATE jobs j
+SET paper_id = d.keeper_id
+FROM paper_dupes d
+WHERE j.paper_id = d.duplicate_id;
+
+WITH ranked_papers AS (
+    SELECT
+        id,
+        paper_key,
+        upload_version,
+        ROW_NUMBER() OVER (
+            PARTITION BY paper_key, upload_version
+            ORDER BY
+                COALESCE(question_count, 0) DESC,
+                COALESCE(visible_question_count, 0) DESC,
+                COALESCE(hidden_question_count, 0) DESC,
+                COALESCE(updated_at, created_at, NOW()) DESC,
+                created_at DESC,
+                id DESC
+        ) AS rank_in_group
+    FROM papers
+),
+paper_dupes AS (
+    SELECT
+        ranked.id AS duplicate_id,
+        keeper.id AS keeper_id
+    FROM ranked_papers ranked
+    JOIN ranked_papers keeper
+      ON keeper.paper_key = ranked.paper_key
+     AND keeper.upload_version = ranked.upload_version
+     AND keeper.rank_in_group = 1
+    WHERE ranked.rank_in_group > 1
+)
+UPDATE papers p
+SET supersedes_paper_id = d.keeper_id
+FROM paper_dupes d
+WHERE p.supersedes_paper_id = d.duplicate_id;
+
+WITH ranked_papers AS (
+    SELECT
+        id,
+        paper_key,
+        upload_version,
+        ROW_NUMBER() OVER (
+            PARTITION BY paper_key, upload_version
+            ORDER BY
+                COALESCE(question_count, 0) DESC,
+                COALESCE(visible_question_count, 0) DESC,
+                COALESCE(hidden_question_count, 0) DESC,
+                COALESCE(updated_at, created_at, NOW()) DESC,
+                created_at DESC,
+                id DESC
+        ) AS rank_in_group
+    FROM papers
+),
+paper_dupes AS (
+    SELECT
+        ranked.id AS duplicate_id,
+        keeper.id AS keeper_id
+    FROM ranked_papers ranked
+    JOIN ranked_papers keeper
+      ON keeper.paper_key = ranked.paper_key
+     AND keeper.upload_version = ranked.upload_version
+     AND keeper.rank_in_group = 1
+    WHERE ranked.rank_in_group > 1
+)
+UPDATE papers p
+SET replacement_paper_id = d.keeper_id
+FROM paper_dupes d
+WHERE p.replacement_paper_id = d.duplicate_id;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'question_repairs'
+    ) THEN
+        WITH ranked_papers AS (
+            SELECT
+                id,
+                paper_key,
+                upload_version,
+                ROW_NUMBER() OVER (
+                    PARTITION BY paper_key, upload_version
+                    ORDER BY
+                        COALESCE(question_count, 0) DESC,
+                        COALESCE(visible_question_count, 0) DESC,
+                        COALESCE(hidden_question_count, 0) DESC,
+                        COALESCE(updated_at, created_at, NOW()) DESC,
+                        created_at DESC,
+                        id DESC
+                ) AS rank_in_group
+            FROM papers
+        ),
+        paper_dupes AS (
+            SELECT
+                ranked.id AS duplicate_id,
+                keeper.id AS keeper_id
+            FROM ranked_papers ranked
+            JOIN ranked_papers keeper
+              ON keeper.paper_key = ranked.paper_key
+             AND keeper.upload_version = ranked.upload_version
+             AND keeper.rank_in_group = 1
+            WHERE ranked.rank_in_group > 1
+        )
+        UPDATE question_repairs qr
+        SET paper_id = d.keeper_id
+        FROM paper_dupes d
+        WHERE qr.paper_id = d.duplicate_id;
+    END IF;
+END $$;
+
+WITH ranked_papers AS (
+    SELECT
+        id,
+        paper_key,
+        upload_version,
+        ROW_NUMBER() OVER (
+            PARTITION BY paper_key, upload_version
+            ORDER BY
+                COALESCE(question_count, 0) DESC,
+                COALESCE(visible_question_count, 0) DESC,
+                COALESCE(hidden_question_count, 0) DESC,
+                COALESCE(updated_at, created_at, NOW()) DESC,
+                created_at DESC,
+                id DESC
+        ) AS rank_in_group
+    FROM papers
+)
+DELETE FROM papers p
+USING ranked_papers ranked
+WHERE p.id = ranked.id
+  AND ranked.rank_in_group > 1;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_papers_key_version ON papers(paper_key, upload_version);
 CREATE INDEX IF NOT EXISTS idx_papers_exam ON papers(exam_name, exam_year);
@@ -412,3 +619,147 @@ ALTER TABLE questions ADD COLUMN IF NOT EXISTS student_answer TEXT;
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS has_key BOOLEAN DEFAULT TRUE;
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS correct_answers TEXT[];
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_type_v2 TEXT; -- MCQ | MULTI | NAT | DESCRIPTIVE
+
+-- ============================================================
+-- Step 10: PATTERN INTELLIGENCE LAYER (Priority 2 — USP)
+-- ============================================================
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS pattern_type TEXT;        -- e.g. "fact_recall", "elimination", "conceptual", "current_affairs"
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS examiner_trap TEXT;       -- e.g. "close_dates", "similar_names", "negation"
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS syllabus_link TEXT;       -- e.g. "GS-I: Ancient History > Indus Valley"
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS why_asked TEXT;           -- one-line examiner intent
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS pattern_cluster_id UUID;  -- FK → pattern_clusters
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS trend_direction TEXT;     -- "rising" | "stable" | "falling"
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS pattern_tagged_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_q_pattern_type ON questions(pattern_type) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_q_pattern_cluster ON questions(pattern_cluster_id) WHERE is_active = TRUE;
+
+CREATE TABLE IF NOT EXISTS pattern_clusters (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    exam_type               TEXT,
+    subject                 TEXT,
+    pattern_name            TEXT NOT NULL,
+    pattern_description     TEXT,
+    question_count          INTEGER DEFAULT 0,
+    representative_question_id UUID REFERENCES questions(id) ON DELETE SET NULL,
+    created_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE pattern_clusters ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read pattern_clusters" ON pattern_clusters;
+CREATE POLICY "Public read pattern_clusters" ON pattern_clusters FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admin write pattern_clusters" ON pattern_clusters;
+CREATE POLICY "Admin write pattern_clusters" ON pattern_clusters FOR ALL USING (auth.role() = 'service_role');
+
+-- ============================================================
+-- Step 11: USER PROGRESS PERSISTENCE (Priority 3)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_attempts (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    firebase_uid    TEXT NOT NULL,
+    question_id     UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    selected_answer CHAR(1),
+    is_correct      BOOLEAN NOT NULL,
+    time_taken_s    INTEGER DEFAULT 0,
+    exam_name       TEXT,
+    subject         TEXT,
+    topic           TEXT,
+    attempted_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ua_uid ON user_attempts(firebase_uid, attempted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ua_qid ON user_attempts(question_id);
+
+ALTER TABLE user_attempts ENABLE ROW LEVEL SECURITY;
+-- Users can only read/write their own rows
+DROP POLICY IF EXISTS "Users read own attempts" ON user_attempts;
+CREATE POLICY "Users read own attempts" ON user_attempts FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users insert own attempts" ON user_attempts;
+CREATE POLICY "Users insert own attempts" ON user_attempts FOR INSERT WITH CHECK (true);
+
+-- Materialised stats cache (updated on each attempt)
+CREATE TABLE IF NOT EXISTS user_stats_cache (
+    firebase_uid    TEXT PRIMARY KEY,
+    by_subject      JSONB DEFAULT '{}'::jsonb,
+    streak          INTEGER DEFAULT 0,
+    last_active     DATE,
+    xp              INTEGER DEFAULT 0,
+    total_answered  INTEGER DEFAULT 0,
+    daily_activity  JSONB DEFAULT '{}'::jsonb,
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE user_stats_cache ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users read own stats cache" ON user_stats_cache;
+CREATE POLICY "Users read own stats cache" ON user_stats_cache FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users write own stats cache" ON user_stats_cache;
+CREATE POLICY "Users write own stats cache" ON user_stats_cache FOR ALL USING (true);
+
+-- ============================================================
+-- Step 12: SRS SCHEDULE TABLE (Priority 4)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS srs_schedule (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    firebase_uid    TEXT NOT NULL,
+    question_id     UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    due_date        DATE NOT NULL DEFAULT CURRENT_DATE,
+    interval_days   INTEGER DEFAULT 1,
+    ease_factor     FLOAT DEFAULT 2.5,
+    repetitions     INTEGER DEFAULT 0,
+    last_quality    INTEGER,        -- SM-2 quality rating 0-5
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(firebase_uid, question_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_srs_uid_due ON srs_schedule(firebase_uid, due_date);
+CREATE INDEX IF NOT EXISTS idx_srs_qid ON srs_schedule(question_id);
+
+DROP TRIGGER IF EXISTS trigger_srs_updated ON srs_schedule;
+CREATE TRIGGER trigger_srs_updated
+    BEFORE UPDATE ON srs_schedule
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE srs_schedule ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users access own srs" ON srs_schedule;
+CREATE POLICY "Users access own srs" ON srs_schedule FOR ALL USING (true);
+
+-- ============================================================
+-- Step 13: BOOKMARKS TABLE (Priority 5)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bookmarks (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    firebase_uid    TEXT NOT NULL,
+    question_id     UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    note            TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(firebase_uid, question_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bm_uid ON bookmarks(firebase_uid, created_at DESC);
+
+ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users access own bookmarks" ON bookmarks;
+CREATE POLICY "Users access own bookmarks" ON bookmarks FOR ALL USING (true);
+
+-- ============================================================
+-- Step 14: PATTERN TAGGING FOUNDATION (Phase 2)
+-- ============================================================
+
+-- Pattern tag columns on questions
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS pattern_tag    VARCHAR(100) DEFAULT NULL;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS trap_tag       VARCHAR(100) DEFAULT NULL;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS skill_tag      VARCHAR(100) DEFAULT NULL;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_style VARCHAR(100) DEFAULT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_q_pattern_tag ON questions(pattern_tag) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_q_trap_tag    ON questions(trap_tag)    WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_q_skill_tag   ON questions(skill_tag)   WHERE is_active = TRUE;
+
+-- Weakness-tracking columns on user_attempts
+ALTER TABLE user_attempts ADD COLUMN IF NOT EXISTS subtopic    TEXT DEFAULT NULL;
+ALTER TABLE user_attempts ADD COLUMN IF NOT EXISTS pattern_tag TEXT DEFAULT NULL;
+ALTER TABLE user_attempts ADD COLUMN IF NOT EXISTS mode        VARCHAR(20) DEFAULT 'practice';
+
+CREATE INDEX IF NOT EXISTS idx_ua_pattern ON user_attempts(firebase_uid, pattern_tag);
+CREATE INDEX IF NOT EXISTS idx_ua_topic   ON user_attempts(firebase_uid, topic, subtopic);

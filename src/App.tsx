@@ -663,6 +663,10 @@ function AppContent() {
     timeTakenSeconds?: number | null;
     examName?: string;
     subject?: string;
+    topic?: string;
+    subtopic?: string;
+    pattern_tag?: string;
+    mode?: string;
   }) => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
@@ -682,6 +686,10 @@ function AppContent() {
           time_taken_seconds: attempt.timeTakenSeconds ?? null,
           exam_name: attempt.examName ?? null,
           subject: attempt.subject ?? null,
+          topic: attempt.topic ?? null,
+          subtopic: attempt.subtopic ?? null,
+          pattern_tag: attempt.pattern_tag ?? null,
+          mode: attempt.mode ?? "practice",
         }),
       });
     } catch (error) {
@@ -708,6 +716,10 @@ function AppContent() {
           timeTakenSeconds: null,
           examName: session.examName,
           subject: question.subject,
+          topic: question.topic,
+          subtopic: question.subtopic,
+          pattern_tag: question.pattern_tag,
+          mode: "mock",
         });
       })
     );
@@ -2051,7 +2063,9 @@ function AppContent() {
           questionAtAnswerTime.topic,
           questionAtAnswerTime.question,
           correct,
-          startTime
+          startTime,
+          questionAtAnswerTime.subtopic,
+          questionAtAnswerTime.pattern_tag,
         );
         setUserStats(newStats);
       }
@@ -2066,6 +2080,10 @@ function AppContent() {
           ),
           examName: questionAtAnswerTime.exam,
           subject: questionAtAnswerTime.subject,
+          topic: questionAtAnswerTime.topic,
+          subtopic: questionAtAnswerTime.subtopic,
+          pattern_tag: questionAtAnswerTime.pattern_tag,
+          mode: "practice",
         });
       }
       if (needsExplanationFetch) {

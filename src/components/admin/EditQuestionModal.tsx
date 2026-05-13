@@ -17,6 +17,11 @@ interface EditQuestionModalProps {
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 const ANSWERS = ['A', 'B', 'C', 'D'];
 
+const PATTERN_TAGS = ['', 'statement-based', 'assertion-reason', 'chronology', 'match-the-following', 'factual-recall', 'concept-application', 'elimination', 'article-provision', 'committee-mapping'];
+const TRAP_TAGS = ['', 'absolute-wording', 'negation', 'except-not', 'all-of-above', 'double-negation', 'partial-truth'];
+const SKILL_TAGS = ['', 'elimination', 'recall', 'inference', 'application', 'analysis'];
+const QUESTION_STYLES = ['', 'direct', 'indirect', 'analytical', 'comparative', 'definitional'];
+
 const inputStyle: React.CSSProperties = {
   width: '100%',
   background: C.bg,
@@ -61,6 +66,11 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
   const imgRef = useRef<HTMLImageElement>(null);
   const [savingImage, setSavingImage] = useState(false);
   const [imageVersion, setImageVersion] = useState(() => Date.now());
+
+  const [patternTag, setPatternTag] = useState((question as any).pattern_tag || '');
+  const [trapTag, setTrapTag] = useState((question as any).trap_tag || '');
+  const [skillTag, setSkillTag] = useState((question as any).skill_tag || '');
+  const [questionStyle, setQuestionStyle] = useState((question as any).question_style || '');
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -185,7 +195,11 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
           is_active: true,
           needs_review: false,
           has_image: hasImage,
-          image_url: imageUrl || null
+          image_url: imageUrl || null,
+          pattern_tag: patternTag || null,
+          trap_tag: trapTag || null,
+          skill_tag: skillTag || null,
+          question_style: questionStyle || null
         }),
         signal: abort.signal,
       });
@@ -344,6 +358,27 @@ export function EditQuestionModal({ question, onClose, onSaved, onDeleted }: Edi
                 style={{ ...inputStyle, cursor: 'pointer', appearance: 'auto' }}>
                 {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
+            </div>
+          </div>
+
+          {/* Pattern tags */}
+          <div>
+            <label style={{ ...labelStyle, color: '#7c6fff' }}>Pattern Tags</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {([
+                ['Pattern', patternTag, setPatternTag, PATTERN_TAGS],
+                ['Trap', trapTag, setTrapTag, TRAP_TAGS],
+                ['Skill', skillTag, setSkillTag, SKILL_TAGS],
+                ['Style', questionStyle, setQuestionStyle, QUESTION_STYLES],
+              ] as [string, string, (v: string) => void, string[]][]).map(([name, val, setter, opts]) => (
+                <div key={name}>
+                  <label style={{ ...labelStyle, marginBottom: 4 }}>{name}</label>
+                  <select value={val} onChange={e => setter(e.target.value)}
+                    style={{ ...inputStyle, cursor: 'pointer', appearance: 'auto', color: val ? C.text : C.textTert }}>
+                    {opts.map(o => <option key={o} value={o}>{o || `— none —`}</option>)}
+                  </select>
+                </div>
+              ))}
             </div>
           </div>
 

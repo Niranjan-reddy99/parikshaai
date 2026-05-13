@@ -33,6 +33,10 @@ export interface Question {
   needs_review?: boolean;
   has_image?: boolean;
   image_url?: string;
+  pattern_tag?: string;
+  trap_tag?: string;
+  skill_tag?: string;
+  question_style?: string;
 }
 
 export interface CatalogSummary {

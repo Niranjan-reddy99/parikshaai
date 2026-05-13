@@ -34,6 +34,8 @@ export function QuestionModal({ question, onClose, onStartPractice }: QuestionMo
             <span style={{ padding: '4px 10px', background: '#0F1E3D', color: C.blue, fontSize: 10, fontWeight: 700, borderRadius: 8, textTransform: 'uppercase' }}>{question.subject}</span>
             <span style={{ padding: '4px 10px', background: diffBg[question.difficulty] || C.bg, color: diffColor[question.difficulty] || C.textSec, fontSize: 10, fontWeight: 700, borderRadius: 8 }}>{question.difficulty}</span>
             {question.subtopic && <span style={{ padding: '4px 10px', background: C.bg, color: C.textTert, fontSize: 10, fontWeight: 500, borderRadius: 8, border: `1px solid ${C.border}` }}>{question.subtopic}</span>}
+            {question.pattern_tag && <span style={{ padding: '4px 10px', background: 'rgba(124,111,255,0.12)', color: '#7c6fff', fontSize: 10, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(124,111,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{question.pattern_tag}</span>}
+            {question.trap_tag && <span style={{ padding: '4px 10px', background: 'rgba(239,68,68,0.1)', color: '#f87171', fontSize: 10, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>trap: {question.trap_tag}</span>}
             {multipleAnswers && !deleted ? (
               <span style={{ padding: '4px 10px', background: 'rgba(37,99,235,0.12)', color: C.blue, fontSize: 10, fontWeight: 700, borderRadius: 8 }}>
                 Multi-answer

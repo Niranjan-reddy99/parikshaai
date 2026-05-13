@@ -18,7 +18,7 @@ interface DashboardViewProps {
 
 const BENCHMARK = 70;
 
-type Tab = 'overview' | 'strengths' | 'topic' | 'test-analysis';
+type Tab = 'overview' | 'strengths' | 'topic' | 'patterns' | 'test-analysis';
 
 function parseAttemptTimeToSeconds(value: string): number {
   const raw = (value || '').trim().toLowerCase();
@@ -268,6 +268,29 @@ export function DashboardView({
     return firstC ? Object.values(commissionMap[firstC] || {})[0] : null;
   }, [commissionMap]);
 
+  const patternWeaknesses = useMemo(() => {
+    return Object.entries(stats.byPattern || {})
+      .filter(([, v]) => v.total >= 2)
+      .map(([pattern, v]) => ({
+        pattern,
+        total: v.total,
+        correct: v.correct,
+        pct: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
+      }))
+      .sort((a, b) => a.pct - b.pct);
+  }, [stats.byPattern]);
+
+  const topicWeaknesses = useMemo(() => {
+    return Object.values(stats.byTopic || {})
+      .filter((v) => v.total >= 2)
+      .map((v) => ({
+        ...v,
+        pct: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
+      }))
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, 6);
+  }, [stats.byTopic]);
+
   const accuracyColor = overallAccuracy >= BENCHMARK ? '#16a34a' : overallAccuracy >= 50 ? '#f59e0b' : '#ef4444';
   const primaryWeakSubject = weakSubjects[0] || null;
   const primaryWeakTopic = needsWorkTopics[0] || null;
@@ -340,6 +363,7 @@ export function DashboardView({
         <button style={tabStyle(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
         <button style={tabStyle(tab === 'strengths')} onClick={() => setTab('strengths')}>Focus Areas</button>
         <button style={tabStyle(tab === 'topic')} onClick={() => setTab('topic')}>Topics</button>
+        <button style={tabStyle(tab === 'patterns')} onClick={() => setTab('patterns')}>Patterns</button>
         <button style={tabStyle(tab === 'test-analysis')} onClick={() => setTab('test-analysis')}>Tests</button>
       </div>
 
@@ -656,6 +680,126 @@ export function DashboardView({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── PATTERNS TAB ────────────────────────────────────────────────────── */}
+      {tab === 'patterns' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {patternWeaknesses.length === 0 && topicWeaknesses.length === 0 ? (
+            <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '56px 32px', textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>No pattern data yet</div>
+              <div style={{ fontSize: 13.5, color: 'var(--text-sec)', maxWidth: 380, margin: '0 auto', lineHeight: 1.7 }}>
+                Pattern tags appear once you practice questions that have been tagged by the admin. Keep answering and your pattern-level weaknesses will surface here.
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Pattern accuracy cards */}
+              {patternWeaknesses.length > 0 && (
+                <SectionCard>
+                  <SectionHeader title="Pattern-level accuracy" />
+                  <p style={{ fontSize: 12, color: 'var(--text-tert)', marginBottom: 14, lineHeight: 1.6 }}>
+                    Where you struggle by question style — not just subject.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {patternWeaknesses.map(({ pattern, pct, correct, total }) => {
+                      const color = pct >= 70 ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#ef4444';
+                      const isWeak = pct < BENCHMARK;
+                      return (
+                        <div key={pattern} style={{ padding: '12px 14px', background: isWeak ? 'rgba(239,68,68,0.04)' : 'var(--bg-alt)', border: `1px solid ${isWeak ? 'rgba(239,68,68,0.2)' : 'var(--border)'}`, borderRadius: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ padding: '3px 8px', background: 'rgba(124,111,255,0.12)', color: '#7c6fff', fontSize: 10, fontWeight: 700, borderRadius: 6, textTransform: 'uppercase' }}>{pattern}</span>
+                              {isWeak && <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 600 }}>needs work</span>}
+                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 800, color }}>{pct}%</span>
+                          </div>
+                          <div style={{ height: 5, background: 'var(--bg-canvas)', borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99 }} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 11.5, color: 'var(--text-tert)' }}>{correct}/{total} correct</span>
+                            {isWeak && (
+                              <button
+                                onClick={() => setView('home')}
+                                style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+                              >
+                                Practice this →
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </SectionCard>
+              )}
+
+              {/* Topic weakness cards */}
+              {topicWeaknesses.length > 0 && (
+                <SectionCard>
+                  <SectionHeader title="Weakest topics (cumulative)" />
+                  <p style={{ fontSize: 12, color: 'var(--text-tert)', marginBottom: 14, lineHeight: 1.6 }}>
+                    Topics where your accuracy is lowest across all attempts — not just recent ones.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {topicWeaknesses.map(({ subject, topic, subtopic, pct, correct, total }) => {
+                      const color = pct >= 70 ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#ef4444';
+                      const isWeak = pct < BENCHMARK;
+                      return (
+                        <div key={`${subject}::${topic}`} style={{ padding: '11px 13px', background: isWeak ? 'rgba(239,68,68,0.04)' : 'var(--bg-alt)', border: `1px solid ${isWeak ? 'rgba(239,68,68,0.18)' : 'var(--border)'}`, borderRadius: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                            <div>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{topic}</span>
+                              <div style={{ fontSize: 11, color: 'var(--text-tert)', marginTop: 2 }}>
+                                {subject}{subtopic ? ` · ${subtopic}` : ''}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                              {isWeak && (
+                                <button
+                                  onClick={() => startPractice('', 0, subject, topic)}
+                                  style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+                                >
+                                  Practice →
+                                </button>
+                              )}
+                              <span style={{ fontSize: 13, fontWeight: 800, color }}>{pct}%</span>
+                            </div>
+                          </div>
+                          <div style={{ height: 4, background: 'var(--bg-canvas)', borderRadius: 99, overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99 }} />
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-tert)', marginTop: 5 }}>{correct}/{total} correct</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </SectionCard>
+              )}
+
+              {/* Actionable insight */}
+              {(patternWeaknesses[0] || topicWeaknesses[0]) && (
+                <SectionCard>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Next best move</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-sec)', lineHeight: 1.7 }}>
+                    {patternWeaknesses[0] && patternWeaknesses[0].pct < BENCHMARK
+                      ? <>Your weakest pattern is <strong style={{ color: '#7c6fff' }}>{patternWeaknesses[0].pattern}</strong> at {patternWeaknesses[0].pct}% accuracy. Look for these question types during your next practice session and slow down before answering.</>
+                      : topicWeaknesses[0]
+                        ? <>Focus your next session on <strong style={{ color: 'var(--text)' }}>{topicWeaknesses[0].topic}</strong> ({topicWeaknesses[0].subject}) — it's at {topicWeaknesses[0].pct}% accuracy, the clearest improvement opportunity.</>
+                        : 'Keep practicing to surface deeper pattern-level insights.'}
+                  </div>
+                  <button
+                    onClick={() => setView('home')}
+                    style={{ marginTop: 14, padding: '9px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    Start practice session
+                  </button>
+                </SectionCard>
+              )}
+            </>
+          )}
         </div>
       )}
 

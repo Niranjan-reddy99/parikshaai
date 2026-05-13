@@ -5,11 +5,15 @@ export interface RecentAttempt {
   correct: boolean;
   subject: string;
   topic: string;
+  subtopic?: string;
+  pattern_tag?: string;
   time: string;
 }
 
 export interface UserStats {
   bySubject: Record<string, { correct: number; total: number }>;
+  byTopic: Record<string, { subject: string; topic: string; subtopic: string; correct: number; total: number }>;
+  byPattern: Record<string, { correct: number; total: number }>;
   streak: number;
   lastActiveDate: string;
   xp: number;
@@ -21,7 +25,7 @@ export interface UserStats {
 const KEY = (uid: string) => `pyq_stats_${uid}`;
 
 const EMPTY: UserStats = {
-  bySubject: {}, streak: 0, lastActiveDate: '', xp: 0,
+  bySubject: {}, byTopic: {}, byPattern: {}, streak: 0, lastActiveDate: '', xp: 0,
   totalAnswered: 0, recentAttempts: [], dailyActivity: {},
 };
 
@@ -40,14 +44,31 @@ export function updateStats(
   questionText: string,
   correct: boolean,
   startTimeMs: number,
+  subtopic?: string,
+  pattern_tag?: string,
 ): UserStats {
   const stats = getStats(uid);
+  if (!stats.byTopic) stats.byTopic = {};
+  if (!stats.byPattern) stats.byPattern = {};
 
   // Subject accuracy
   if (!stats.bySubject[subject]) stats.bySubject[subject] = { correct: 0, total: 0 };
   stats.bySubject[subject].total++;
   if (correct) stats.bySubject[subject].correct++;
   stats.totalAnswered++;
+
+  // Topic accuracy
+  const topicKey = `${subject}::${topic}`;
+  if (!stats.byTopic[topicKey]) stats.byTopic[topicKey] = { subject, topic, subtopic: subtopic || '', correct: 0, total: 0 };
+  stats.byTopic[topicKey].total++;
+  if (correct) stats.byTopic[topicKey].correct++;
+
+  // Pattern accuracy
+  if (pattern_tag) {
+    if (!stats.byPattern[pattern_tag]) stats.byPattern[pattern_tag] = { correct: 0, total: 0 };
+    stats.byPattern[pattern_tag].total++;
+    if (correct) stats.byPattern[pattern_tag].correct++;
+  }
 
   // Streak
   const today = new Date().toISOString().split('T')[0];
@@ -69,7 +90,10 @@ export function updateStats(
   const timeStr = secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`;
   stats.recentAttempts.unshift({
     q: questionText.slice(0, 90),
-    correct, subject, topic, time: timeStr,
+    correct, subject, topic,
+    subtopic: subtopic || undefined,
+    pattern_tag: pattern_tag || undefined,
+    time: timeStr,
   });
   stats.recentAttempts = stats.recentAttempts.slice(0, 20);
 
