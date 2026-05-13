@@ -2605,6 +2605,61 @@ function AppContent() {
     view,
   ]);
 
+  const pageMeta = useMemo(() => {
+    if (view === "home") {
+      return {
+        title: "PYQ Workspace",
+        subtitle: "Focused exam prep, without the clutter",
+      };
+    }
+    if (view === "browse") {
+      return {
+        title: "Question Bank",
+        subtitle: "Search and filter questions across papers",
+      };
+    }
+    if (view === "commission") {
+      return {
+        title: selectedCommission || "Commission Papers",
+        subtitle: "Browse papers and exam collections",
+      };
+    }
+    if (view === "exam-detail") {
+      return {
+        title: selectedExamName || "Exam Detail",
+        subtitle: "Choose the right mode and paper",
+      };
+    }
+    if (view === "dashboard") {
+      return {
+        title: "My Progress",
+        subtitle: "Performance, patterns, and improvement areas",
+      };
+    }
+    if (view === "leaderboard") {
+      return {
+        title: "Leaderboard",
+        subtitle: "See how your pace compares",
+      };
+    }
+    if (view === "feed") {
+      return {
+        title: "PYQ Feed",
+        subtitle: "High-yield topic patterns across exams",
+      };
+    }
+    if (view === "bookmarks") {
+      return {
+        title: "Bookmarks",
+        subtitle: "Questions saved for focused review",
+      };
+    }
+    return {
+      title: "Pariksha",
+      subtitle: "Clean exam prep, question by question",
+    };
+  }, [selectedCommission, selectedExamName, view]);
+
   // ── Computed ────────────────────────────────────────────────────────────────
 
   const commissionMap = useMemo(
@@ -2853,23 +2908,31 @@ function AppContent() {
               padding: isMobileLayout ? "12px 16px" : "12px 22px",
             }}
           >
-            <div
-              onClick={() => setView("home")}
-              style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 15, color: "var(--text)", cursor: "pointer", userSelect: "none", flexShrink: 0 }}
-            >
-              <div style={{
-                width: 30, height: 30, borderRadius: 9,
-                background: "linear-gradient(135deg, var(--brand-ink), var(--accent))",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "white", fontWeight: 800, fontSize: 13,
-              }}>P</div>
-              <div>
-                <div style={{ lineHeight: 1, letterSpacing: "-0.04em" }}>Pariksha</div>
-                <div className="desktop-only" style={{ marginTop: 3, fontSize: 10.5, fontWeight: 600, color: "var(--text-tert)" }}>
-                  Clean exam prep, question by question
+            {isMobileLayout ? (
+              <div
+                onClick={() => setView("home")}
+                style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 15, color: "var(--text)", cursor: "pointer", userSelect: "none", flexShrink: 0 }}
+              >
+                <div style={{
+                  width: 30, height: 30, borderRadius: 9,
+                  background: "linear-gradient(135deg, var(--brand-ink), var(--accent))",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "white", fontWeight: 800, fontSize: 13,
+                }}>P</div>
+                <div>
+                  <div style={{ lineHeight: 1, letterSpacing: "-0.04em" }}>Pariksha</div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.04em", lineHeight: 1.1 }}>
+                  {pageMeta.title}
+                </div>
+                <div style={{ marginTop: 4, fontSize: 11.5, fontWeight: 600, color: "var(--text-tert)" }}>
+                  {pageMeta.subtitle}
+                </div>
+              </div>
+            )}
 
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: isMobileLayout ? 10 : 14 }}>
               {topSearchConfig && !isMobileLayout && (
@@ -2907,24 +2970,8 @@ function AppContent() {
                 </div>
               )}
 
-              {!isMobileLayout && userStats.streak > 0 && (
-                <span style={{
-                  display: "inline-flex", alignItems: "center", gap: 4,
-                  padding: "5px 12px", background: "var(--warn-soft)",
-                  color: "var(--warn)", borderRadius: 999, fontSize: 12, fontWeight: 700,
-                }}>
-                  🔥 {userStats.streak}
-                </span>
-              )}
-
               {dataLoading && (
                 <Loader2 style={{ width: 15, height: 15, color: C.accent }} className="animate-spin" />
-              )}
-
-              {!isMobileLayout && (
-                <span style={{ padding: "7px 14px", background: "var(--accent-soft)", color: "var(--accent)", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                  Upgrade
-                </span>
               )}
 
               {isMobileLayout && (

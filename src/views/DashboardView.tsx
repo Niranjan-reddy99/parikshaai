@@ -992,7 +992,7 @@ export function DashboardView({
           <div className="dashboard-split-grid" style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 20 }}>
             <SectionCard>
               <SectionHeader title="Mistake Concentration" />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="desktop-only" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>By Subject</div>
                   {mistakeBySubject.length === 0 ? (
@@ -1024,6 +1024,42 @@ export function DashboardView({
                   )}
                 </div>
               </div>
+              <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                    Biggest subject drag
+                  </div>
+                  {mistakeBySubject.length === 0 ? (
+                    <div style={{ fontSize: 12.5, color: 'var(--text-tert)' }}>No recent mistakes recorded.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {mistakeBySubject.slice(0, 3).map((row, index) => (
+                        <div key={row.subject} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 12.5, color: 'var(--text)' }}>{index + 1}. {row.subject}</span>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: '#ef4444' }}>{row.wrong} wrong</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div style={{ padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                    Top risky topics
+                  </div>
+                  {mistakeByTopic.length === 0 ? (
+                    <div style={{ fontSize: 12.5, color: 'var(--text-tert)' }}>No topic cluster yet.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {mistakeByTopic.slice(0, 3).map((row) => (
+                        <div key={`${row.subject}-${row.topic}`} style={{ padding: '10px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{row.topic}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-tert)', marginTop: 3 }}>{row.subject} · {row.wrong} wrong</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </SectionCard>
 
             <SectionCard className="dashboard-review-card">
@@ -1038,7 +1074,7 @@ export function DashboardView({
                 ))}
               </div>
 
-              <div className="dashboard-review-table-head" style={{
+              <div className="dashboard-review-table-head desktop-only" style={{
                 display: 'grid', gridTemplateColumns: '1fr 110px 110px 84px 84px',
                 padding: '8px 12px', background: 'var(--bg-alt)',
                 borderRadius: '8px 8px 0 0', fontSize: 11, fontWeight: 700,
@@ -1057,7 +1093,7 @@ export function DashboardView({
                 const paceColor = pace === 'Fast' ? '#16a34a' : pace === 'Balanced' ? '#2563eb' : '#f59e0b';
                 return (
                   <div
-                    className="dashboard-review-table-row"
+                    className="dashboard-review-table-row desktop-only"
                     key={i}
                     style={{
                       display: 'grid', gridTemplateColumns: '1fr 110px 110px 84px 84px',
@@ -1083,6 +1119,36 @@ export function DashboardView({
                   </div>
                 );
               })}
+              <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {recentAttemptReview.slice(0, 4).map((att, i) => {
+                  const seconds = parseAttemptTimeToSeconds(att.time);
+                  const pace = paceLabel(seconds);
+                  const paceColor = pace === 'Fast' ? '#16a34a' : pace === 'Balanced' ? '#2563eb' : '#f59e0b';
+                  return (
+                    <div key={i} style={{ padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, marginBottom: 8 }}>
+                        {att.q}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#2563eb', background: 'rgba(37,99,235,0.08)', borderRadius: 999, padding: '3px 8px' }}>
+                          {att.subject}
+                        </span>
+                        <span style={{ fontSize: 10.5, color: 'var(--text-tert)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 8px' }}>
+                          {att.topic || 'General'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: att.correct ? '#16a34a' : '#ef4444' }}>
+                          {att.correct ? 'Correct' : 'Wrong'}
+                        </span>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: paceColor }}>
+                          {att.time} · {pace}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </SectionCard>
           </div>
         </div>

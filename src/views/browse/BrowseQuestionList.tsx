@@ -209,16 +209,17 @@ export function BrowseQuestionList({
             }}
           >
             <div
+              className="browse-question-index"
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
+                width: 30,
+                height: 30,
+                borderRadius: 999,
                 background: C.bg,
                 border: `1px solid ${C.border}`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: 700,
                 color: C.textTert,
                 flexShrink: 0,
@@ -227,16 +228,16 @@ export function BrowseQuestionList({
             >
               {index + 1}
             </div>
-            <div onClick={() => setSelectedQuestion(question)} style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 7 }}>
+            <div className="browse-question-content" onClick={() => setSelectedQuestion(question)} style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
+              <div className="browse-question-tags" style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
                 <span
                   style={{
-                    padding: '2px 7px',
-                    background: 'rgba(37,99,235,0.08)',
+                    padding: '2px 8px',
+                    background: 'rgba(37,99,235,0.07)',
                     color: '#2563eb',
                     fontSize: 10,
                     fontWeight: 700,
-                    borderRadius: 5,
+                    borderRadius: 999,
                     textTransform: 'uppercase',
                   }}
                 >
@@ -246,11 +247,11 @@ export function BrowseQuestionList({
                   <span
                     style={{
                       padding: '2px 7px',
-                      background: 'transparent',
+                      background: 'rgba(255,255,255,0.5)',
                       border: `1px solid ${C.border}`,
                       color: C.textTert,
                       fontSize: 10,
-                      borderRadius: 5,
+                      borderRadius: 999,
                     }}
                   >
                     {question.subtopic}
@@ -263,14 +264,14 @@ export function BrowseQuestionList({
                     color: diffColor[question.difficulty] || C.textSec,
                     fontSize: 10,
                     fontWeight: 600,
-                    borderRadius: 5,
+                    borderRadius: 999,
                   }}
                 >
                   {question.difficulty}
                 </span>
               </div>
               {question.passage && (
-                <div style={{ marginBottom: 7, paddingLeft: 10, borderLeft: '2px solid #93c5fd' }}>
+                <div className="browse-question-passage" style={{ marginBottom: 9, padding: '8px 10px', borderRadius: 10, background: 'rgba(37,99,235,0.05)' }}>
                   <span
                     style={{
                       display: 'block',
@@ -287,7 +288,7 @@ export function BrowseQuestionList({
                   <p
                     style={{
                       color: C.textSec,
-                      fontSize: 12,
+                      fontSize: 11.5,
                       lineHeight: 1.5,
                       display: '-webkit-box',
                       WebkitLineClamp: 2,
@@ -300,21 +301,25 @@ export function BrowseQuestionList({
                 </div>
               )}
               <p
+                className="browse-question-title"
                 style={{
                   color: C.text,
-                  fontWeight: 500,
+                  fontWeight: 600,
                   fontSize: 13.5,
-                  lineHeight: 1.6,
+                  lineHeight: 1.55,
                   overflow: 'hidden',
                   display: '-webkit-box',
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: 'vertical',
-                  marginBottom: 4,
+                  marginBottom: 8,
                 }}
               >
                 {question.question}
               </p>
-              <p style={{ fontSize: 11, color: C.textTert }}>{question.topic}</p>
+              <div className="browse-question-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                <p style={{ fontSize: 11, color: C.textTert, margin: 0 }}>{question.topic}</p>
+                <span style={{ fontSize: 10.5, color: C.textTert, fontWeight: 600 }}>Tap to review</span>
+              </div>
             </div>
           </div>
         ))
