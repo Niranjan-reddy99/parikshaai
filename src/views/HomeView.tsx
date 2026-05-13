@@ -75,7 +75,6 @@ export function HomeView({
   stats, userDisplayName, userId,
 }: HomeViewProps) {
   const [hoveredCommission, setHoveredCommission] = useState<string | null>(null);
-  const [hoveredShortcut, setHoveredShortcut] = useState<number | null>(null);
 
   const firstName = userDisplayName?.split(' ')[0] || 'Aspirant';
   const dailyGoal = parseInt(localStorage.getItem(`pyq_dailygoal_${userId}`) || '20', 10);
@@ -132,51 +131,6 @@ export function HomeView({
           hint: 'You are stable enough to branch into topic-wise practice and newer papers.',
           onClick: () => setView('feed'),
         };
-
-  const quickShortcuts = [
-    {
-      tag: 'Last 5 Years',
-      tagColor: '#7c3aed', tagBg: '#f5f3ff',
-      title: upscPrelimsEntry ? upscPrelimsEntry[0] : (firstExamEntries[0]?.[0] || 'Practice'),
-      sub: 'Most recent papers',
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-        </svg>
-      ),
-      iconColor: '#7c3aed', iconBg: '#f5f3ff',
-      onClick: () => {
-        const entry = upscPrelimsEntry || firstExamEntries[0];
-        if (entry) startPractice(entry[1].fullName, entry[1].years[0]);
-      },
-    },
-    {
-      tag: 'Weak Topics',
-      tagColor: '#dc2626', tagBg: '#fef2f2',
-      title: 'Your Weak Areas',
-      sub: 'Practice where you\'re losing marks',
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 3v18h18"/><polyline points="7 14 11 10 15 13 21 7"/>
-        </svg>
-      ),
-      iconColor: '#dc2626', iconBg: '#fef2f2',
-      onClick: () => setView('dashboard'),
-    },
-    {
-      tag: 'Topic-wise',
-      tagColor: '#059669', tagBg: '#f0fdf4',
-      title: 'Browse by Topic',
-      sub: 'Practice across exams by subject',
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>
-        </svg>
-      ),
-      iconColor: '#059669', iconBg: '#f0fdf4',
-      onClick: () => setView('feed'),
-    },
-  ];
 
   return (
     <div className="home-layout" style={{ fontFamily: "var(--font-sans)" }}>
@@ -271,51 +225,50 @@ export function HomeView({
           </div>
         </div>
 
-        {/* Quick Practice Set */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div>
-              <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', margin: 0 }}>Quick Practice</h2>
-              <p style={{ fontSize: 12, color: 'var(--text-tert)', margin: '3px 0 0' }}>Jump into the most useful practice modes without hunting through menus.</p>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 12,
+            marginBottom: 24,
+          }}
+        >
+          {[
+            {
+              label: 'Daily target',
+              value: `${todayCount}/${dailyGoal}`,
+              hint: goalPct >= 100 ? 'Completed today' : `${remainingToday} left`,
+              accent: '#2563eb',
+            },
+            {
+              label: 'Accuracy',
+              value: totals.total > 0 ? `${accuracy}%` : '—',
+              hint: accuracy >= 70 ? 'Stable' : accuracy >= 50 ? 'Improving' : 'Needs attention',
+              accent: accuracy >= 70 ? '#16a34a' : accuracy >= 50 ? '#f59e0b' : '#ef4444',
+            },
+            {
+              label: 'Streak',
+              value: stats.streak > 0 ? `${stats.streak}d` : 'Start',
+              hint: stats.streak > 0 ? 'Keep the chain alive' : 'Build momentum',
+              accent: '#f59e0b',
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="surface-card"
+              style={{ borderRadius: 18, padding: '16px 18px' }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                {item.label}
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', lineHeight: 1.05, marginBottom: 5 }}>
+                {item.value}
+              </div>
+              <div style={{ fontSize: 11.5, color: item.accent }}>
+                {item.hint}
+              </div>
             </div>
-          </div>
-          <div className="home-quick-grid">
-            {quickShortcuts.map((s, i) => {
-              const hov = hoveredShortcut === i;
-              return (
-                <div
-                  key={i}
-                  onClick={s.onClick}
-                  onMouseEnter={() => setHoveredShortcut(i)}
-                  onMouseLeave={() => setHoveredShortcut(null)}
-                  style={{
-                    background: 'var(--bg)', border: `1px solid ${hov ? '#94a3b8' : 'var(--border)'}`,
-                    borderRadius: 18, padding: '16px 16px', cursor: 'pointer',
-                    boxShadow: hov ? '0 16px 30px -24px rgba(15,23,42,0.25)' : '0 12px 24px -28px rgba(15,23,42,0.15)',
-                    transition: 'border-color 0.12s, box-shadow 0.12s',
-                    display: 'flex', flexDirection: 'column', gap: 10,
-                    minHeight: 136,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: s.tagBg, color: s.tagColor }}>
-                      {s.tag}
-                    </span>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-tert)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                  </div>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: s.iconBg, color: s.iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {s.icon}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3 }}>{s.title}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-tert)', marginTop: 2 }}>{s.sub}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          ))}
         </div>
 
         {/* Previous Year Questions — commission cards */}
@@ -389,55 +342,9 @@ export function HomeView({
 
       {/* ── RIGHT: sticky sidebar ──────────────────────────────────────── */}
       <div className="home-sidebar">
-
-        {/* Today at a glance */}
-        <div className="surface-card" style={{ borderRadius: 20, padding: '16px 18px' }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>Today at a glance</div>
-          <div className="home-sidebar-metrics">
-            {[
-              {
-                value: todayCount,
-                label: 'Questions',
-                color: '#7c3aed',
-                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
-              },
-              {
-                value: totals.total > 0 ? `${accuracy}%` : '—',
-                label: 'Accuracy',
-                color: accuracy >= 70 ? '#16a34a' : accuracy >= 50 ? '#f59e0b' : '#ef4444',
-                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
-              },
-              {
-                value: `${goalPct}%`,
-                label: 'Goal',
-                color: '#2563eb',
-                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
-              },
-              {
-                value: stats.streak > 0 ? `${stats.streak}d` : 'Start',
-                label: 'Streak',
-                color: '#f59e0b',
-                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
-              },
-            ].map(({ value, label, color, icon }) => (
-              <div key={label} style={{ padding: '10px 12px', background: 'var(--bg-alt)', borderRadius: 10 }}>
-                <div style={{ color, marginBottom: 4 }}>{icon}</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{value}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--text-tert)', marginTop: 3 }}>{label}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 12, fontSize: 11.5, color: 'var(--text-tert)', lineHeight: 1.6 }}>
-            {goalPct >= 100
-              ? 'Today is on track. Use the next session to sharpen accuracy or revisit weak areas.'
-              : `You are ${remainingToday} question${remainingToday === 1 ? '' : 's'} away from your daily target.`}
-          </div>
-        </div>
-
-        {/* Focus card */}
         <div className="surface-card" style={{ borderRadius: 20, padding: '16px 18px' }}>
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Next best move</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today’s focus</div>
             <div style={{ fontSize: 11.5, color: 'var(--text-tert)', marginTop: 4, lineHeight: 1.6 }}>
               {nextAction.hint}
             </div>
@@ -468,6 +375,17 @@ export function HomeView({
               }}
             >
               Open Question Bank
+            </button>
+            <button
+              onClick={() => setView('dashboard')}
+              style={{
+                width: '100%', padding: '10px 0',
+                background: 'transparent', border: 'none',
+                borderRadius: 10, fontSize: 12.5, fontWeight: 600,
+                color: '#2563eb', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Review progress
             </button>
           </div>
         </div>

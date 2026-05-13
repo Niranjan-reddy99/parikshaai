@@ -431,10 +431,8 @@ export function DashboardView({
             </div>
           ) : (
             <>
-              {/* Stat cards */}
+              {/* Snapshot cards */}
               <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
-
-                {/* Accuracy */}
                 <div style={{
                   background: 'var(--bg)', border: '1px solid var(--border)',
                   borderLeft: `3px solid ${accuracyColor}`,
@@ -446,13 +444,12 @@ export function DashboardView({
                       <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Accuracy</div>
                       <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{overallAccuracy}%</div>
                       <div style={{ fontSize: 11, color: overallAccuracy >= BENCHMARK ? '#16a34a' : '#f59e0b', marginTop: 5, fontWeight: 600 }}>
-                        {overallAccuracy >= BENCHMARK ? `${overallAccuracy - BENCHMARK}% above target` : `${BENCHMARK - overallAccuracy}% below ${BENCHMARK}% target`}
+                        {overallAccuracy >= BENCHMARK ? 'Holding above target' : 'Below target right now'}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Questions Solved */}
                 <div style={{
                   background: 'var(--bg)', border: '1px solid var(--border)',
                   borderLeft: '3px solid #7c3aed',
@@ -470,34 +467,11 @@ export function DashboardView({
                     <div>
                       <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Questions Solved</div>
                       <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{totalAnswered.toLocaleString()}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-sec)', marginTop: 5 }}>all time</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-sec)', marginTop: 5 }}>practice volume so far</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Subjects Covered */}
-                <div style={{
-                  background: 'var(--bg)', border: '1px solid var(--border)',
-                  borderLeft: '3px solid #0891b2',
-                  borderRadius: 12, padding: '16px 18px',
-                }}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#cffafe' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Subjects</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{subjects.length}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-sec)', marginTop: 5 }}>
-                        {strongSubjects.length > 0 ? `${strongSubjects.length} strong` : 'covered so far'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Day Streak */}
                 <div style={{
                   background: 'var(--bg)', border: '1px solid var(--border)',
                   borderLeft: '3px solid #ef4444',
@@ -506,158 +480,158 @@ export function DashboardView({
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                     <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff1f2' }}>
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                        <path d="M3 3v18h18"/><polyline points="7 14 11 10 15 13 21 7"/>
                       </svg>
                     </div>
                     <div>
-                      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Day Streak</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{stats.streak}</div>
-                      <div style={{ fontSize: 11, color: stats.streak >= 7 ? '#e11d48' : stats.streak > 0 ? '#16a34a' : 'var(--text-tert)', marginTop: 5, fontWeight: 600 }}>
-                        {stats.streak >= 7 ? 'On a roll!' : stats.streak > 0 ? 'Keep going' : 'Start today'}
+                      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Weakest Area</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>
+                        {weakSubjects[0]?.subject || '—'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-sec)', marginTop: 5 }}>
+                        {weakSubjects[0] ? `${weakSubjects[0].pct}% accuracy` : 'Need more attempts'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'var(--bg)', border: '1px solid var(--border)',
+                  borderLeft: '3px solid #0891b2',
+                  borderRadius: 12, padding: '16px 18px',
+                }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ecfeff' }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Average Pace</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>
+                        {testReviewSummary.avgSeconds > 0 ? formatAttemptSeconds(testReviewSummary.avgSeconds) : '—'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-sec)', marginTop: 5, fontWeight: 600 }}>
+                        {testReviewSummary.avgSeconds > 0 ? paceLabel(testReviewSummary.avgSeconds) : 'No pace signal yet'}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Main 2-col layout */}
               <div className="dashboard-main-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 20, alignItems: 'start' }}>
-
-                {/* Left column */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                  {/* Performance Trend */}
                   <SectionCard>
-                    <SectionHeader title="Performance Trend" />
-                    {trendData.length < 2 ? (
-                      <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tert)', fontSize: 13 }}>
-                        Answer more questions to see your performance trend.
+                    <SectionHeader title="What needs attention" />
+                    {weakSubjects.length === 0 ? (
+                      <div style={{ color: 'var(--text-tert)', fontSize: 13, lineHeight: 1.6 }}>
+                        Practice a little more to surface clear weak areas.
                       </div>
                     ) : (
-                      <ResponsiveContainer width="100%" height={200}>
-                        <LineChart data={trendData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-tert)' }} />
-                          <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--text-tert)' }} />
-                          <Tooltip
-                            contentStyle={{
-                              fontSize: 12, background: 'var(--bg)',
-                              border: '1px solid var(--border)', borderRadius: 8,
-                            }}
-                          />
-                          <Legend wrapperStyle={{ fontSize: 12 }} />
-                          <Line type="monotone" dataKey="Accuracy (%)" stroke="#2563eb" strokeWidth={2} dot={{ r: 4, fill: '#2563eb' }} activeDot={{ r: 5 }} />
-                          <Line type="monotone" dataKey="Score (%)" stroke="#22c55e" strokeWidth={2} dot={{ r: 4, fill: '#22c55e' }} activeDot={{ r: 5 }} />
-                        </LineChart>
-                      </ResponsiveContainer>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {weakSubjects.slice(0, 4).map(({ subject, pct }) => {
+                          const color = pct >= 75 ? '#2563eb' : pct >= 55 ? '#f59e0b' : '#ef4444';
+                          return (
+                            <div key={subject}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{subject}</span>
+                                <span style={{ fontSize: 12.5, fontWeight: 800, color }}>{pct}%</span>
+                              </div>
+                              <div style={{ height: 6, background: 'var(--bg-canvas)', borderRadius: 999, overflow: 'hidden' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 999 }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {needsWorkTopics[0] && (
+                          <div style={{ marginTop: 4, padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12.5, color: 'var(--text-sec)', lineHeight: 1.6 }}>
+                            Your riskiest recent pocket is <span style={{ fontWeight: 700, color: 'var(--text)' }}>{needsWorkTopics[0].subject} → {needsWorkTopics[0].topic}</span>.
+                          </div>
+                        )}
+                      </div>
                     )}
                   </SectionCard>
 
-                  {/* Charts row */}
                   <div className="dashboard-chart-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-                    {/* Accuracy by Section */}
                     <SectionCard>
-                      <SectionHeader title="Accuracy by Section" />
-                      {pieData.length === 0 ? (
-                        <div style={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tert)', fontSize: 12 }}>
-                          No data yet
+                      <SectionHeader title="Where you are strongest" action="Open focus areas" onAction={() => setTab('strengths')} />
+                      {strongSubjects.length === 0 ? (
+                        <div style={{ color: 'var(--text-tert)', fontSize: 13, lineHeight: 1.6 }}>
+                          A few more subject attempts will surface your stronger areas.
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ flexShrink: 0 }}>
-                            <PieChart width={110} height={110}>
-                              <Pie
-                                data={pieData} cx={55} cy={55}
-                                innerRadius={28} outerRadius={50}
-                                dataKey="value" strokeWidth={0}
-                              />
-                            </PieChart>
-                          </div>
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {pieData.map((entry, i) => (
-                              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                  <div style={{
-                                    width: 8, height: 8, borderRadius: '50%',
-                                    background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0,
-                                  }} />
-                                  <span style={{ fontSize: 11.5, color: 'var(--text-sec)', maxWidth: 64, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {entry.name}
-                                  </span>
-                                </div>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{entry.pct}%</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {strongSubjects.slice(0, 3).map(({ subject, pct, total }) => (
+                            <div key={subject} style={{ padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{subject}</span>
+                                <span style={{ fontSize: 12.5, fontWeight: 800, color: '#16a34a' }}>{pct}%</span>
                               </div>
-                            ))}
-                          </div>
+                              <div style={{ fontSize: 11.5, color: 'var(--text-tert)' }}>
+                                {total} recent attempts
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </SectionCard>
 
-                    {/* Score Distribution */}
                     <SectionCard>
-                      <SectionHeader title="Score Distribution" />
-                      <ResponsiveContainer width="100%" height={110}>
-                        <BarChart data={scoreDistData} margin={{ top: 0, right: 0, left: -32, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                          <XAxis dataKey="name" tick={{ fontSize: 9.5, fill: 'var(--text-tert)' }} />
-                          <YAxis tick={{ fontSize: 10, fill: 'var(--text-tert)' }} unit="%" />
-                          <Tooltip
-                            formatter={(v: number) => [`${v}%`, 'Subjects']}
-                            contentStyle={{ fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}
-                          />
-                          <Bar dataKey="value" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                      <div style={{ textAlign: 'center', fontSize: 10.5, color: 'var(--text-tert)', marginTop: 4 }}>
-                        Score Range
-                      </div>
+                      <SectionHeader title="Recent signals" />
+                      {reviewHighlights.length === 0 ? (
+                        <div style={{ color: 'var(--text-tert)', fontSize: 13, lineHeight: 1.6 }}>
+                          Answer more questions to unlock coaching-style signals here.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {reviewHighlights.slice(0, 3).map((note) => (
+                            <div key={note} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#2563eb', marginTop: 6, flexShrink: 0 }} />
+                              <div style={{ fontSize: 12.5, color: 'var(--text-sec)', lineHeight: 1.6 }}>
+                                {note}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </SectionCard>
                   </div>
                 </div>
 
-                {/* Right sidebar */}
                 <div className="dashboard-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 24 }}>
-
-                  {/* Weak Areas */}
                   <SectionCard>
-                    <SectionHeader title="Weak Areas" action="View All" onAction={() => setTab('strengths')} />
-                    {weakSubjects.length === 0 ? (
-                      <div style={{ fontSize: 12, color: 'var(--text-tert)', lineHeight: 1.6 }}>
-                        Practice at least 5 questions per subject to identify weak areas.
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          {weakSubjects.map(({ subject, pct }) => {
-                            const color = pct >= 75 ? '#2563eb' : pct >= 55 ? '#f59e0b' : '#ef4444';
-                            return (
-                              <div key={subject}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                  <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '75%' }}>
-                                    {subject}
-                                  </span>
-                                  <span style={{ fontSize: 12.5, fontWeight: 700, color }}>{pct}%</span>
-                                </div>
-                                <div style={{ height: 5, background: 'var(--bg-canvas)', borderRadius: 99, overflow: 'hidden' }}>
-                                  <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99 }} />
-                                </div>
-                              </div>
-                            );
-                          })}
+                    <SectionHeader title="Next best move" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                          Recommended focus
                         </div>
-                        {weakSubjects[0] && (
-                          <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text-sec)', lineHeight: 1.5 }}>
-                            <span style={{ fontWeight: 700, color: 'var(--text)' }}>{weakSubjects[0].subject}</span> needs the most work — start here to gain marks fastest.
-                          </div>
-                        )}
-                      </>
-                    )}
+                        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                          {weakSubjects[0]?.subject || 'Build more data first'}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-sec)', lineHeight: 1.6 }}>
+                          {weakSubjects[0]
+                            ? `Start with ${weakSubjects[0].subject}. That is where you can recover marks fastest right now.`
+                            : 'Take a short practice session so the app can surface weak areas.'}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setTab('strengths')}
+                        style={{ padding: '10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
+                      >
+                        Review focus areas
+                      </button>
+                      <button
+                        onClick={() => setView('home')}
+                        style={{ padding: '10px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-sec)', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
+                      >
+                        Go back to practice
+                      </button>
+                    </div>
                   </SectionCard>
 
-                  {/* Recent Tests */}
                   <SectionCard>
-                    <SectionHeader title="Recent Activity" action="Full Analysis" onAction={() => setTab('test-analysis')} />
+                    <SectionHeader title="Recent activity" action="Open tests" onAction={() => setTab('test-analysis')} />
                     {recentAttempts.length === 0 ? (
                       <div style={{ fontSize: 12, color: 'var(--text-tert)' }}>No recent activity.</div>
                     ) : (
@@ -684,7 +658,7 @@ export function DashboardView({
                               <div style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {att.q}
                               </div>
-                              <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                              <div style={{ display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: 10.5, color: '#2563eb', fontWeight: 600 }}>{att.subject}</span>
                                 <span style={{ fontSize: 10.5, color: 'var(--text-tert)' }}>{att.time}</span>
                               </div>
@@ -694,37 +668,6 @@ export function DashboardView({
                       </div>
                     )}
                   </SectionCard>
-
-                  {/* Quick actions */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <button
-                      onClick={() => setView('home')}
-                      style={{ padding: '10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
-                    >
-                      Back to practice
-                    </button>
-                    <div
-                      onClick={() => setView('leaderboard')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setView('leaderboard');
-                        }
-                      }}
-                      style={{
-                        padding: '10px 2px 0',
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        color: '#2563eb',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                      }}
-                    >
-                      Check leaderboard movement
-                    </div>
-                  </div>
                 </div>
               </div>
             </>
