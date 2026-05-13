@@ -709,6 +709,182 @@ body {
   gap: 14px;
 }
 
+.dashboard-shell {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.dashboard-shell * {
+  min-width: 0;
+}
+
+.progress-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.progress-coach-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.14), transparent 34%),
+    linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
+  box-shadow: 0 24px 60px -46px rgba(15, 23, 42, 0.4);
+}
+
+.progress-coach-copy {
+  max-width: 680px;
+}
+
+.progress-eyebrow {
+  display: inline-flex;
+  margin-bottom: 10px;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.progress-coach-copy h2 {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: clamp(22px, 3vw, 34px);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.progress-coach-copy p,
+.progress-empty-copy {
+  margin: 0;
+  color: var(--text-sec);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.progress-coach-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.progress-coach-actions button {
+  border: 1px solid #2563eb;
+  border-radius: 999px;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 11px 18px;
+}
+
+.progress-coach-actions button.secondary {
+  background: white;
+  color: #1d4ed8;
+}
+
+.progress-quick-stats,
+.progress-simple-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.progress-simple-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.progress-stat-card {
+  border: 1px solid var(--border);
+  border-top: 4px solid #2563eb;
+  border-radius: 16px;
+  background: var(--bg);
+  padding: 16px;
+}
+
+.progress-stat-card span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-tert);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.progress-stat-card strong {
+  display: block;
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.progress-stat-card p {
+  margin: 10px 0 0;
+  color: var(--text-sec);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.progress-list-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-alt);
+}
+
+.progress-row-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.progress-list-row.is-strong .progress-row-index {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.progress-list-row strong {
+  display: block;
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+
+.progress-list-row p {
+  margin: 4px 0 0;
+  color: var(--text-sec);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
 .dashboard-main-grid,
 .dashboard-split-grid,
 .dashboard-half-grid,
@@ -1017,18 +1193,54 @@ body {
     grid-template-columns: 1fr !important;
   }
 
-  .dashboard-tabs,
+  .progress-coach-panel {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .progress-coach-actions,
+  .progress-coach-panel {
+    flex-direction: column;
+  }
+
+  .progress-coach-actions,
+  .progress-coach-actions button {
+    width: 100%;
+  }
+
+  .progress-quick-stats,
+  .progress-simple-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-simple-card {
+    padding: 16px !important;
+  }
+
+  .dashboard-tabs {
+    flex-wrap: wrap;
+    gap: 8px !important;
+    overflow-x: visible;
+    border-bottom: none !important;
+  }
+
+  .dashboard-tabs > button {
+    flex: 1 1 calc(50% - 8px);
+    border: 1px solid var(--border) !important;
+    border-radius: 999px;
+    background: var(--bg) !important;
+    text-align: center;
+  }
+
   .feed-tabs {
     overflow-x: auto;
     scrollbar-width: none;
   }
 
-  .dashboard-tabs::-webkit-scrollbar,
   .feed-tabs::-webkit-scrollbar {
     display: none;
   }
 
-  .dashboard-tabs > button,
   .feed-tabs > button {
     flex: 0 0 auto;
   }

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, BarChart, Bar,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, BarChart, Bar,
 } from 'recharts';
 import { type View, type CommissionMap } from '../types/index';
 import { type UserStats } from '../lib/stats';
@@ -17,7 +17,6 @@ interface DashboardViewProps {
 }
 
 const BENCHMARK = 70;
-const PIE_COLORS = ['#2563eb', '#7c3aed', '#f59e0b', '#16a34a', '#ef4444', '#0891b2'];
 
 type Tab = 'overview' | 'strengths' | 'topic' | 'test-analysis';
 
@@ -41,29 +40,6 @@ function paceLabel(seconds: number): string {
   if (seconds <= 30) return 'Fast';
   if (seconds <= 60) return 'Balanced';
   return 'Slow';
-}
-
-function CircularProgress({ pct }: { pct: number }) {
-  const size = 72;
-  const sw = 6;
-  const r = (size - sw * 2) / 2;
-  const circ = 2 * Math.PI * r;
-  const dash = (pct / 100) * circ;
-  const c = size / 2;
-  const color = pct >= BENCHMARK ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#ef4444';
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
-      <circle cx={c} cy={c} r={r} fill="none" stroke="var(--bg-canvas)" strokeWidth={sw} />
-      <circle
-        cx={c} cy={c} r={r} fill="none" stroke={color} strokeWidth={sw}
-        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-        transform={`rotate(-90 ${c} ${c})`}
-        style={{ transition: 'stroke-dasharray 0.5s ease' }}
-      />
-      <text x={c} y={c} textAnchor="middle" dominantBaseline="middle"
-        fontSize="13" fontWeight="700" fill="var(--text)">{pct}%</text>
-    </svg>
-  );
 }
 
 function SectionCard({ children, style, className }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) {
@@ -202,57 +178,6 @@ export function DashboardView({
     [subjects, totalAnswered]
   );
 
-  const pieData = useMemo(() =>
-    subjects.slice(0, 5).map(([subject, { correct, total }], i) => ({
-      name: subject.split(' ')[0],
-      fullName: subject,
-      value: total,
-      pct: total > 0 ? Math.round((correct / total) * 100) : 0,
-      fill: PIE_COLORS[i % PIE_COLORS.length],
-    })),
-    [subjects]
-  );
-
-  const trendData = useMemo(() => {
-    const recent = [...(stats.recentAttempts || [])].reverse();
-    if (recent.length < 4) return [];
-    const numGroups = Math.min(7, Math.floor(recent.length / 2));
-    if (numGroups < 2) return [];
-    const chunkSize = Math.ceil(recent.length / numGroups);
-    return Array.from({ length: numGroups }, (_, i) => {
-      const chunk = recent.slice(i * chunkSize, (i + 1) * chunkSize);
-      if (!chunk.length) return null;
-      const correct = chunk.filter(a => a.correct).length;
-      const accuracy = Math.round((correct / chunk.length) * 100);
-      return {
-        name: `S${i + 1}`,
-        'Accuracy (%)': accuracy,
-        'Score (%)': Math.round(accuracy * 0.67),
-      };
-    }).filter((d): d is NonNullable<typeof d> => d !== null);
-  }, [stats.recentAttempts]);
-
-  const scoreDistData = useMemo(() => {
-    const entries = Object.values(stats.bySubject || {});
-    const b = [0, 0, 0, 0];
-    entries.forEach(({ correct, total }) => {
-      if (!total) return;
-      const pct = (correct / total) * 100;
-      if (pct <= 50) b[0]++;
-      else if (pct <= 70) b[1]++;
-      else if (pct <= 85) b[2]++;
-      else b[3]++;
-    });
-    const sum = b.reduce((a, x) => a + x, 0) || 1;
-    return [
-      { name: '0-50%', value: Math.round((b[0] / sum) * 100), fill: '#ef4444' },
-      { name: '51-70%', value: Math.round((b[1] / sum) * 100), fill: '#f59e0b' },
-      { name: '71-85%', value: Math.round((b[2] / sum) * 100), fill: '#22c55e' },
-      { name: '86-100%', value: Math.round((b[3] / sum) * 100), fill: '#2563eb' },
-    ];
-  }, [stats.bySubject]);
-
-  const recentAttempts = (stats.recentAttempts || []).slice(0, 6);
   const recentAttemptReview = useMemo(() => (stats.recentAttempts || []).slice(0, 20), [stats.recentAttempts]);
 
   const testReviewSummary = useMemo(() => {
@@ -344,6 +269,21 @@ export function DashboardView({
   }, [commissionMap]);
 
   const accuracyColor = overallAccuracy >= BENCHMARK ? '#16a34a' : overallAccuracy >= 50 ? '#f59e0b' : '#ef4444';
+  const primaryWeakSubject = weakSubjects[0] || null;
+  const primaryWeakTopic = needsWorkTopics[0] || null;
+  const focusTitle = primaryWeakTopic
+    ? `${primaryWeakTopic.subject}: ${primaryWeakTopic.topic}`
+    : primaryWeakSubject?.subject || 'Build a reliable practice signal';
+  const focusCopy = primaryWeakTopic
+    ? `${primaryWeakTopic.pct}% accuracy across recent attempts. A short focused set here will give you the fastest improvement signal.`
+    : primaryWeakSubject
+      ? `${primaryWeakSubject.pct}% accuracy right now. Start here before adding more new topics.`
+      : 'Answer one short practice set so Pariksha can identify your weak and strong areas clearly.';
+  const progressTone = overallAccuracy >= BENCHMARK
+    ? 'You are above the target benchmark. Keep the rhythm steady.'
+    : overallAccuracy >= 50
+      ? 'You are close. The fastest gain is focused review, not more random solving.'
+      : 'Start small. Accuracy will improve fastest by fixing one weak area at a time.';
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: '9px 18px', fontSize: 13.5, fontWeight: active ? 700 : 500,
@@ -430,247 +370,92 @@ export function DashboardView({
               )}
             </div>
           ) : (
-            <>
-              {/* Snapshot cards */}
-              <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
-                <div style={{
-                  background: 'var(--bg)', border: '1px solid var(--border)',
-                  borderLeft: `3px solid ${accuracyColor}`,
-                  borderRadius: 12, padding: '16px 18px',
-                }}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <CircularProgress pct={overallAccuracy} />
-                    <div>
-                      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Accuracy</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{overallAccuracy}%</div>
-                      <div style={{ fontSize: 11, color: overallAccuracy >= BENCHMARK ? '#16a34a' : '#f59e0b', marginTop: 5, fontWeight: 600 }}>
-                        {overallAccuracy >= BENCHMARK ? 'Holding above target' : 'Below target right now'}
-                      </div>
-                    </div>
-                  </div>
+            <div className="progress-overview">
+              <section className="progress-coach-panel">
+                <div className="progress-coach-copy">
+                  <span className="progress-eyebrow">Focus now</span>
+                  <h2>{focusTitle}</h2>
+                  <p>{focusCopy}</p>
                 </div>
+                <div className="progress-coach-actions">
+                  <button onClick={() => setTab(primaryWeakSubject ? 'strengths' : 'topic')}>
+                    View focus areas
+                  </button>
+                  <button className="secondary" onClick={() => setView('home')}>
+                    Practice
+                  </button>
+                </div>
+              </section>
 
-                <div style={{
-                  background: 'var(--bg)', border: '1px solid var(--border)',
-                  borderLeft: '3px solid #7c3aed',
-                  borderRadius: 12, padding: '16px 18px',
-                }}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ede9fe' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Questions Solved</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{totalAnswered.toLocaleString()}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-sec)', marginTop: 5 }}>practice volume so far</div>
-                    </div>
+              <div className="progress-quick-stats">
+                {[
+                  {
+                    label: 'Accuracy',
+                    value: `${overallAccuracy}%`,
+                    hint: progressTone,
+                    color: accuracyColor,
+                  },
+                  {
+                    label: 'Solved',
+                    value: totalAnswered.toLocaleString(),
+                    hint: 'Total questions answered so far.',
+                    color: '#2563eb',
+                  },
+                  {
+                    label: 'Pace',
+                    value: testReviewSummary.avgSeconds > 0 ? formatAttemptSeconds(testReviewSummary.avgSeconds) : 'No signal',
+                    hint: testReviewSummary.avgSeconds > 0 ? `${paceLabel(testReviewSummary.avgSeconds)} recent pace.` : 'Answer timed questions to measure pace.',
+                    color: '#0891b2',
+                  },
+                ].map((item) => (
+                  <div className="progress-stat-card" key={item.label} style={{ borderTopColor: item.color }}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                    <p>{item.hint}</p>
                   </div>
-                </div>
-
-                <div style={{
-                  background: 'var(--bg)', border: '1px solid var(--border)',
-                  borderLeft: '3px solid #ef4444',
-                  borderRadius: 12, padding: '16px 18px',
-                }}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff1f2' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 3v18h18"/><polyline points="7 14 11 10 15 13 21 7"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Weakest Area</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>
-                        {weakSubjects[0]?.subject || '—'}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-sec)', marginTop: 5 }}>
-                        {weakSubjects[0] ? `${weakSubjects[0].pct}% accuracy` : 'Need more attempts'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{
-                  background: 'var(--bg)', border: '1px solid var(--border)',
-                  borderLeft: '3px solid #0891b2',
-                  borderRadius: 12, padding: '16px 18px',
-                }}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ecfeff' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Average Pace</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>
-                        {testReviewSummary.avgSeconds > 0 ? formatAttemptSeconds(testReviewSummary.avgSeconds) : '—'}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-sec)', marginTop: 5, fontWeight: 600 }}>
-                        {testReviewSummary.avgSeconds > 0 ? paceLabel(testReviewSummary.avgSeconds) : 'No pace signal yet'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
 
-              <div className="dashboard-main-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 20, alignItems: 'start' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <SectionCard>
-                    <SectionHeader title="What needs attention" />
-                    {weakSubjects.length === 0 ? (
-                      <div style={{ color: 'var(--text-tert)', fontSize: 13, lineHeight: 1.6 }}>
-                        Practice a little more to surface clear weak areas.
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {weakSubjects.slice(0, 4).map(({ subject, pct }) => {
-                          const color = pct >= 75 ? '#2563eb' : pct >= 55 ? '#f59e0b' : '#ef4444';
-                          return (
-                            <div key={subject}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{subject}</span>
-                                <span style={{ fontSize: 12.5, fontWeight: 800, color }}>{pct}%</span>
-                              </div>
-                              <div style={{ height: 6, background: 'var(--bg-canvas)', borderRadius: 999, overflow: 'hidden' }}>
-                                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 999 }} />
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {needsWorkTopics[0] && (
-                          <div style={{ marginTop: 4, padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12.5, color: 'var(--text-sec)', lineHeight: 1.6 }}>
-                            Your riskiest recent pocket is <span style={{ fontWeight: 700, color: 'var(--text)' }}>{needsWorkTopics[0].subject} → {needsWorkTopics[0].topic}</span>.
+              <div className="progress-simple-grid">
+                <SectionCard className="progress-simple-card">
+                  <SectionHeader title="Improve first" action="Open details" onAction={() => setTab('strengths')} />
+                  {weakSubjects.length === 0 ? (
+                    <p className="progress-empty-copy">Practice a little more to reveal your first weak area.</p>
+                  ) : (
+                    <div className="progress-list">
+                      {weakSubjects.slice(0, 3).map(({ subject, pct }, index) => (
+                        <div className="progress-list-row" key={subject}>
+                          <span className="progress-row-index">{index + 1}</span>
+                          <div>
+                            <strong>{subject}</strong>
+                            <p>{pct}% accuracy. Review this before adding new topics.</p>
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </SectionCard>
-
-                  <div className="dashboard-chart-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <SectionCard>
-                      <SectionHeader title="Where you are strongest" action="Open focus areas" onAction={() => setTab('strengths')} />
-                      {strongSubjects.length === 0 ? (
-                        <div style={{ color: 'var(--text-tert)', fontSize: 13, lineHeight: 1.6 }}>
-                          A few more subject attempts will surface your stronger areas.
                         </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          {strongSubjects.slice(0, 3).map(({ subject, pct, total }) => (
-                            <div key={subject} style={{ padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{subject}</span>
-                                <span style={{ fontSize: 12.5, fontWeight: 800, color: '#16a34a' }}>{pct}%</span>
-                              </div>
-                              <div style={{ fontSize: 11.5, color: 'var(--text-tert)' }}>
-                                {total} recent attempts
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </SectionCard>
-
-                    <SectionCard>
-                      <SectionHeader title="Recent signals" />
-                      {reviewHighlights.length === 0 ? (
-                        <div style={{ color: 'var(--text-tert)', fontSize: 13, lineHeight: 1.6 }}>
-                          Answer more questions to unlock coaching-style signals here.
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          {reviewHighlights.slice(0, 3).map((note) => (
-                            <div key={note} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#2563eb', marginTop: 6, flexShrink: 0 }} />
-                              <div style={{ fontSize: 12.5, color: 'var(--text-sec)', lineHeight: 1.6 }}>
-                                {note}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </SectionCard>
-                  </div>
-                </div>
-
-                <div className="dashboard-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 24 }}>
-                  <SectionCard>
-                    <SectionHeader title="Next best move" />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <div style={{ padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                          Recommended focus
-                        </div>
-                        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                          {weakSubjects[0]?.subject || 'Build more data first'}
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-sec)', lineHeight: 1.6 }}>
-                          {weakSubjects[0]
-                            ? `Start with ${weakSubjects[0].subject}. That is where you can recover marks fastest right now.`
-                            : 'Take a short practice session so the app can surface weak areas.'}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setTab('strengths')}
-                        style={{ padding: '10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
-                      >
-                        Review focus areas
-                      </button>
-                      <button
-                        onClick={() => setView('home')}
-                        style={{ padding: '10px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-sec)', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
-                      >
-                        Go back to practice
-                      </button>
+                      ))}
                     </div>
-                  </SectionCard>
+                  )}
+                </SectionCard>
 
-                  <SectionCard>
-                    <SectionHeader title="Recent activity" action="Open tests" onAction={() => setTab('test-analysis')} />
-                    {recentAttempts.length === 0 ? (
-                      <div style={{ fontSize: 12, color: 'var(--text-tert)' }}>No recent activity.</div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {recentAttempts.map((att, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              display: 'flex', alignItems: 'flex-start', gap: 10,
-                              paddingBottom: i < recentAttempts.length - 1 ? 10 : 0,
-                              borderBottom: i < recentAttempts.length - 1 ? '1px solid var(--border)' : 'none',
-                            }}
-                          >
-                            <div style={{
-                              width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                              background: att.correct ? '#dcfce7' : '#fee2e2',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 11, fontWeight: 700,
-                              color: att.correct ? '#16a34a' : '#dc2626',
-                            }}>
-                              {att.correct ? '✓' : '✗'}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {att.q}
-                              </div>
-                              <div style={{ display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
-                                <span style={{ fontSize: 10.5, color: '#2563eb', fontWeight: 600 }}>{att.subject}</span>
-                                <span style={{ fontSize: 10.5, color: 'var(--text-tert)' }}>{att.time}</span>
-                              </div>
-                            </div>
+                <SectionCard className="progress-simple-card">
+                  <SectionHeader title="Keep confident" action="See topics" onAction={() => setTab('topic')} />
+                  {strongSubjects.length === 0 ? (
+                    <p className="progress-empty-copy">A few more attempts will show your reliable areas.</p>
+                  ) : (
+                    <div className="progress-list">
+                      {strongSubjects.slice(0, 3).map(({ subject, pct, total }) => (
+                        <div className="progress-list-row is-strong" key={subject}>
+                          <span className="progress-row-index">OK</span>
+                          <div>
+                            <strong>{subject}</strong>
+                            <p>{pct}% accuracy from {total} attempts. Use this as confidence, not comfort-zone practice.</p>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </SectionCard>
-                </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </SectionCard>
               </div>
-            </>
+            </div>
           )}
         </>
       )}
