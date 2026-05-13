@@ -103,13 +103,13 @@ export function BrowseView({
           </p>
         </div>
         <div className="browse-header-actions">
-          <button onClick={handleShowPicker}
-            style={{ padding: '7px 14px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.textSec, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-            Change Exam <ChevronRight style={{ width: 13, height: 13 }} />
-          </button>
           <button onClick={() => setView('exam-detail')}
+            style={{ padding: '7px 14px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.textSec, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <ArrowLeft style={{ width: 13, height: 13 }} /> Back to exam
+          </button>
+          <button onClick={handleShowPicker}
             style={{ padding: '7px 14px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.textSec, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-            <ArrowLeft style={{ width: 13, height: 13 }} /> Back
+            Change question bank <ChevronRight style={{ width: 13, height: 13 }} />
           </button>
         </div>
       </div>

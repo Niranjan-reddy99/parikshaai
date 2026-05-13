@@ -43,12 +43,6 @@ function paceLabel(seconds: number): string {
   return 'Slow';
 }
 
-function daysUntil(dateStr: string): number {
-  const target = new Date(dateStr).getTime();
-  const now = new Date().getTime();
-  return Math.max(0, Math.ceil((target - now) / (1000 * 60 * 60 * 24)));
-}
-
 function CircularProgress({ pct }: { pct: number }) {
   const size = 72;
   const sw = 6;
@@ -349,7 +343,6 @@ export function DashboardView({
     return firstC ? Object.values(commissionMap[firstC] || {})[0] : null;
   }, [commissionMap]);
 
-  const daysLeft = daysUntil('2027-06-06');
   const accuracyColor = overallAccuracy >= BENCHMARK ? '#16a34a' : overallAccuracy >= 50 ? '#f59e0b' : '#ef4444';
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
@@ -371,7 +364,7 @@ export function DashboardView({
             My Progress
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-tert)', margin: 0 }}>
-            Performance insights across all subjects and exams
+            Clear signals on where you are improving and where you should focus next.
           </p>
         </div>
         <div className="dashboard-header-badges" style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -382,9 +375,9 @@ export function DashboardView({
             fontSize: 12.5, fontWeight: 700, color: '#2563eb',
           }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              <path d="M3 3v18h18"/><polyline points="7 14 11 10 15 13 21 7"/>
             </svg>
-            {daysLeft} days to Prelims 2027
+            {overallAccuracy}% overall accuracy
           </div>
           {stats.streak > 0 && (
             <div style={{
@@ -405,9 +398,9 @@ export function DashboardView({
       {/* ── Tabs ────────────────────────────────────────────────────────────── */}
       <div className="dashboard-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 24, gap: 0 }}>
         <button style={tabStyle(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
-        <button style={tabStyle(tab === 'strengths')} onClick={() => setTab('strengths')}>Strengths &amp; Weaknesses</button>
-        <button style={tabStyle(tab === 'topic')} onClick={() => setTab('topic')}>Topic Analysis</button>
-        <button style={tabStyle(tab === 'test-analysis')} onClick={() => setTab('test-analysis')}>Test Analysis</button>
+        <button style={tabStyle(tab === 'strengths')} onClick={() => setTab('strengths')}>Focus Areas</button>
+        <button style={tabStyle(tab === 'topic')} onClick={() => setTab('topic')}>Topics</button>
+        <button style={tabStyle(tab === 'test-analysis')} onClick={() => setTab('test-analysis')}>Tests</button>
       </div>
 
       {/* ── OVERVIEW TAB ────────────────────────────────────────────────────── */}
@@ -708,14 +701,29 @@ export function DashboardView({
                       onClick={() => setView('home')}
                       style={{ padding: '10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
                     >
-                      Continue Practicing
+                      Back to practice
                     </button>
-                    <button
+                    <div
                       onClick={() => setView('leaderboard')}
-                      style={{ padding: '10px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--text-sec)', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setView('leaderboard');
+                        }
+                      }}
+                      style={{
+                        padding: '10px 2px 0',
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        color: '#2563eb',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                      }}
                     >
-                      View Leaderboard
-                    </button>
+                      Check leaderboard movement
+                    </div>
                   </div>
                 </div>
               </div>

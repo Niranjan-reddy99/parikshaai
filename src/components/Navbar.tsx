@@ -291,7 +291,15 @@ export function Navbar({
       </nav>
 
       {/* Profile footer */}
-      <div style={{ padding: '10px 10px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+      <div
+        style={{
+          padding: '12px 10px 10px',
+          borderTop: '1px solid var(--border)',
+          background: isDrawer ? 'transparent' : 'rgba(255,255,255,0.94)',
+          boxShadow: isDrawer ? 'none' : '0 -12px 28px -30px rgba(15,23,42,0.28)',
+          flexShrink: 0,
+        }}
+      >
         {user.uid === 'guest' ? (
           <div style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 11.5, color: 'var(--text-sec)', marginBottom: 8, lineHeight: 1.5 }}>
@@ -313,7 +321,7 @@ export function Navbar({
               <UserAvatar displayName={user.displayName} email={user.email} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {user.displayName?.split(' ')[0] || 'Aspirant'}
+                  {user.displayName || 'Aspirant'}
                 </div>
                 <div style={{ fontSize: 10.5, color: 'var(--text-tert)', marginTop: 1 }}>
                   Lv.{level} · {levelName}
@@ -332,23 +340,59 @@ export function Navbar({
           </div>
         )}
 
-        <div
-          onClick={() => {
-            handleLogout();
-            onNavigate?.();
-          }}
-          onMouseEnter={() => setHoveredItem('logout')}
-          onMouseLeave={() => setHoveredItem(null)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
-            fontSize: 12, color: hoveredItem === 'logout' ? '#dc2626' : 'var(--text-tert)',
-            background: hoveredItem === 'logout' ? 'var(--bg-alt)' : 'transparent',
-            transition: 'all 0.1s',
-          }}
-        >
-          <LogOut style={{ width: 12, height: 12 }} /> Sign out
-        </div>
+        {user.uid !== 'guest' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setView('profile');
+                onNavigate?.();
+              }}
+              style={{
+                minHeight: 38,
+                padding: '0 12px',
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-alt)',
+                color: 'var(--text)',
+                fontSize: 12.5,
+                fontWeight: 700,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              Profile
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleLogout();
+                onNavigate?.();
+              }}
+              onMouseEnter={() => setHoveredItem('logout')}
+              onMouseLeave={() => setHoveredItem(null)}
+              style={{
+                minHeight: 38,
+                padding: '0 12px',
+                borderRadius: 10,
+                border: `1px solid ${hoveredItem === 'logout' ? 'rgba(220,38,38,0.28)' : 'var(--border)'}`,
+                background: hoveredItem === 'logout' ? 'rgba(254,226,226,0.7)' : 'rgba(255,255,255,0.88)',
+                color: hoveredItem === 'logout' ? '#dc2626' : 'var(--text-tert)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                fontSize: 12.5,
+                fontWeight: 700,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                transition: 'all 0.12s ease',
+              }}
+            >
+              <LogOut style={{ width: 12, height: 12 }} />
+              Sign out
+            </button>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

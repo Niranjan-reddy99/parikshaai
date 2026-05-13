@@ -94,7 +94,6 @@ export function HomeView({
     : todayCount === 0
       ? 'Start with one clean practice set and build momentum early.'
       : `${remainingToday} more questions to close today’s target with intent.`;
-
   const commissions = Object.keys(commissionMap).sort((a, b) => {
     const ai = ORDERED_COMMISSIONS.indexOf(a), bi = ORDERED_COMMISSIONS.indexOf(b);
     if (ai !== -1 && bi !== -1) return ai - bi;
@@ -116,6 +115,23 @@ export function HomeView({
   const firstCommission = commissions[0];
   const firstExamEntries = Object.entries(commissionMap[firstCommission] || {});
   const firstExam = firstExamEntries[0]?.[1];
+  const nextAction = goalPct < 100 && firstExam
+    ? {
+        label: todayCount > 0 ? 'Finish today’s set' : 'Start today’s set',
+        hint: `${remainingToday} question${remainingToday === 1 ? '' : 's'} left to hit your daily target.`,
+        onClick: () => startPractice(firstExam.fullName, firstExam.years[0]),
+      }
+    : accuracy < 65
+      ? {
+          label: 'Review weak areas',
+          hint: 'Focus on the topics where you are losing marks before adding more volume.',
+          onClick: () => setView('dashboard'),
+        }
+      : {
+          label: 'Explore smart practice',
+          hint: 'You are stable enough to branch into topic-wise practice and newer papers.',
+          onClick: () => setView('feed'),
+        };
 
   const quickShortcuts = [
     {
@@ -236,7 +252,7 @@ export function HomeView({
                 </button>
               )}
               <button
-                onClick={openQuestionBankHome}
+                onClick={() => setView('dashboard')}
                 style={{
                   padding: '10px 16px',
                   background: 'rgba(255,255,255,0.08)',
@@ -249,7 +265,7 @@ export function HomeView({
                   fontFamily: 'inherit',
                 }}
               >
-                Open Question Bank
+                Review Progress
               </button>
             </div>
           </div>
@@ -411,31 +427,19 @@ export function HomeView({
               </div>
             ))}
           </div>
-          <button
-            onClick={() => setView('dashboard')}
-            style={{
-              width: '100%', padding: '8px 0',
-              background: 'var(--bg-alt)', border: '1px solid var(--border)',
-              borderRadius: 8, fontSize: 12.5, fontWeight: 600,
-              color: '#2563eb', cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            }}
-          >
-            Open My Progress
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
+          <div style={{ marginTop: 12, fontSize: 11.5, color: 'var(--text-tert)', lineHeight: 1.6 }}>
+            {goalPct >= 100
+              ? 'Today is on track. Use the next session to sharpen accuracy or revisit weak areas.'
+              : `You are ${remainingToday} question${remainingToday === 1 ? '' : 's'} away from your daily target.`}
+          </div>
         </div>
 
         {/* Focus card */}
         <div className="surface-card" style={{ borderRadius: 20, padding: '16px 18px' }}>
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Your current focus</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Next best move</div>
             <div style={{ fontSize: 11.5, color: 'var(--text-tert)', marginTop: 4, lineHeight: 1.6 }}>
-              {goalPct >= 100
-                ? 'You can use this session for refinement: weak areas, bookmarks, or a fresh paper.'
-                : accuracy >= 65
-                  ? 'Consistency is good. Push volume a little more today without dropping quality.'
-                  : 'Keep the next session tight and deliberate. Focus on accuracy before speed.'}
+              {nextAction.hint}
             </div>
           </div>
           <div style={{ padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 12 }}>
@@ -444,7 +448,7 @@ export function HomeView({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
-              onClick={() => setView('dashboard')}
+              onClick={nextAction.onClick}
               style={{
                 width: '100%', padding: '10px 0',
                 background: '#2563eb', border: 'none',
@@ -452,10 +456,10 @@ export function HomeView({
                 color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              Review weak areas
+              {nextAction.label}
             </button>
             <button
-              onClick={() => setView('feed')}
+              onClick={openQuestionBankHome}
               style={{
                 width: '100%', padding: '10px 0',
                 background: 'var(--bg)', border: '1px solid var(--border)',
@@ -463,42 +467,10 @@ export function HomeView({
                 color: 'var(--text-sec)', cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              Explore PYQ feed
+              Open Question Bank
             </button>
           </div>
         </div>
-
-        {/* Start practicing CTA */}
-        {firstExam && (
-          <button
-            onClick={() => startPractice(firstExam.fullName, firstExam.years[0])}
-            style={{
-              width: '100%', padding: '11px 0',
-              background: '#2563eb', border: 'none',
-              borderRadius: 10, fontSize: 13, fontWeight: 700,
-              color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Start Practicing
-          </button>
-        )}
-
-        {/* My Progress link */}
-        <button
-          onClick={() => setView('dashboard')}
-          style={{
-            width: '100%', padding: '10px 0',
-            background: 'var(--bg)', border: '1px solid var(--border)',
-            borderRadius: 10, fontSize: 13, fontWeight: 600,
-            color: 'var(--text-sec)', cursor: 'pointer', fontFamily: 'inherit',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-          }}
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><polyline points="7 14 11 10 15 13 21 7"/></svg>
-          My Progress
-        </button>
       </div>
     </div>
   );

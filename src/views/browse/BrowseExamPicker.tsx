@@ -33,8 +33,17 @@ function CommissionCard({
   const questionCount = getCommissionQuestionCount(commissionMap, commission);
   const paperCount = getCommissionPaperCount(commissionMap, commission);
   const accentColor = COMMISSION_COLORS[commission] || '#475569';
-  const shortMark = commission.length <= 5 ? commission : info.name.split(' ').map((part) => part[0]).join('').slice(0, 4).toUpperCase();
+  const shortMark =
+    commission.length <= 5
+      ? commission
+      : info.name
+          .split(' ')
+          .map((part) => part[0])
+          .join('')
+          .slice(0, 4)
+          .toUpperCase();
   const questionLabel = questionCount.toLocaleString();
+  const examLabel = `${paperCount} ${paperCount === 1 ? 'exam' : 'exams'}`;
 
   return (
     <div
@@ -49,137 +58,194 @@ function CommissionCard({
         cursor: 'pointer',
         overflow: 'hidden',
         transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
-        transform: hov ? 'translateY(-4px)' : 'none',
-        boxShadow: hov
-          ? `0 18px 38px ${accentColor}22`
-          : '0 10px 24px rgba(15,23,42,0.08)',
+        transform: hov ? 'translateY(-3px)' : 'none',
+        boxShadow: hov ? `0 18px 34px ${accentColor}18` : '0 12px 24px rgba(15,23,42,0.08)',
         border: `1px solid ${hov ? `${accentColor}40` : '#dbe5f0'}`,
         userSelect: 'none',
-        minHeight: 300,
+        minHeight: 216,
         position: 'relative',
       }}
     >
-      <div style={{ position: 'absolute', top: 16, left: 16 }}>
-        <div style={{
-          width: 28,
-          height: 28,
-          borderRadius: '50%',
-          border: '1.5px solid #9fb0c9',
-          color: '#90a1bd',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 15,
-          fontWeight: 700,
-          background: '#fff',
-        }}>
-          i
-        </div>
-      </div>
+      <div
+        style={{
+          position: 'absolute',
+          inset: '0 0 auto 0',
+          height: 4,
+          background: `linear-gradient(90deg, ${accentColor}, ${accentColor}70)`,
+          opacity: hov ? 1 : 0.86,
+        }}
+      />
 
-      <div style={{ padding: '28px 24px 20px', minHeight: 300, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div
-          style={{
-            width: 110,
-            height: 110,
-            borderRadius: 28,
-            marginTop: 8,
-            marginBottom: 20,
-            background: `radial-gradient(circle at 30% 25%, #ffffff 0%, #ffffff 28%, ${accentColor}16 29%, ${accentColor}10 52%, transparent 53%), linear-gradient(135deg, ${accentColor}10, rgba(255,255,255,0.92))`,
-            border: `1px solid ${accentColor}22`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 22px ${accentColor}14`,
-          }}
-        >
+      <div style={{ padding: '18px 18px 16px', minHeight: 216, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+            <div
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 18,
+                background: `linear-gradient(135deg, ${accentColor}18, rgba(255,255,255,0.96))`,
+                border: `1px solid ${accentColor}20`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: `inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 22px ${accentColor}12`,
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  minWidth: 38,
+                  height: 38,
+                  padding: '0 10px',
+                  borderRadius: 999,
+                  background: '#ffffff',
+                  border: `1px solid ${accentColor}24`,
+                  color: accentColor,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: shortMark.length > 3 ? 16 : 18,
+                  fontWeight: 900,
+                  letterSpacing: '-0.04em',
+                  boxShadow: `0 8px 18px ${accentColor}14`,
+                }}
+              >
+                {shortMark}
+              </div>
+            </div>
+
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '4px 9px',
+                  borderRadius: 999,
+                  background: `${accentColor}10`,
+                  color: accentColor,
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  marginBottom: 10,
+                }}
+              >
+                {info.category}
+              </div>
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 800,
+                  color: '#243447',
+                  lineHeight: 1.05,
+                  letterSpacing: '-0.04em',
+                  marginBottom: 6,
+                }}
+              >
+                {info.name}
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: '#64748b',
+                  lineHeight: 1.45,
+                  maxWidth: 240,
+                }}
+              >
+                {info.desc}
+              </div>
+            </div>
+          </div>
+
           <div
             style={{
-              width: 74,
-              height: 74,
-              borderRadius: '50%',
-              background: '#ffffff',
-              border: `2px solid ${accentColor}30`,
-              color: accentColor,
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: shortMark.length > 3 ? 22 : 26,
-              fontWeight: 900,
-              letterSpacing: '-0.04em',
-              boxShadow: `0 8px 18px ${accentColor}18`,
+              gap: 6,
+              padding: '6px 10px',
+              borderRadius: 999,
+              background: '#f8fbff',
+              border: `1px solid ${accentColor}22`,
+              color: '#52657b',
+              fontSize: 11.5,
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
-            {shortMark}
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: accentColor,
+                opacity: 0.85,
+              }}
+            />
+            Open
           </div>
         </div>
 
-        <div style={{
-          fontSize: 15,
-          color: '#94a3b8',
-          fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          marginBottom: 10,
-        }}>
-          {info.category}
-        </div>
-
-        <div style={{
-          fontSize: 22,
-          fontWeight: 800,
-          color: '#334155',
-          lineHeight: 1.2,
-          textAlign: 'center',
-          letterSpacing: '-0.03em',
-          marginBottom: 8,
-        }}>
-          {info.name}
-        </div>
-
-        <div style={{
-          fontSize: 15,
-          color: '#64748b',
-          marginBottom: 18,
-          textAlign: 'center',
-        }}>
-          {paperCount} {paperCount === 1 ? 'exam' : 'exams'}
-        </div>
-
-        <div
-          style={{
-            marginTop: 'auto',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 16px',
-            borderRadius: 999,
-            border: '1px solid #b7f2dc',
-            background: 'linear-gradient(180deg, #f1fff8 0%, #dcfce7 100%)',
-            color: '#0f766e',
-            fontWeight: 800,
-            fontSize: 14,
-            boxShadow: '0 8px 20px rgba(16,185,129,0.14)',
-          }}
-        >
-          <span
+        <div style={{ marginTop: 'auto', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+          <div
             style={{
-              width: 18,
-              height: 18,
-              borderRadius: '50%',
-              background: '#ffffff',
-              border: '1px solid #86efac',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 11,
-              color: '#0f766e',
-              fontWeight: 900,
+              padding: '11px 12px',
+              borderRadius: 14,
+              border: '1px solid rgba(148,163,184,0.18)',
+              background: 'rgba(248,250,252,0.92)',
             }}
           >
-            ✓
-          </span>
-          {questionLabel} Questions
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: '#7b8ca1', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+              Exam sets
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#203246', letterSpacing: '-0.03em' }}>
+              {examLabel}
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: '11px 12px',
+              borderRadius: 14,
+              border: `1px solid ${accentColor}18`,
+              background: `linear-gradient(180deg, ${accentColor}08 0%, ${accentColor}12 100%)`,
+            }}
+          >
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: '#7b8ca1', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+              Question bank
+            </div>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                color: accentColor,
+                fontWeight: 800,
+                fontSize: 16,
+                letterSpacing: '-0.03em',
+              }}
+            >
+              <span
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  background: '#ffffff',
+                  border: `1px solid ${accentColor}22`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 11,
+                  fontWeight: 900,
+                }}
+              >
+                ✓
+              </span>
+              {questionLabel}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -242,7 +308,9 @@ export function BrowseExamPicker({
               fontWeight: categoryTab === tab.id ? 700 : 500,
               color: categoryTab === tab.id ? '#2563eb' : 'var(--text-sec)',
               background: 'none',
-              borderTop: 'none', borderLeft: 'none', borderRight: 'none',
+              borderTop: 'none',
+              borderLeft: 'none',
+              borderRight: 'none',
               borderBottom: `2px solid ${categoryTab === tab.id ? '#2563eb' : 'transparent'}`,
               cursor: 'pointer',
               fontFamily: 'inherit',
@@ -262,12 +330,14 @@ export function BrowseExamPicker({
             : 'No exams in this category yet.'}
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-          gap: 18,
-          marginBottom: 24,
-        }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
           {visibleCommissions.map((commission) => (
             <CommissionCard
               key={commission}

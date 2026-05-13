@@ -2821,7 +2821,7 @@ function AppContent() {
 
   return (
     <ToastProvider>
-      <div className="app-shell" style={{ display: "flex", flexDirection: "column", minHeight: "100vh", overflow: "hidden", color: "var(--text)" }}>
+      <div className="app-shell" style={{ display: "flex", flexDirection: "column", height: "100vh", minHeight: "100vh", overflow: "hidden", color: "var(--text)" }}>
         {showOnboarding && user && (
           <OnboardingModal
             userName={user.displayName ?? "Aspirant"}
