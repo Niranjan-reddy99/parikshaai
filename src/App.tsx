@@ -2842,7 +2842,8 @@ function AppContent() {
           />
         )}
 
-        {/* ── Top Bar ────────────────────────────────────────────────────────── */}
+        {/* ── Mobile Top Bar ─────────────────────────────────────────────────── */}
+        {isMobileLayout && (
         <div className="app-topbar">
           <div
             style={{
@@ -2850,92 +2851,54 @@ function AppContent() {
               display: "flex",
               alignItems: "center",
               gap: 18,
-              padding: isMobileLayout ? "12px 16px" : "12px 22px",
+              padding: "12px 16px",
             }}
           >
-            {isMobileLayout ? (
-              <div
-                onClick={() => setView("home")}
-                style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 15, color: "var(--text)", cursor: "pointer", userSelect: "none", flexShrink: 0 }}
-              >
-                <div style={{
-                  width: 30, height: 30, borderRadius: 9,
-                  background: "linear-gradient(135deg, var(--brand-ink), var(--accent))",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "white", fontWeight: 800, fontSize: 13,
-                }}>P</div>
-                <div>
-                  <div style={{ lineHeight: 1, letterSpacing: "-0.04em" }}>Pariksha</div>
-                </div>
+            <div
+              onClick={() => setView("home")}
+              style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 15, color: "var(--text)", cursor: "pointer", userSelect: "none", flexShrink: 0 }}
+            >
+              <div style={{
+                width: 30, height: 30, borderRadius: 9,
+                background: "linear-gradient(135deg, var(--brand-ink), var(--accent))",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "white", fontWeight: 800, fontSize: 13,
+              }}>P</div>
+              <div>
+                <div style={{ lineHeight: 1, letterSpacing: "-0.04em" }}>Pariksha</div>
               </div>
-            ) : <div style={{ minWidth: 0, flex: 1 }} />}
+            </div>
 
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: isMobileLayout ? 10 : 14 }}>
-              {topSearchConfig && !isMobileLayout && (
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "0 12px",
-                  background: "rgba(255,255,255,0.9)",
-                  borderRadius: 14,
-                  width: 340,
-                  height: 40,
-                  color: "var(--text-tert)",
-                  border: "1px solid var(--border)",
-                }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-                    <circle cx="11" cy="11" r="7"/>
-                    <path d="m21 21-4.3-4.3"/>
-                  </svg>
-                  <input
-                    type="text"
-                    value={topSearchConfig.value}
-                    onChange={(event) => topSearchConfig.onChange(event.target.value)}
-                    placeholder={topSearchConfig.placeholder}
-                    style={{
-                      flex: 1,
-                      border: "none",
-                      background: "transparent",
-                      outline: "none",
-                      color: "var(--text)",
-                      fontSize: 13,
-                      fontFamily: "inherit",
-                    }}
-                  />
-                </div>
-              )}
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
 
               {dataLoading && (
                 <Loader2 style={{ width: 15, height: 15, color: C.accent }} className="animate-spin" />
               )}
 
-              {isMobileLayout && (
-                <button
-                  type="button"
-                  onClick={() => setMobileNavOpen(true)}
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 14,
-                    border: "1px solid var(--border)",
-                    background: "rgba(255,255,255,0.88)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "var(--text)",
-                    cursor: "pointer",
-                  }}
-                  aria-label="Open navigation"
-                >
-                  <Menu style={{ width: 18, height: 18 }} />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 14,
+                  border: "1px solid var(--border)",
+                  background: "rgba(255,255,255,0.88)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                }}
+                aria-label="Open navigation"
+              >
+                <Menu style={{ width: 18, height: 18 }} />
+              </button>
 
               <div
                 onClick={() => setView("profile")}
                 style={{
-                  width: isMobileLayout ? 34 : 32, height: isMobileLayout ? 34 : 32, borderRadius: "50%",
+                  width: 34, height: 34, borderRadius: "50%",
                   background: "linear-gradient(135deg, #0f6cbd, #3b82f6)",
                   color: "white", display: "flex", alignItems: "center",
                   justifyContent: "center", fontWeight: 700, fontSize: 12,
@@ -2950,7 +2913,7 @@ function AppContent() {
             </div>
           </div>
 
-          {topSearchConfig && isMobileLayout && (
+          {topSearchConfig && (
             <div className="mobile-search-row">
               <div style={{
                 display: "flex",
@@ -2987,6 +2950,7 @@ function AppContent() {
             </div>
           )}
         </div>
+        )}
         {/* ── End Top Bar ─────────────────────────────────────────────────────── */}
 
         {isMobileLayout && mobileNavOpen && (
