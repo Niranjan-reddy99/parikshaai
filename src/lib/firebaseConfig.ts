@@ -28,7 +28,10 @@ function pickRuntimeValue(
   envValue: string | undefined,
   fallbackValue: string | undefined,
 ) {
-  const resolved = runtimeValue ?? envValue ?? fallbackValue ?? '';
+  const resolved =
+    [runtimeValue, envValue, fallbackValue]
+      .map((value) => String(value ?? '').trim())
+      .find(Boolean) ?? '';
   return resolved.trim();
 }
 
