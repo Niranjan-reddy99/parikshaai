@@ -403,7 +403,7 @@ def process_one(spec: dict[str, Any]) -> dict[str, Any]:
     if not pdf_path.exists():
         raise FileNotFoundError(f"Missing PDF: {pdf_path}")
 
-    route_format = detect_format(str(pdf_path))
+    route_format = detect_format(str(pdf_path), source_filename=pdf_path.name)
     force_route = spec.get("force_route")
 
     file_hash = hashlib.sha256(pdf_path.read_bytes()).hexdigest()

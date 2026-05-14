@@ -13,7 +13,7 @@ from row_quality import merge_quality_fields
 SUBJECT_PATTERNS: list[tuple[re.Pattern[str], set[str]]] = [
     (
         re.compile(
-            r"\bnewton'?s laws?|laws? of motion|momentum|angular momentum|inertia|friction|force|acceleration|velocity|displacement|mass|projectile|work|energy|power|carrom|telescope|microscope|lens|mirror|optics|light|wave|electric current|voltage|resistance|magnet|atom|molecule|acid|base|chemical reaction|photosynthesis|respiration|cell division|genetics|thermodynamics\b",
+            r"\bnewton'?s laws?|laws? of motion|momentum|angular momentum|inertia|friction|net force|applied force|balanced forces?|unbalanced forces?|acceleration|velocity|displacement|mass|projectile|work done|kinetic energy|potential energy|conservation of energy|power|carrom(?: striker)?|telescope|microscope|lens|mirror|optics|reflection of light|refraction of light|ray optics|light rays?|wave optics|electric current|voltage|resistance|magnet|atom|molecule|acid|base|chemical reaction|photosynthesis|respiration|cell division|genetics|thermodynamics\b",
             re.IGNORECASE,
         ),
         {"General Science", "Science & Technology"},
@@ -24,6 +24,20 @@ SUBJECT_PATTERNS: list[tuple[re.Pattern[str], set[str]]] = [
             re.IGNORECASE,
         ),
         {"Polity"},
+    ),
+    (
+        re.compile(
+            r"\bbharatiya nyaya sanhita|bharatiya nagarik suraksha sanhita|bharatiya sakshya adhiniyam|criminal laws?|criminal procedure|evidence act|legal terminology|legal definitions|legal reforms|electoral offences?\b",
+            re.IGNORECASE,
+        ),
+        {"Polity"},
+    ),
+    (
+        re.compile(
+            r"\bgovernment of india act|reorganisation act|reorganization act|state reorganisation|state reorganization|concurrent list|union list|state list|ordinance|judgment|judgements|court|judiciary|parliament|waqf|workmen'?s compensation act|forest rights act|manual scavengers|transgender persons|disabilities act|government orders?|g\.o\.|go 610|committees? and commissions?|union territories|religious laws?/acts?|social legislation|legal principles|rights of persons with disabilities|official secrets act|right to information act|migrant workmen|personal data protection|laws and acts|acts and laws|acts and reforms|law enforcement initiatives|national security laws?|state formation|state reorganization acts?\b",
+            re.IGNORECASE,
+        ),
+        {"Polity", "Current Affairs"},
     ),
     (
         re.compile(
