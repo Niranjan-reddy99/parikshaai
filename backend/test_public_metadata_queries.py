@@ -352,9 +352,18 @@ class PublicMetadataQueryTests(unittest.TestCase):
         self.assertEqual(manifest["total_count"], 4)
         self.assertEqual(len(manifest["papers"]), 3)
 
-        legacy_paper = manifest["papers"][0]
-        shift_one = manifest["papers"][1]
-        shift_two = manifest["papers"][2]
+        legacy_paper = next(
+            paper for paper in manifest["papers"]
+            if paper["paper_id"] is None and paper["shift_label"] is None
+        )
+        shift_one = next(
+            paper for paper in manifest["papers"]
+            if paper["paper_id"] == "paper-a" and paper["shift_label"] == "Shift 1"
+        )
+        shift_two = next(
+            paper for paper in manifest["papers"]
+            if paper["paper_id"] == "paper-b" and paper["shift_label"] == "Shift 2"
+        )
 
         self.assertIsNone(legacy_paper["paper_id"])
         self.assertIsNone(legacy_paper["shift_label"])
