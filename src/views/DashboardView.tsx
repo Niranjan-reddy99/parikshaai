@@ -726,19 +726,19 @@ export function DashboardView({
         // Server data is authoritative for historical pattern accuracy.
         const serverPatterns = serverReport?.pattern_weaknesses ?? [];
         const serverTopics   = serverReport?.topic_weaknesses   ?? [];
+        // Pattern data only comes from the server (requires questions to be tagged + practiced).
+        // Never fall back to topic data here — topics belong in the Topics tab.
         const activePatternList = serverPatterns.length > 0 ? serverPatterns : patternWeaknesses;
-        // needsWorkTopics is derived from recentAttempts (populated for ALL users),
-        // byTopic is newer and only has data for attempts made after this feature shipped.
-        const localTopicFallback = topicWeaknesses.length > 0 ? topicWeaknesses : needsWorkTopics;
-        const activeTopicList   = serverTopics.length   > 0 ? serverTopics   : localTopicFallback;
+        const activeTopicList   = serverTopics;
 
         return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {activePatternList.length === 0 && activeTopicList.length === 0 ? (
             <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '56px 32px', textAlign: 'center' }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>No pattern data yet</div>
-              <div style={{ fontSize: 13.5, color: 'var(--text-sec)', maxWidth: 380, margin: '0 auto', lineHeight: 1.7 }}>
-                Answer a few practice questions — your pattern-level weaknesses will appear here automatically.
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Pattern analysis not ready yet</div>
+              <div style={{ fontSize: 13.5, color: 'var(--text-sec)', maxWidth: 420, margin: '0 auto', lineHeight: 1.8 }}>
+                Questions are being classified by type (factual-recall, statement-based, assertion-reason…).
+                Once you practice a few of those tagged questions, your accuracy by question-type will appear here.
               </div>
             </div>
           ) : (
