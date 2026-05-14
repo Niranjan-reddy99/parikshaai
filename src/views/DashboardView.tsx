@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar,
 } from 'recharts';
 import { type View, type CommissionMap } from '../types/index';
 import { type UserStats } from '../lib/stats';
+import { API_BASE } from '../lib/api';
+import { auth } from '../firebase';
 
 interface DashboardViewProps {
   user: { displayName: string | null; uid: string };
@@ -78,6 +80,33 @@ export function DashboardView({
   stats, setView, startPractice, commissionMap,
 }: DashboardViewProps) {
   const [tab, setTab] = useState<Tab>('overview');
+
+  // Server-side weakness report — resolves pattern tags from all past attempts,
+  // including those answered before pattern tagging was introduced.
+  const [serverReport, setServerReport] = useState<{
+    pattern_weaknesses: { pattern_tag: string; accuracy: number; total: number; correct: number }[];
+    topic_weaknesses: { subject: string; topic: string; subtopic: string; accuracy: number; total: number; correct: number }[];
+    weaknesses: { subject: string; accuracy: number; total: number; correct: number }[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (tab !== 'patterns') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/user/weakness-report`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setServerReport(data);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [tab]);
 
   const overallAccuracy = useMemo(() => {
     const vals = Object.values(stats.bySubject || {});
@@ -684,33 +713,49 @@ export function DashboardView({
       )}
 
       {/* ── PATTERNS TAB ────────────────────────────────────────────────────── */}
-      {tab === 'patterns' && (
+      {tab === 'patterns' && (() => {
+        // Merge localStorage (real-time) + server (covers all past attempts).
+        // Server data is authoritative for historical pattern accuracy.
+        const serverPatterns = serverReport?.pattern_weaknesses ?? [];
+        const serverTopics   = serverReport?.topic_weaknesses   ?? [];
+        const activePatternList = serverPatterns.length > 0 ? serverPatterns : patternWeaknesses;
+        const activeTopicList   = serverTopics.length   > 0 ? serverTopics   : topicWeaknesses;
+        const loading = tab === 'patterns' && serverReport === null;
+
+        return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {patternWeaknesses.length === 0 && topicWeaknesses.length === 0 ? (
+          {loading ? (
+            <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '40px 32px', textAlign: 'center', color: 'var(--text-tert)', fontSize: 14 }}>
+              Loading pattern analysis…
+            </div>
+          ) : activePatternList.length === 0 && activeTopicList.length === 0 ? (
             <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '56px 32px', textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>No pattern data yet</div>
               <div style={{ fontSize: 13.5, color: 'var(--text-sec)', maxWidth: 380, margin: '0 auto', lineHeight: 1.7 }}>
-                Pattern tags appear once you practice questions that have been tagged by the admin. Keep answering and your pattern-level weaknesses will surface here.
+                Answer a few practice questions — your pattern-level weaknesses will appear here automatically.
               </div>
             </div>
           ) : (
             <>
               {/* Pattern accuracy cards */}
-              {patternWeaknesses.length > 0 && (
+              {activePatternList.length > 0 && (
                 <SectionCard>
                   <SectionHeader title="Pattern-level accuracy" />
                   <p style={{ fontSize: 12, color: 'var(--text-tert)', marginBottom: 14, lineHeight: 1.6 }}>
                     Where you struggle by question style — not just subject.
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {patternWeaknesses.map(({ pattern, pct, correct, total }) => {
+                    {activePatternList.map((item) => {
+                      const label = (item as any).pattern_tag ?? (item as any).pattern;
+                      const pct   = (item as any).accuracy    ?? (item as any).pct ?? 0;
+                      const { correct, total } = item as any;
                       const color = pct >= 70 ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#ef4444';
                       const isWeak = pct < BENCHMARK;
                       return (
-                        <div key={pattern} style={{ padding: '12px 14px', background: isWeak ? 'rgba(239,68,68,0.04)' : 'var(--bg-alt)', border: `1px solid ${isWeak ? 'rgba(239,68,68,0.2)' : 'var(--border)'}`, borderRadius: 10 }}>
+                        <div key={label} style={{ padding: '12px 14px', background: isWeak ? 'rgba(239,68,68,0.04)' : 'var(--bg-alt)', border: `1px solid ${isWeak ? 'rgba(239,68,68,0.2)' : 'var(--border)'}`, borderRadius: 10 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ padding: '3px 8px', background: 'rgba(124,111,255,0.12)', color: '#7c6fff', fontSize: 10, fontWeight: 700, borderRadius: 6, textTransform: 'uppercase' }}>{pattern}</span>
+                              <span style={{ padding: '3px 8px', background: 'rgba(124,111,255,0.12)', color: '#7c6fff', fontSize: 10, fontWeight: 700, borderRadius: 6, textTransform: 'uppercase' }}>{label}</span>
                               {isWeak && <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 600 }}>needs work</span>}
                             </div>
                             <span style={{ fontSize: 13, fontWeight: 800, color }}>{pct}%</span>
@@ -721,10 +766,8 @@ export function DashboardView({
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: 11.5, color: 'var(--text-tert)' }}>{correct}/{total} correct</span>
                             {isWeak && (
-                              <button
-                                onClick={() => setView('home')}
-                                style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
-                              >
+                              <button onClick={() => setView('home')}
+                                style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
                                 Practice this →
                               </button>
                             )}
@@ -737,14 +780,16 @@ export function DashboardView({
               )}
 
               {/* Topic weakness cards */}
-              {topicWeaknesses.length > 0 && (
+              {activeTopicList.length > 0 && (
                 <SectionCard>
-                  <SectionHeader title="Weakest topics (cumulative)" />
+                  <SectionHeader title="Weakest topics (all attempts)" />
                   <p style={{ fontSize: 12, color: 'var(--text-tert)', marginBottom: 14, lineHeight: 1.6 }}>
                     Topics where your accuracy is lowest across all attempts — not just recent ones.
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {topicWeaknesses.map(({ subject, topic, subtopic, pct, correct, total }) => {
+                    {activeTopicList.map((item) => {
+                      const { subject, topic, subtopic, correct, total } = item as any;
+                      const pct = (item as any).accuracy ?? (item as any).pct ?? 0;
                       const color = pct >= 70 ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#ef4444';
                       const isWeak = pct < BENCHMARK;
                       return (
@@ -758,10 +803,8 @@ export function DashboardView({
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                               {isWeak && (
-                                <button
-                                  onClick={() => startPractice('', 0, subject, topic)}
-                                  style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
-                                >
+                                <button onClick={() => startPractice('', 0, subject, topic)}
+                                  style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
                                   Practice →
                                 </button>
                               )}
@@ -780,28 +823,32 @@ export function DashboardView({
               )}
 
               {/* Actionable insight */}
-              {(patternWeaknesses[0] || topicWeaknesses[0]) && (
-                <SectionCard>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Next best move</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-sec)', lineHeight: 1.7 }}>
-                    {patternWeaknesses[0] && patternWeaknesses[0].pct < BENCHMARK
-                      ? <>Your weakest pattern is <strong style={{ color: '#7c6fff' }}>{patternWeaknesses[0].pattern}</strong> at {patternWeaknesses[0].pct}% accuracy. Look for these question types during your next practice session and slow down before answering.</>
-                      : topicWeaknesses[0]
-                        ? <>Focus your next session on <strong style={{ color: 'var(--text)' }}>{topicWeaknesses[0].topic}</strong> ({topicWeaknesses[0].subject}) — it's at {topicWeaknesses[0].pct}% accuracy, the clearest improvement opportunity.</>
-                        : 'Keep practicing to surface deeper pattern-level insights.'}
-                  </div>
-                  <button
-                    onClick={() => setView('home')}
-                    style={{ marginTop: 14, padding: '9px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    Start practice session
-                  </button>
-                </SectionCard>
-              )}
+              {(activePatternList[0] || activeTopicList[0]) && (() => {
+                const p0 = activePatternList[0] as any;
+                const t0 = activeTopicList[0] as any;
+                const p0pct = p0?.accuracy ?? p0?.pct ?? 0;
+                return (
+                  <SectionCard>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Next best move</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-sec)', lineHeight: 1.7 }}>
+                      {p0 && p0pct < BENCHMARK
+                        ? <>Your weakest pattern is <strong style={{ color: '#7c6fff' }}>{p0.pattern_tag ?? p0.pattern}</strong> at {p0pct}% accuracy. Slow down on these question types in your next session.</>
+                        : t0
+                          ? <>Focus on <strong style={{ color: 'var(--text)' }}>{t0.topic}</strong> ({t0.subject}) — {t0.accuracy ?? t0.pct}% accuracy, your clearest gain opportunity.</>
+                          : 'Keep practicing to surface deeper pattern-level insights.'}
+                    </div>
+                    <button onClick={() => setView('home')}
+                      style={{ marginTop: 14, padding: '9px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Start practice session
+                    </button>
+                  </SectionCard>
+                );
+              })()}
             </>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* ── TEST ANALYSIS TAB ───────────────────────────────────────────────── */}
       {tab === 'test-analysis' && (

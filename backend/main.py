@@ -3559,13 +3559,17 @@ def sync_local_stats(payload: SyncLocalPayload, user: dict = Depends(get_current
 
 @app.get("/user/weakness-report")
 def get_weakness_report(user: dict = Depends(get_current_user)):
-    """Return per-subject, per-topic, and per-pattern accuracy sorted weakest-first."""
+    """Return per-subject, per-topic, and per-pattern accuracy sorted weakest-first.
+
+    Pattern tags are resolved from the questions table, so this works correctly
+    for all attempts made before pattern tagging was introduced.
+    """
     uid = user["uid"]
 
-    # Pull last 500 attempts for deep aggregation
+    # Step 1: pull last 500 attempts (include question_id for tag resolution)
     try:
         res = supabase.table("user_attempts") \
-            .select("subject, topic, subtopic, pattern_tag, is_correct") \
+            .select("question_id, subject, topic, subtopic, pattern_tag, is_correct") \
             .eq("firebase_uid", uid) \
             .order("attempted_at", desc=True) \
             .limit(500) \
@@ -3573,6 +3577,24 @@ def get_weakness_report(user: dict = Depends(get_current_user)):
         rows: list[dict] = res.data or []
     except Exception:
         rows = []
+
+    # Step 2: resolve pattern_tag from questions for attempts that predate tagging
+    unresolved_ids = [
+        r["question_id"] for r in rows
+        if r.get("question_id") and not r.get("pattern_tag")
+    ]
+    tag_map: dict[str, str | None] = {}
+    for i in range(0, len(unresolved_ids), 100):
+        chunk = unresolved_ids[i:i + 100]
+        try:
+            q_res = supabase.table("questions") \
+                .select("id, pattern_tag") \
+                .in_("id", chunk) \
+                .execute()
+            for q in (q_res.data or []):
+                tag_map[q["id"]] = q.get("pattern_tag")
+        except Exception:
+            pass
 
     by_subject: dict[str, dict] = {}
     by_topic: dict[str, dict] = {}
@@ -3583,7 +3605,8 @@ def get_weakness_report(user: dict = Depends(get_current_user)):
         subject = r.get("subject") or "General"
         topic = r.get("topic") or "General"
         subtopic = r.get("subtopic") or ""
-        pattern = r.get("pattern_tag") or ""
+        # Use stored attempt tag first; fall back to current question tag
+        pattern = r.get("pattern_tag") or tag_map.get(r.get("question_id") or "") or ""
 
         s = by_subject.setdefault(subject, {"correct": 0, "total": 0})
         s["total"] += 1
