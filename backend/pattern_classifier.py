@@ -76,7 +76,8 @@ _RANKING_RE = re.compile(
 )
 _GCD_LCM_RE = re.compile(r"\b(?:gcd|hcf|lcm)\b|greatest\s+common\s+divisor|least\s+common\s+multiple", re.IGNORECASE)
 _ARITHMETIC_RE = re.compile(
-    r"\b(?:percentage|ratio|proportion|average|mixture|mensuration|discount|algebra|equation|remainder|divisibility)\b|"
+    r"\b(?:percentage|average|mixture|mensuration|discount|algebra|equation|remainder|divisibility)\b|"
+    r"ratio\s+and\s+proportion|find\s+the\s+ratio|calculate\s+the\s+ratio|"
     r"profit\s+and\s+loss|simple\s+interest|compound\s+interest|time\s+and\s+work|"
     r"time,\s*speed\s+and\s+distance|number\s+system",
     re.IGNORECASE,
@@ -95,6 +96,14 @@ _DATE_EVENT_RE = re.compile(
 _SCHEME_CURRENT_RE = re.compile(
     r"recently|economic\s+survey|budget|mou|scheme|mission|yojana|policy|index|ranking|award|"
     r"current\s+affairs|released\s+by|launched\s+by",
+    re.IGNORECASE,
+)
+_DEMOGRAPHIC_INDICATOR_RE = re.compile(
+    r"sex\s+ratio|population\s+census|census\s+recorded|demographic\s+indicator|literacy\s+rate",
+    re.IGNORECASE,
+)
+_CALCULATION_INTENT_RE = re.compile(
+    r"\b(?:find|calculate|compute|evaluate|solve|determine)\b|how\s+many|how\s+much",
     re.IGNORECASE,
 )
 _ARTICLE_RE = re.compile(
@@ -270,16 +279,12 @@ def classify_question_rule(row: dict[str, Any]) -> dict[str, Any] | None:
         pattern_tag, skill_tag, confidence = "match-the-following", "analysis", 96
     elif _ASSERTION_REASON_RE.search(question):
         pattern_tag, skill_tag, confidence = "assertion-reason", "analysis", 96
-    elif _STATEMENT_RE.search(question):
-        pattern_tag = "statement-elimination" if _COMBO_OPTION_RE.search(full_text) else "statement-based"
-        skill_tag = "elimination" if _COMBO_OPTION_RE.search(full_text) else "analysis"
-        confidence = 92
     elif _PARA_JUMBLE_RE.search(question) or "para jumble" in subject_topic.lower():
         pattern_tag, skill_tag, confidence = "para-jumble", "sequencing", 96
-    elif _GRAMMAR_ERROR_RE.search(question) or "grammar" in subject_topic.lower():
-        pattern_tag, skill_tag, confidence = "grammar-error-detection", "language-usage", 88
     elif _FILL_BLANK_RE.search(question):
         pattern_tag, skill_tag, confidence = "fill-in-the-blank", "language-usage", 88
+    elif _GRAMMAR_ERROR_RE.search(question) or "grammar" in subject_topic.lower():
+        pattern_tag, skill_tag, confidence = "grammar-error-detection", "language-usage", 88
     elif _VOCAB_RE.search(question) or "vocabulary" in subject_topic.lower():
         pattern_tag, skill_tag, confidence = "vocabulary-usage", "language-usage", 86
     elif _CODING_RE.search(question) or "coding" in subject_topic.lower():
@@ -290,6 +295,8 @@ def classify_question_rule(row: dict[str, Any]) -> dict[str, Any] | None:
         pattern_tag, skill_tag, confidence = "gcd-lcm-calculation", "calculation", 94
     elif _DATA_INTERP_RE.search(question) or "data interpretation" in subject_topic.lower():
         pattern_tag, skill_tag, confidence = "data-interpretation", "calculation", 88
+    elif _DEMOGRAPHIC_INDICATOR_RE.search(question) and not _CALCULATION_INTENT_RE.search(question):
+        pattern_tag, skill_tag, confidence = "factual-recall", "recall", 80
     elif _ARITHMETIC_RE.search(question) or any(t in subject_topic.lower() for t in ("quantitative", "arithmetic", "number system")):
         pattern_tag, skill_tag, confidence = "arithmetic-calculation", "calculation", 82
     elif _CHRONOLOGY_RE.search(question):
@@ -298,6 +305,10 @@ def classify_question_rule(row: dict[str, Any]) -> dict[str, Any] | None:
         pattern_tag, skill_tag, confidence = "article-provision", "recall", 90
     elif _COMMITTEE_RE.search(question):
         pattern_tag, skill_tag, confidence = "committee-mapping", "mapping", 88
+    elif _STATEMENT_RE.search(question):
+        pattern_tag = "statement-elimination" if _COMBO_OPTION_RE.search(full_text) else "statement-based"
+        skill_tag = "elimination" if _COMBO_OPTION_RE.search(full_text) else "analysis"
+        confidence = 92
     elif _SCHEME_CURRENT_RE.search(full_text) or "current affairs" in subject_topic.lower():
         pattern_tag, skill_tag, confidence = "scheme-current-affairs", "recall", 80
     elif _DATE_EVENT_RE.search(question):

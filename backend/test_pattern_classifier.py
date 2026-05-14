@@ -38,6 +38,16 @@ class PatternClassifierTests(unittest.TestCase):
         self.assertEqual(tag["pattern_tag"], "chronology")
         self.assertIn("Anchor", tag["solve_hint"])
 
+    def test_chronology_beats_option_letter_statement_pattern(self):
+        tag = classify_question_rule({
+            "question_text": "Arrange the following committees on electoral reforms in India in chronological order : A. Tarkunde Committee B. Dinesh Goswami Committee C. Indrajit Gupta Committee",
+            "option_a": "A, B, C",
+            "option_b": "B, A, C",
+            "option_c": "C, B, A",
+            "option_d": "A, C, B",
+        })
+        self.assertEqual(tag["pattern_tag"], "chronology")
+
     def test_negation_trap(self):
         tag = classify_question_rule({
             "question_text": "Which of the following is NOT correct about the Vice-President?",
@@ -94,6 +104,16 @@ class PatternClassifierTests(unittest.TestCase):
         self.assertEqual(tag["pattern_tag"], "fill-in-the-blank")
         self.assertEqual(tag["question_style"], "language")
 
+    def test_fill_blank_beats_general_grammar_wording(self):
+        tag = classify_question_rule({
+            "question_text": "Select the grammatically correct option to fill in the blank. I don't need to tell you my reasons, ___?",
+            "option_a": "do I",
+            "option_b": "don't I",
+            "option_c": "need I",
+            "option_d": "am I",
+        })
+        self.assertEqual(tag["pattern_tag"], "fill-in-the-blank")
+
     def test_para_jumble_question(self):
         tag = classify_question_rule({
             "question_text": "Arrange the sentences of a paragraph in a meaningful and coherent order.",
@@ -137,6 +157,19 @@ class PatternClassifierTests(unittest.TestCase):
         })
         self.assertEqual(tag["pattern_tag"], "gcd-lcm-calculation")
         self.assertEqual(tag["skill_tag"], "calculation")
+
+    def test_sex_ratio_is_not_arithmetic_by_keyword_only(self):
+        tag = classify_question_rule({
+            "question_text": "Which of the following census recorded the lowest sex ratio in India?",
+            "subject": "Quantitative Aptitude",
+            "topic": "Ratio and Proportion",
+            "subtopic": "Sex Ratio",
+            "option_a": "1981",
+            "option_b": "1991",
+            "option_c": "2001",
+            "option_d": "2011",
+        })
+        self.assertEqual(tag["pattern_tag"], "factual-recall")
 
     def test_scheme_current_affairs_question(self):
         tag = classify_question_rule({
