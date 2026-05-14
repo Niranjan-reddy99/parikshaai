@@ -73,8 +73,26 @@ export interface FeedSubjectSummary {
   topics: FeedTopicSummary[];
 }
 
+export interface FeedExamTopicSummary {
+  subject: string;
+  topic: string;
+  count: number;
+  year_count: number;
+  latest_year: number;
+}
+
+export interface FeedExamSummary {
+  name: string;
+  question_count: number;
+  topic_count: number;
+  year_count: number;
+  latest_year: number;
+  topics: FeedExamTopicSummary[];
+}
+
 export interface FeedSummary {
   subjects: FeedSubjectSummary[];
+  exams?: FeedExamSummary[];
   total_questions: number;
 }
 

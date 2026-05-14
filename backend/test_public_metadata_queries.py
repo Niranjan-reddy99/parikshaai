@@ -7,6 +7,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from public_metadata_helpers import public_row_identity
+from public_metadata_helpers import build_feed_from_meta
 from public_metadata_helpers import build_exam_paper_manifest_from_rows
 from public_metadata_helpers import prefer_current_public_manifest_rows
 from public_metadata_queries import collect_public_exam_rows, collect_public_question_meta_rows, stream_public_exam_page
@@ -102,6 +103,40 @@ def _merge_public_duplicate_row(existing, candidate):
 
 
 class PublicMetadataQueryTests(unittest.TestCase):
+    def test_build_feed_includes_real_per_exam_topic_coverage(self):
+        feed = build_feed_from_meta([
+            {
+                "exam_name": "APSLPRB Constable",
+                "exam_year": 2024,
+                "subject": "Polity",
+                "topic": "Fundamental Rights",
+                "subtopic": "Rights",
+            },
+            {
+                "exam_name": "APSLPRB Constable",
+                "exam_year": 2024,
+                "subject": "Geography",
+                "topic": "Rivers",
+                "subtopic": "Drainage",
+            },
+            {
+                "exam_name": "UPSC CSE GS 1",
+                "exam_year": 2025,
+                "subject": "Polity",
+                "topic": "Fundamental Rights",
+                "subtopic": "Rights",
+            },
+        ])
+
+        exam = next(item for item in feed["exams"] if item["name"] == "APSLPRB Constable")
+
+        self.assertEqual(exam["question_count"], 2)
+        self.assertEqual(exam["topic_count"], 2)
+        self.assertEqual(
+            {(item["subject"], item["topic"], item["count"]) for item in exam["topics"]},
+            {("Polity", "Fundamental Rights", 1), ("Geography", "Rivers", 1)},
+        )
+
     def test_collect_public_exam_rows_dedupes_same_shift_row_and_keeps_other_shift(self):
         supabase = _FakeSupabase([
             {

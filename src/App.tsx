@@ -3064,6 +3064,7 @@ function AppContent() {
                   >
                   <FeedView
                     subjects={feedSummary?.subjects || []}
+                    exams={feedSummary?.exams || []}
                     setView={setView}
                     startPractice={startPractice}
                     startTopicPractice={startTopicPractice}

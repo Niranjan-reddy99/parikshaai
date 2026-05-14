@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { type FeedSubjectSummary, type View } from '../types/index';
+import { type FeedExamSummary, type FeedSubjectSummary, type View } from '../types/index';
 import { CARD_GRADIENTS, COMMISSION_COLORS } from './browse/browseConfig';
 
 interface FeedViewProps {
   subjects: FeedSubjectSummary[];
+  exams?: FeedExamSummary[];
   setView: (v: View) => void;
   startPractice?: (examName: string, year: number, subject?: string, topic?: string) => void;
   startTopicPractice?: (subject: string, topic: string) => void;
@@ -25,7 +26,9 @@ interface TopicItem {
 interface ExamEntry {
   name: string;
   topicCount: number;
+  questionCount: number;
   latestYear: number;
+  topics: TopicItem[];
 }
 
 const SUBJECT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
@@ -282,7 +285,7 @@ function ExamRow({ exam, accentColor, onPick }: { exam: ExamEntry; accentColor: 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>{exam.name}</div>
         <div style={{ fontSize: 11.5, color: 'var(--text-tert)', marginTop: 3 }}>
-          {exam.topicCount} topic{exam.topicCount !== 1 ? 's' : ''} covered
+          {exam.topicCount} topic{exam.topicCount !== 1 ? 's' : ''} · {exam.questionCount} Qs
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -299,7 +302,7 @@ function ExamRow({ exam, accentColor, onPick }: { exam: ExamEntry; accentColor: 
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────
-export function FeedView({ subjects, startPractice, startTopicPractice, prefetchTopicPractice }: FeedViewProps) {
+export function FeedView({ subjects, exams = [], startPractice, startTopicPractice, prefetchTopicPractice }: FeedViewProps) {
   const [tab, setTab] = useState<FeedTab>('by-topic');
   const [sortMode, setSortMode] = useState<SortMode>('count');
   const [filterSubject, setFilterSubject] = useState('All');
@@ -330,18 +333,29 @@ export function FeedView({ subjects, startPractice, startTopicPractice, prefetch
     return [...items].sort((a, b) => b.count - a.count || b.yearCount - a.yearCount);
   }, [allTopics, filterSubject, sortMode]);
 
-  // Build exam map — key by name, track unique topics only
+  // Build exam map from real per-exam coverage. Do not infer this from topic.latest_exam;
+  // latest_exam only means "newest paper where this topic appeared", not "all topics in that exam".
   const examMap = useMemo(() => {
     const map = new Map<string, ExamEntry>();
-    for (const item of allTopics) {
-      if (!item.latestExam) continue;
-      const e = map.get(item.latestExam) ?? { name: item.latestExam, topicCount: 0, latestYear: 0 };
-      e.topicCount += 1;
-      e.latestYear = Math.max(e.latestYear, item.latestYear);
-      map.set(item.latestExam, e);
+    for (const exam of exams) {
+      const topics = (exam.topics || []).map((topic) => ({
+        subject: topic.subject,
+        topic: topic.topic,
+        yearCount: topic.year_count,
+        count: topic.count,
+        latestExam: exam.name,
+        latestYear: topic.latest_year || exam.latest_year,
+      }));
+      map.set(exam.name, {
+        name: exam.name,
+        topicCount: exam.topic_count || topics.length,
+        questionCount: exam.question_count || topics.reduce((sum, item) => sum + item.count, 0),
+        latestYear: exam.latest_year || Math.max(0, ...topics.map((item) => item.latestYear)),
+        topics,
+      });
     }
     return map;
-  }, [allTopics]);
+  }, [exams]);
 
   // Commission list — show paper count and unique topic count
   const commissions = useMemo(() => {
@@ -367,16 +381,17 @@ export function FeedView({ subjects, startPractice, startTopicPractice, prefetch
 
   const examTopics = useMemo(() => {
     if (!selectedExam) return [];
-    let items = allTopics.filter(i => i.latestExam === selectedExam);
+    const examEntry = examMap.get(selectedExam);
+    let items = examEntry?.topics || [];
     if (examSubject !== 'All') items = items.filter(i => i.subject === examSubject);
     return [...items].sort((a, b) => b.count - a.count);
-  }, [allTopics, selectedExam, examSubject]);
+  }, [examMap, selectedExam, examSubject]);
 
   const examSubjectNames = useMemo(() => {
     if (!selectedExam) return [];
-    const set = new Set(allTopics.filter(i => i.latestExam === selectedExam).map(i => i.subject));
+    const set = new Set((examMap.get(selectedExam)?.topics || []).map(i => i.subject));
     return Array.from(set).sort();
-  }, [allTopics, selectedExam]);
+  }, [examMap, selectedExam]);
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: '9px 20px', fontSize: 13.5,
@@ -411,12 +426,12 @@ export function FeedView({ subjects, startPractice, startTopicPractice, prefetch
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
             <span style={{ fontSize: 12, color: 'var(--text-sec)' }}>
-              Showing topics this exam covers. Question counts reflect PYQ frequency across all exams — useful for spotting high-value areas.
+              Showing the topics actually present in this exam's uploaded PYQs.
             </span>
           </div>
           <SubjectPills subjects={examSubjectNames} selected={examSubject} onChange={setExamSubject} />
           <div style={{ fontSize: 12, color: 'var(--text-tert)', marginBottom: 14 }}>
-            {examTopics.length} topic{examTopics.length !== 1 ? 's' : ''}{examSubject !== 'All' ? ` in ${examSubject}` : ''}
+            {examTopics.length} topic{examTopics.length !== 1 ? 's' : ''}{examSubject !== 'All' ? ` in ${examSubject}` : ''} from this exam
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {examTopics.length === 0

@@ -187,6 +187,7 @@ def build_catalog_from_meta(rows: list[dict]) -> dict:
 
 def build_feed_from_meta(rows: list[dict]) -> dict:
     subject_map: dict[str, dict] = {}
+    exam_map: dict[str, dict] = {}
     for row in rows:
         # Prefer canonical fields (post-backfill normalized) over raw AI-tagged fields
         subject = str(row.get("canonical_subject") or row.get("subject") or "General Awareness").strip() or "General Awareness"
@@ -236,6 +237,30 @@ def build_feed_from_meta(rows: list[dict]) -> dict:
             subtopic_bucket["latest_year"] = exam_year
             subtopic_bucket["latest_exam"] = exam_name
 
+        if exam_name:
+            exam_bucket = exam_map.setdefault(exam_name, {
+                "name": exam_name,
+                "question_count": 0,
+                "years": set(),
+                "latest_year": exam_year,
+                "topics": {},
+            })
+            exam_bucket["question_count"] += 1
+            exam_bucket["years"].add(exam_year)
+            exam_bucket["latest_year"] = max(int(exam_bucket["latest_year"] or 0), exam_year)
+
+            exam_topic_key = (subject, topic)
+            exam_topic_bucket = exam_bucket["topics"].setdefault(exam_topic_key, {
+                "subject": subject,
+                "topic": topic,
+                "count": 0,
+                "years": set(),
+                "latest_year": exam_year,
+            })
+            exam_topic_bucket["count"] += 1
+            exam_topic_bucket["years"].add(exam_year)
+            exam_topic_bucket["latest_year"] = max(int(exam_topic_bucket["latest_year"] or 0), exam_year)
+
     subjects = []
     for subject_bucket in subject_map.values():
         topics = []
@@ -268,8 +293,31 @@ def build_feed_from_meta(rows: list[dict]) -> dict:
             "topics": topics,
         })
     subjects.sort(key=lambda item: (-item["count"], -item["year_count"], item["subject"]))
+
+    exams = []
+    for exam_bucket in exam_map.values():
+        topics = []
+        for topic_bucket in exam_bucket["topics"].values():
+            topics.append({
+                "subject": topic_bucket["subject"],
+                "topic": topic_bucket["topic"],
+                "count": topic_bucket["count"],
+                "year_count": len(topic_bucket["years"]),
+                "latest_year": topic_bucket["latest_year"],
+            })
+        topics.sort(key=lambda item: (-item["count"], -item["year_count"], item["subject"], item["topic"]))
+        exams.append({
+            "name": exam_bucket["name"],
+            "question_count": exam_bucket["question_count"],
+            "topic_count": len(topics),
+            "year_count": len(exam_bucket["years"]),
+            "latest_year": exam_bucket["latest_year"],
+            "topics": topics,
+        })
+    exams.sort(key=lambda item: (-item["question_count"], -item["latest_year"], item["name"]))
     return {
         "subjects": subjects,
+        "exams": exams,
         "total_questions": len(rows),
     }
 
