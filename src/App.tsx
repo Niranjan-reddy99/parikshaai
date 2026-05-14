@@ -77,6 +77,8 @@ import { parseExamName } from "./lib/examUtils";
 import {
   BLOCKED_EXPLANATION,
   UNAVAILABLE_EXPLANATION,
+  DELETED_QUESTION_NOTE,
+  MULTIPLE_ANSWERS_NOTE,
 } from "./views/practice/practiceUtils";
 import {
   canonicalConceptFamily,
@@ -435,8 +437,17 @@ function AppContent() {
       value.length > 5 &&
       value !== BLOCKED_EXPLANATION &&
       value !== UNAVAILABLE_EXPLANATION &&
+      value !== DELETED_QUESTION_NOTE &&
+      value !== MULTIPLE_ANSWERS_NOTE &&
       !value.includes("[FLAG: verify answer]")
     );
+  };
+  const getSafePracticeBackView = (candidate: View): View => {
+    if (candidate !== "practice" && candidate !== "mock") return candidate;
+    if (practiceBackView !== "practice" && practiceBackView !== "mock") {
+      return practiceBackView;
+    }
+    return "home";
   };
   const prefetchSessionRef = useRef(0); // incremented on each new practice session to cancel stale prefetch loops
   const mockPrefetchSessionRef = useRef(0);
@@ -1585,7 +1596,7 @@ function AppContent() {
       const { commission, examType } = parseExamName(examName);
       setSelectedCommission(commission);
       setSelectedExamType(examType);
-      setPracticeBackView(view);
+      setPracticeBackView(getSafePracticeBackView(view));
       setPracticeLoadProgress({
         loaded: initialBatch.length,
         total: outlineTotal || pageInfo.totalCount || sorted.length,
@@ -1666,7 +1677,7 @@ function AppContent() {
     setPracticeTopic(topic);
     setPracticePaperId(null);
     setPracticeShiftLabel(null);
-    setPracticeBackView(view);
+    setPracticeBackView(getSafePracticeBackView(view));
     setPracticeQueue([]);
     setPracticeIndex(0);
     setPracticeAnswered(false);
@@ -1834,7 +1845,7 @@ function AppContent() {
     setPracticeLoadProgress({ loaded: questions.length, total: questions.length });
     setSelectedExamName("Bookmarks");
     setSelectedYear(0);
-    setPracticeBackView(view);
+    setPracticeBackView(getSafePracticeBackView(view));
     practiceStartRef.current = Date.now();
     setView("practice");
   };

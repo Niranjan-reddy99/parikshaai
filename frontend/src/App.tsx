@@ -653,6 +653,7 @@ export default function App() {
   });
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState('');
+  const [reviewWarning, setReviewWarning] = useState('');
   const [reviewActionMessage, setReviewActionMessage] = useState('');
   const [reviewActionTone, setReviewActionTone] = useState<'success' | 'danger'>('success');
   const [questionSearch, setQuestionSearch] = useState('');
@@ -760,6 +761,7 @@ export default function App() {
   const loadReviewWorkspace = useCallback(async (target: ReviewTarget) => {
     setReviewLoading(true);
     setReviewError('');
+    setReviewWarning('');
     setReviewActionMessage('');
     try {
       const params = new URLSearchParams({
@@ -767,21 +769,20 @@ export default function App() {
         exam_year: String(target.examYear),
       });
       const [repairRes, questionRes] = await Promise.all([
-        fetch(`${API_BASE}/admin/repair-queue?${params}`, { headers: adminHeaders() }),
+        fetch(`${API_BASE}/admin/repair-queue?${params}`, { headers: adminHeaders() }).catch(() => null),
         fetch(`${API_BASE}/admin/questions?${params}&page_size=500&latest_only=true`, { headers: adminHeaders() }),
       ]);
-      if (!repairRes.ok) throw new Error(`Repair queue failed (${repairRes.status})`);
       if (!questionRes.ok) throw new Error(`Question list failed (${questionRes.status})`);
 
-      const repairData = await repairRes.json();
+      const repairData = repairRes?.ok ? await repairRes.json() : null;
       const questionData = await questionRes.json();
-      const paper = Array.isArray(repairData.papers)
+      const paper = Array.isArray(repairData?.papers)
         ? (repairData.papers.find(
             (item: RepairQueuePaper) =>
               item.exam_name === target.examName && item.exam_year === target.examYear
           ) || repairData.papers[0] || null)
         : null;
-      const repairItems = Array.isArray(repairData.items) ? repairData.items : [];
+      const repairItems = Array.isArray(repairData?.items) ? repairData.items : [];
       const questions = Array.isArray(questionData.questions)
         ? questionData.questions.map(mapQuestion)
         : [];
@@ -799,6 +800,9 @@ export default function App() {
       setReviewWorkspace({ paper, repairItems, questions });
       setReviewTarget(resolvedTarget);
       setRenameExamDraft(resolvedTarget.examName);
+      if (!repairRes?.ok) {
+        setReviewWarning('Repair analysis unavailable — questions loaded, you can still publish below.');
+      }
     } catch (workspaceError: any) {
       setReviewError(workspaceError?.message || 'Could not load publish status.');
     } finally {
@@ -1751,6 +1755,15 @@ export default function App() {
                 </div>
               ) : null}
 
+              {reviewWarning ? (
+                <div className="alert-card alert-warn compact-alert">
+                  <AlertCircle size={16} />
+                  <div>
+                    <strong>Note</strong>
+                    <p>{reviewWarning}</p>
+                  </div>
+                </div>
+              ) : null}
               {reviewError ? (
                 <div className="alert-card alert-danger compact-alert">
                   <AlertCircle size={16} />
