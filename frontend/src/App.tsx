@@ -3,6 +3,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock3,
+  Crop as CropIcon,
   FilePenLine,
   FileText,
   Loader2,
@@ -10,9 +11,12 @@ import {
   RefreshCw,
   Search,
   Shield,
+  Trash,
   Upload,
   X,
 } from 'lucide-react';
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 import {
   GoogleAuthProvider,
   User,
@@ -260,8 +264,98 @@ function QuestionEditorModal({ question, onClose, onSaved }: QuestionEditorModal
   const [difficulty, setDifficulty] = useState(question.difficulty || 'Medium');
   const [isActive, setIsActive] = useState(question.is_active !== false);
   const [needsReview, setNeedsReview] = useState(Boolean(question.needs_review));
+  const [hasImage, setHasImage] = useState(Boolean(question.has_image || question.image_url));
+  const [imageUrl, setImageUrl] = useState<string | null>(question.image_url || null);
+  const [imageVersion, setImageVersion] = useState(() => Date.now());
+  const [cropMode, setCropMode] = useState(false);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
+  const [savingImage, setSavingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const hiddenImageInputRef = useRef<HTMLInputElement | null>(null);
+  const cropImageRef = useRef<HTMLImageElement | null>(null);
+
+  const uploadImageDataUrl = async (base64Image: string) => {
+    const res = await fetch(`${API_BASE}/admin/questions/${question.id}/image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...adminHeaders() },
+      body: JSON.stringify({ base64_image: base64Image }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `Image upload failed (${res.status})`);
+    }
+    const data = await res.json();
+    setImageUrl(data.image_url || null);
+    setImageVersion(Date.now());
+    setHasImage(true);
+    setCropMode(false);
+  };
+
+  const handleImageFileSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      setSavingImage(true);
+      setError('');
+      const base64Image = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Could not read image file.'));
+        reader.readAsDataURL(file);
+      });
+      await uploadImageDataUrl(base64Image);
+    } catch (uploadError: any) {
+      setError(uploadError?.message || 'Image upload failed.');
+    } finally {
+      setSavingImage(false);
+    }
+  };
+
+  const handleDeleteImage = () => {
+    setHasImage(false);
+    setImageUrl(null);
+    setCropMode(false);
+    setCompletedCrop(null);
+  };
+
+  const handleApplyCrop = async () => {
+    if (!completedCrop || !cropImageRef.current || !imageUrl) return;
+    try {
+      setSavingImage(true);
+      setError('');
+
+      const img = cropImageRef.current;
+      const scaleX = img.naturalWidth / img.width;
+      const scaleY = img.naturalHeight / img.height;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Crop canvas is unavailable.');
+
+      canvas.width = Math.max(1, Math.round(completedCrop.width * scaleX));
+      canvas.height = Math.max(1, Math.round(completedCrop.height * scaleY));
+      ctx.drawImage(
+        img,
+        completedCrop.x * scaleX,
+        completedCrop.y * scaleY,
+        completedCrop.width * scaleX,
+        completedCrop.height * scaleY,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+      await uploadImageDataUrl(canvas.toDataURL('image/png'));
+    } catch (cropError: any) {
+      setError(cropError?.message || 'Crop upload failed.');
+    } finally {
+      setSavingImage(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -284,6 +378,8 @@ function QuestionEditorModal({ question, onClose, onSaved }: QuestionEditorModal
           difficulty,
           is_active: isActive,
           needs_review: needsReview,
+          has_image: hasImage,
+          image_url: imageUrl,
         }),
       });
       if (!res.ok) {
@@ -305,6 +401,8 @@ function QuestionEditorModal({ question, onClose, onSaved }: QuestionEditorModal
         difficulty,
         is_active: isActive,
         needs_review: needsReview,
+        has_image: hasImage,
+        image_url: imageUrl,
       });
     } catch (saveError: any) {
       setError(saveError?.message || 'Save failed.');
@@ -330,6 +428,7 @@ function QuestionEditorModal({ question, onClose, onSaved }: QuestionEditorModal
           <span className="badge badge-blue">{question.exam_name}</span>
           <span className="badge badge-warn">{question.exam_year}</span>
           {question.public_visibility ? <span className="badge badge-success">{question.public_visibility}</span> : null}
+          {hasImage ? <span className="badge badge-blue">Image question</span> : null}
         </div>
 
         <div className="editor-grid">
@@ -341,6 +440,108 @@ function QuestionEditorModal({ question, onClose, onSaved }: QuestionEditorModal
             <span>Question text</span>
             <textarea rows={5} value={questionText} onChange={(event) => setQuestionText(event.target.value)} />
           </label>
+
+          <div className="field field-span-full">
+            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Question image</span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+              <label className="toggle-pill">
+                <input
+                  type="checkbox"
+                  checked={hasImage}
+                  onChange={(event) => {
+                    const enabled = event.target.checked;
+                    setHasImage(enabled);
+                    if (!enabled) {
+                      setImageUrl(null);
+                      setCropMode(false);
+                    }
+                  }}
+                />
+                Mark as image-based
+              </label>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => hiddenImageInputRef.current?.click()}
+                disabled={savingImage}
+              >
+                {savingImage ? <Loader2 size={15} className="spin" /> : <Upload size={15} />}
+                {imageUrl ? 'Replace image' : 'Upload image'}
+              </button>
+              {hasImage && imageUrl ? (
+                <>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => setCropMode((prev) => !prev)}
+                    disabled={savingImage}
+                  >
+                    <CropIcon size={15} />
+                    {cropMode ? 'Cancel crop' : 'Crop image'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={handleDeleteImage}
+                    disabled={savingImage}
+                  >
+                    <Trash size={15} />
+                    Remove image
+                  </button>
+                </>
+              ) : null}
+            </div>
+            <input
+              ref={hiddenImageInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleImageFileSelected}
+            />
+            {hasImage && imageUrl ? (
+              <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 12, background: 'var(--panel-muted, rgba(148,163,184,0.06))' }}>
+                {cropMode ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <ReactCrop
+                      crop={crop}
+                      onChange={(nextCrop) => setCrop(nextCrop)}
+                      onComplete={(nextCrop) => setCompletedCrop(nextCrop)}
+                    >
+                      <img
+                        ref={cropImageRef}
+                        src={`${imageUrl}?v=${imageVersion}`}
+                        alt="Crop question"
+                        crossOrigin="anonymous"
+                        style={{ maxWidth: '100%', maxHeight: 320, display: 'block', margin: '0 auto' }}
+                      />
+                    </ReactCrop>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={() => void handleApplyCrop()}
+                        disabled={savingImage || !completedCrop?.width}
+                      >
+                        {savingImage ? <Loader2 size={15} className="spin" /> : <CropIcon size={15} />}
+                        Apply crop
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    src={`${imageUrl}?v=${imageVersion}`}
+                    alt="Question preview"
+                    style={{ maxWidth: '100%', maxHeight: 260, objectFit: 'contain', display: 'block', margin: '0 auto' }}
+                  />
+                )}
+              </div>
+            ) : hasImage ? (
+              <div className="compact-helper">
+                This question is marked as image-based, but no image is attached yet.
+              </div>
+            ) : null}
+          </div>
+
           <label className="field">
             <span>Option A</span>
             <textarea rows={2} value={optionA} onChange={(event) => setOptionA(event.target.value)} />
