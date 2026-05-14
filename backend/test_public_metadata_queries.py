@@ -8,7 +8,8 @@ if str(BACKEND_DIR) not in sys.path:
 
 from public_metadata_helpers import public_row_identity
 from public_metadata_helpers import build_exam_paper_manifest_from_rows
-from public_metadata_queries import collect_public_exam_rows, stream_public_exam_page
+from public_metadata_helpers import prefer_current_public_manifest_rows
+from public_metadata_queries import collect_public_exam_rows, collect_public_question_meta_rows, stream_public_exam_page
 
 
 class _FakeResult:
@@ -179,6 +180,50 @@ class PublicMetadataQueryTests(unittest.TestCase):
         self.assertEqual(rows[0]["question"], "A much richer stem for the same question")
         self.assertEqual(rows[1]["question"], "Shift two version")
 
+    def test_collect_public_question_meta_rows_excludes_legacy_rows_when_exam_has_current_public_paper(self):
+        supabase = _FakeSupabase([
+            {
+                "id": "legacy-row",
+                "exam_name": "TSPSC LIBRARIAN GS",
+                "exam_year": 2023,
+                "paper_id": None,
+                "shift_label": None,
+                "question_number": 1,
+                "subject": "History",
+                "topic": "Modern History",
+                "subtopic": "Congress",
+                "difficulty": "Easy",
+                "created_at": "2025-01-01T00:00:00",
+            },
+            {
+                "id": "current-row",
+                "exam_name": "TSPSC LIBRARIAN GS",
+                "exam_year": 2023,
+                "paper_id": "live-paper",
+                "shift_label": "Shift 1",
+                "question_number": 1,
+                "subject": "History",
+                "topic": "Modern History",
+                "subtopic": "Congress",
+                "difficulty": "Easy",
+                "created_at": "2025-01-02T00:00:00",
+            },
+        ])
+
+        rows = collect_public_question_meta_rows(
+            supabase=supabase,
+            supported_cols=set(),
+            select_clause="*",
+            publishable_ids={"live-paper"},
+            publishable_exam_keys={("TSPSC LIBRARIAN GS", 2023)},
+            apply_public_question_filter=_apply_public_question_filter,
+            row_matches_selected_papers=_row_matches_selected_papers,
+            public_row_identity=public_row_identity,
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["id"], "current-row")
+
     def test_stream_public_exam_page_paginates_after_dedup(self):
         supabase = _FakeSupabase([
             {
@@ -326,6 +371,53 @@ class PublicMetadataQueryTests(unittest.TestCase):
         self.assertEqual(shift_two["paper_id"], "paper-b")
         self.assertEqual(shift_two["shift_label"], "Shift 2")
         self.assertEqual(shift_two["question_count"], 1)
+
+    def test_prefer_current_public_manifest_rows_drops_stale_groups_when_current_public_paper_exists(self):
+        rows = [
+            {
+                "id": "legacy-1",
+                "paper_id": "old-paper",
+                "shift_label": "NO_SHIFT",
+                "question_number": 1,
+            },
+            {
+                "id": "legacy-2",
+                "paper_id": "old-paper",
+                "shift_label": "NO_SHIFT",
+                "question_number": 2,
+            },
+            {
+                "id": "current-1",
+                "paper_id": "current-paper",
+                "shift_label": "Shift 1",
+                "question_number": 1,
+            },
+        ]
+
+        filtered = prefer_current_public_manifest_rows(rows, {"current-paper"})
+
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0]["id"], "current-1")
+
+    def test_prefer_current_public_manifest_rows_keeps_legacy_rows_when_no_current_public_match_exists(self):
+        rows = [
+            {
+                "id": "legacy-1",
+                "paper_id": None,
+                "shift_label": None,
+                "question_number": 1,
+            },
+            {
+                "id": "legacy-2",
+                "paper_id": None,
+                "shift_label": None,
+                "question_number": 2,
+            },
+        ]
+
+        filtered = prefer_current_public_manifest_rows(rows, {"current-paper"})
+
+        self.assertEqual(filtered, rows)
 
 
 if __name__ == "__main__":

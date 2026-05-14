@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS questions (
     review_required   BOOLEAN DEFAULT TRUE,
     confidence_score  INTEGER DEFAULT 0,
     public_visibility VARCHAR(30) DEFAULT 'visible',
+    practice_ready    BOOLEAN DEFAULT FALSE,
     primary_issue_code VARCHAR(100) DEFAULT NULL,
     issue_codes      JSONB DEFAULT '[]'::jsonb,
     
@@ -120,6 +121,7 @@ CREATE INDEX IF NOT EXISTS idx_q_tagging_status ON questions(tagging_status);
 CREATE INDEX IF NOT EXISTS idx_q_review_required ON questions(review_required);
 CREATE INDEX IF NOT EXISTS idx_q_confidence_score ON questions(confidence_score);
 CREATE INDEX IF NOT EXISTS idx_q_public_visibility ON questions(public_visibility);
+CREATE INDEX IF NOT EXISTS idx_q_practice_ready ON questions(practice_ready);
 
 -- Composite indexes for common filter combos
 CREATE INDEX IF NOT EXISTS idx_q_subject_year ON questions(subject, exam_year) WHERE is_active = TRUE;
