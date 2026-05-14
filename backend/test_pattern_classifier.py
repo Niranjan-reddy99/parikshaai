@@ -23,7 +23,7 @@ class PatternClassifierTests(unittest.TestCase):
             "option_c": "Both I and II",
             "option_d": "Neither I nor II",
         })
-        self.assertEqual(tag["pattern_tag"], "statement-based")
+        self.assertEqual(tag["pattern_tag"], "statement-elimination")
         self.assertEqual(tag["skill_tag"], "elimination")
         self.assertEqual(tag["trap_tag"], "absolute-wording")
 
@@ -70,6 +70,84 @@ class PatternClassifierTests(unittest.TestCase):
         })
         self.assertEqual(tag["pattern_tag"], "factual-recall")
         self.assertIsNone(tag["trap_tag"])
+
+    def test_grammar_error_question(self):
+        tag = classify_question_rule({
+            "question_text": "Identify the part of the sentence that contains a grammatical error.",
+            "option_a": "He do not",
+            "option_b": "like coffee",
+            "option_c": "in the morning",
+            "option_d": "No error",
+        })
+        self.assertEqual(tag["pattern_tag"], "grammar-error-detection")
+        self.assertEqual(tag["skill_tag"], "language-usage")
+        self.assertEqual(tag["question_style"], "language")
+
+    def test_fill_in_the_blank_question(self):
+        tag = classify_question_rule({
+            "question_text": "Select the most appropriate option to fill in the blank: He has been working here ___ 2020.",
+            "option_a": "for",
+            "option_b": "since",
+            "option_c": "from",
+            "option_d": "by",
+        })
+        self.assertEqual(tag["pattern_tag"], "fill-in-the-blank")
+        self.assertEqual(tag["question_style"], "language")
+
+    def test_para_jumble_question(self):
+        tag = classify_question_rule({
+            "question_text": "Arrange the sentences of a paragraph in a meaningful and coherent order.",
+            "option_a": "PQRS",
+            "option_b": "QPRS",
+            "option_c": "RSPQ",
+            "option_d": "SRQP",
+        })
+        self.assertEqual(tag["pattern_tag"], "para-jumble")
+        self.assertEqual(tag["skill_tag"], "sequencing")
+
+    def test_coding_decoding_question(self):
+        tag = classify_question_rule({
+            "question_text": "In a certain code language, TREE is coded as USFF. How is BOOK coded?",
+            "option_a": "CPPL",
+            "option_b": "ANNJ",
+            "option_c": "CPPK",
+            "option_d": "DPPL",
+        })
+        self.assertEqual(tag["pattern_tag"], "coding-decoding")
+        self.assertEqual(tag["question_style"], "reasoning")
+
+    def test_ranking_order_question(self):
+        tag = classify_question_rule({
+            "question_text": "Ravi is ranked 12th from the top and 18th from the bottom. How many students are there?",
+            "option_a": "28",
+            "option_b": "29",
+            "option_c": "30",
+            "option_d": "31",
+        })
+        self.assertEqual(tag["pattern_tag"], "ranking-order")
+        self.assertEqual(tag["trap_tag"], "sequence-confusion")
+
+    def test_gcd_lcm_question(self):
+        tag = classify_question_rule({
+            "question_text": "Find the LCM of 12, 18 and 24.",
+            "option_a": "36",
+            "option_b": "48",
+            "option_c": "72",
+            "option_d": "96",
+        })
+        self.assertEqual(tag["pattern_tag"], "gcd-lcm-calculation")
+        self.assertEqual(tag["skill_tag"], "calculation")
+
+    def test_scheme_current_affairs_question(self):
+        tag = classify_question_rule({
+            "question_text": "Which ministry recently launched the PM-SHRI scheme?",
+            "option_a": "Ministry of Education",
+            "option_b": "Ministry of Finance",
+            "option_c": "Ministry of Rural Development",
+            "option_d": "Ministry of Home Affairs",
+        })
+        self.assertEqual(tag["pattern_tag"], "scheme-current-affairs")
+        self.assertEqual(tag["question_style"], "direct")
 
 
 if __name__ == "__main__":

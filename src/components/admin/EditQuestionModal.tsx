@@ -17,10 +17,72 @@ interface EditQuestionModalProps {
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 const ANSWERS = ['A', 'B', 'C', 'D'];
 
-const PATTERN_TAGS = ['', 'statement-based', 'assertion-reason', 'chronology', 'match-the-following', 'factual-recall', 'concept-application', 'elimination', 'article-provision', 'committee-mapping'];
-const TRAP_TAGS = ['', 'absolute-wording', 'negation', 'except-not', 'all-of-above', 'double-negation', 'partial-truth'];
-const SKILL_TAGS = ['', 'elimination', 'recall', 'inference', 'application', 'analysis'];
-const QUESTION_STYLES = ['', 'direct', 'indirect', 'analytical', 'comparative', 'definitional'];
+const PATTERN_TAGS = [
+  '',
+  'statement-based',
+  'statement-elimination',
+  'assertion-reason',
+  'chronology',
+  'match-the-following',
+  'grammar-error-detection',
+  'fill-in-the-blank',
+  'para-jumble',
+  'coding-decoding',
+  'ranking-order',
+  'gcd-lcm-calculation',
+  'arithmetic-calculation',
+  'data-interpretation',
+  'map-location',
+  'date-event-recall',
+  'scheme-current-affairs',
+  'vocabulary-usage',
+  'factual-recall',
+  'concept-application',
+  'elimination',
+  'article-provision',
+  'committee-mapping',
+];
+const TRAP_TAGS = [
+  '',
+  'absolute-wording',
+  'negation',
+  'except-not',
+  'all-of-above',
+  'double-negation',
+  'partial-truth',
+  'close-dates',
+  'similar-names',
+  'formula-confusion',
+  'code-pair-confusion',
+  'tense-agreement',
+  'sequence-confusion',
+  'unit-conversion',
+  'option-pairing',
+];
+const SKILL_TAGS = [
+  '',
+  'elimination',
+  'recall',
+  'inference',
+  'application',
+  'analysis',
+  'sequencing',
+  'calculation',
+  'language-usage',
+  'pattern-recognition',
+  'mapping',
+];
+const QUESTION_STYLES = [
+  '',
+  'direct',
+  'indirect',
+  'analytical',
+  'comparative',
+  'definitional',
+  'language',
+  'quantitative',
+  'reasoning',
+];
 
 const inputStyle: React.CSSProperties = {
   width: '100%',

@@ -14,13 +14,25 @@ PATTERN_TAGS = {
     "statement-based", "assertion-reason", "chronology", "match-the-following",
     "factual-recall", "concept-application", "elimination",
     "article-provision", "committee-mapping",
+    "statement-elimination", "grammar-error-detection", "fill-in-the-blank",
+    "para-jumble", "coding-decoding", "ranking-order", "gcd-lcm-calculation",
+    "arithmetic-calculation", "data-interpretation", "map-location",
+    "date-event-recall", "scheme-current-affairs", "vocabulary-usage",
 }
 TRAP_TAGS = {
     "absolute-wording", "negation", "except-not", "all-of-above",
     "double-negation", "partial-truth",
+    "close-dates", "similar-names", "formula-confusion", "code-pair-confusion",
+    "tense-agreement", "sequence-confusion", "unit-conversion", "option-pairing",
 }
-SKILL_TAGS = {"elimination", "recall", "inference", "application", "analysis"}
-QUESTION_STYLES = {"direct", "indirect", "analytical", "comparative", "definitional"}
+SKILL_TAGS = {
+    "elimination", "recall", "inference", "application", "analysis",
+    "sequencing", "calculation", "language-usage", "pattern-recognition", "mapping",
+}
+QUESTION_STYLES = {
+    "direct", "indirect", "analytical", "comparative", "definitional",
+    "language", "quantitative", "reasoning",
+}
 
 _SPACE_RE = re.compile(r"\s+")
 _MATCH_RE = re.compile(
@@ -33,6 +45,56 @@ _CHRONOLOGY_RE = re.compile(
     r"chronolog|arrange\s+(?:the\s+following\s+)?(?:events|sentences|statements|acts|states|items)|"
     r"correct\s+(?:sequence|order)|logical\s+order|jumbled\s+order|meaningful\s+and\s+coherent\s+paragraph|"
     r"ascending\s+order|descending\s+order",
+    re.IGNORECASE,
+)
+_PARA_JUMBLE_RE = re.compile(
+    r"para\s*jumbles?|jumbled\s+(?:order|sentences)|sentences?\s+of\s+a\s+paragraph|"
+    r"arrange\s+the\s+sentences|\blogical\s+order\b|meaningful\s+and\s+coherent\s+paragraph",
+    re.IGNORECASE,
+)
+_GRAMMAR_ERROR_RE = re.compile(
+    r"grammatical\s+error|article\s+error|contains\s+an?\s+error|part\s+of\s+the\s+sentence|"
+    r"grammatically\s+correct|correct\s+sentence|error\s+in\s+the\s+sentence|sentence\s+correction",
+    re.IGNORECASE,
+)
+_FILL_BLANK_RE = re.compile(
+    r"fill\s+in\s+the\s+blank|complete\s+the\s+(?:given\s+)?sentence|select\s+the\s+most\s+appropriate\s+option\s+to\s+fill|_{3,}",
+    re.IGNORECASE,
+)
+_VOCAB_RE = re.compile(
+    r"synonym|antonym|idiom|phrase|one[- ]word\s+substitution|meaning\s+of\s+the\s+word|spelt\s+correctly|vocabulary",
+    re.IGNORECASE,
+)
+_CODING_RE = re.compile(
+    r"code\s+language|coded\s+as|coding[- ]decoding|how\s+is\s+['\"].+['\"]\s+coded|decoded\s+as",
+    re.IGNORECASE,
+)
+_RANKING_RE = re.compile(
+    r"\brank(?:ed|ing)?\b|secured\s+\d+(?:st|nd|rd|th)\s+rank|from\s+the\s+top|from\s+the\s+bottom|"
+    r"maximum\s+scorer|minimum\s+scorer|seating\s+arrangement|linear\s+arrangement|circular\s+arrangement",
+    re.IGNORECASE,
+)
+_GCD_LCM_RE = re.compile(r"\b(?:gcd|hcf|lcm)\b|greatest\s+common\s+divisor|least\s+common\s+multiple", re.IGNORECASE)
+_ARITHMETIC_RE = re.compile(
+    r"\b(?:percentage|ratio|proportion|average|mixture|mensuration|discount|algebra|equation|remainder|divisibility)\b|"
+    r"profit\s+and\s+loss|simple\s+interest|compound\s+interest|time\s+and\s+work|"
+    r"time,\s*speed\s+and\s+distance|number\s+system",
+    re.IGNORECASE,
+)
+_DATA_INTERP_RE = re.compile(r"\btable\b|bar\s+graph|pie\s+chart|line\s+graph|data\s+interpretation|following\s+data", re.IGNORECASE)
+_MAP_LOCATION_RE = re.compile(
+    r"\bmap\b|located\s+in|which\s+(?:state|district|river|basin|location)|where\s+is|outfall|tributary|"
+    r"passes\s+through|flows\s+through",
+    re.IGNORECASE,
+)
+_DATE_EVENT_RE = re.compile(
+    r"in\s+which\s+year|which\s+year|year\s+was|completed\s+and\s+started|founded\s+in|established\s+in|"
+    r"\b(?:18|19|20)\d{2}\b",
+    re.IGNORECASE,
+)
+_SCHEME_CURRENT_RE = re.compile(
+    r"recently|economic\s+survey|budget|mou|scheme|mission|yojana|policy|index|ranking|award|"
+    r"current\s+affairs|released\s+by|launched\s+by",
     re.IGNORECASE,
 )
 _ARTICLE_RE = re.compile(
@@ -86,6 +148,16 @@ def _combined_text(row: dict[str, Any]) -> tuple[str, str, list[str]]:
 
 
 def _trap_for(question: str, full_text: str, pattern_tag: str) -> str | None:
+    if pattern_tag in {"date-event-recall", "chronology"} and _DATE_EVENT_RE.search(full_text):
+        return "close-dates"
+    if pattern_tag in {"coding-decoding", "match-the-following"}:
+        return "code-pair-confusion"
+    if pattern_tag in {"gcd-lcm-calculation", "arithmetic-calculation"}:
+        return "formula-confusion"
+    if pattern_tag in {"para-jumble", "chronology", "ranking-order"}:
+        return "sequence-confusion"
+    if pattern_tag in {"grammar-error-detection", "fill-in-the-blank"}:
+        return "tense-agreement"
     if _DOUBLE_NEGATION_RE.search(question):
         return "double-negation"
     if _EXCEPT_RE.search(question):
@@ -94,7 +166,7 @@ def _trap_for(question: str, full_text: str, pattern_tag: str) -> str | None:
         return "negation"
     if _ALL_ABOVE_RE.search(full_text):
         return "all-of-above"
-    if pattern_tag in {"statement-based", "assertion-reason", "concept-application", "elimination"} and _ABSOLUTE_RE.search(question):
+    if pattern_tag in {"statement-based", "statement-elimination", "assertion-reason", "concept-application", "elimination"} and _ABSOLUTE_RE.search(question):
         return "absolute-wording"
     if pattern_tag == "statement-based" and _COMBO_OPTION_RE.search(full_text):
         return "partial-truth"
@@ -102,6 +174,12 @@ def _trap_for(question: str, full_text: str, pattern_tag: str) -> str | None:
 
 
 def _style_for(question: str, pattern_tag: str, trap_tag: str | None) -> str:
+    if pattern_tag in {"grammar-error-detection", "fill-in-the-blank", "para-jumble", "vocabulary-usage"}:
+        return "language"
+    if pattern_tag in {"gcd-lcm-calculation", "arithmetic-calculation", "data-interpretation"}:
+        return "quantitative"
+    if pattern_tag in {"coding-decoding", "ranking-order"}:
+        return "reasoning"
     if trap_tag in {"negation", "except-not", "double-negation"}:
         return "indirect"
     if _COMPARATIVE_RE.search(question):
@@ -121,6 +199,19 @@ def _reason_and_hint(pattern_tag: str, trap_tag: str | None, skill_tag: str) -> 
         "match-the-following": "The examiner is testing pair mapping across two lists.",
         "article-provision": "The examiner is testing exact constitutional/legal provision recall.",
         "committee-mapping": "The examiner is testing committee, report, or recommendation mapping.",
+        "statement-elimination": "The examiner is testing elimination across multiple statements and option codes.",
+        "grammar-error-detection": "The examiner is testing whether you can spot a specific grammar fault.",
+        "fill-in-the-blank": "The examiner is testing contextual grammar or vocabulary selection.",
+        "para-jumble": "The examiner is testing sentence ordering and paragraph coherence.",
+        "coding-decoding": "The examiner is testing symbol/code mapping from repeated clues.",
+        "ranking-order": "The examiner is testing positional reasoning from changed rank directions.",
+        "gcd-lcm-calculation": "The examiner is testing factorisation and GCD/LCM relationships.",
+        "arithmetic-calculation": "The examiner is testing formula selection and calculation accuracy.",
+        "data-interpretation": "The examiner is testing extraction of values from a data set.",
+        "map-location": "The examiner is testing location, river, state, or map-linked recall.",
+        "date-event-recall": "The examiner is testing exact date or year-event association.",
+        "scheme-current-affairs": "The examiner is testing recent policy, scheme, survey, or current-affairs recall.",
+        "vocabulary-usage": "The examiner is testing word meaning, phrase usage, or spelling.",
         "concept-application": "The examiner is testing whether you can apply a concept to context.",
         "elimination": "The examiner is testing option elimination under close distractors.",
         "factual-recall": "The examiner is testing direct factual recall.",
@@ -132,6 +223,19 @@ def _reason_and_hint(pattern_tag: str, trap_tag: str | None, skill_tag: str) -> 
         "match-the-following": "Lock the easiest pair first, then eliminate answer codes instead of solving every pair.",
         "article-provision": "Recall the exact Article/Section/Schedule and watch for swapped institutions or powers.",
         "committee-mapping": "Start from the committee/report you know best and use it to eliminate code options.",
+        "statement-elimination": "Check each statement separately, then eliminate answer-code combinations.",
+        "grammar-error-detection": "Scan subject-verb agreement, articles, tense, prepositions, and modifiers one by one.",
+        "fill-in-the-blank": "Use the sentence clue and tense marker before checking the options.",
+        "para-jumble": "Find the opening sentence, connect pronouns/linkers, then verify the final sequence.",
+        "coding-decoding": "Compare repeated words across coded phrases and lock the common code first.",
+        "ranking-order": "Draw top/bottom positions and convert ranks before calculating.",
+        "gcd-lcm-calculation": "Prime-factorise first; use GCD for common factors and LCM for maximum powers.",
+        "arithmetic-calculation": "Identify the exact formula type before substituting numbers.",
+        "data-interpretation": "Read the labels/units first, then calculate only what the question asks.",
+        "map-location": "Anchor the location with state/river/direction clues before choosing.",
+        "date-event-recall": "Use known anchor years/events to eliminate close-date distractors.",
+        "scheme-current-affairs": "Identify scheme/policy owner, year, and objective before selecting.",
+        "vocabulary-usage": "Use context first; then eliminate options with the wrong tone or part of speech.",
         "concept-application": "Translate the example into the underlying rule before looking at options.",
         "elimination": "Remove clearly wrong options first; do not chase the perfect answer immediately.",
         "factual-recall": "Answer from memory, then verify no option is a close-name/date distractor.",
@@ -160,20 +264,46 @@ def classify_question_rule(row: dict[str, Any]) -> dict[str, Any] | None:
     skill_tag = "recall"
     confidence = 0
 
+    subject_topic = f"{row.get('subject') or ''} {row.get('topic') or ''} {row.get('subtopic') or ''}"
+
     if _MATCH_RE.search(full_text):
         pattern_tag, skill_tag, confidence = "match-the-following", "analysis", 96
     elif _ASSERTION_REASON_RE.search(question):
         pattern_tag, skill_tag, confidence = "assertion-reason", "analysis", 96
+    elif _STATEMENT_RE.search(question):
+        pattern_tag = "statement-elimination" if _COMBO_OPTION_RE.search(full_text) else "statement-based"
+        skill_tag = "elimination" if _COMBO_OPTION_RE.search(full_text) else "analysis"
+        confidence = 92
+    elif _PARA_JUMBLE_RE.search(question) or "para jumble" in subject_topic.lower():
+        pattern_tag, skill_tag, confidence = "para-jumble", "sequencing", 96
+    elif _GRAMMAR_ERROR_RE.search(question) or "grammar" in subject_topic.lower():
+        pattern_tag, skill_tag, confidence = "grammar-error-detection", "language-usage", 88
+    elif _FILL_BLANK_RE.search(question):
+        pattern_tag, skill_tag, confidence = "fill-in-the-blank", "language-usage", 88
+    elif _VOCAB_RE.search(question) or "vocabulary" in subject_topic.lower():
+        pattern_tag, skill_tag, confidence = "vocabulary-usage", "language-usage", 86
+    elif _CODING_RE.search(question) or "coding" in subject_topic.lower():
+        pattern_tag, skill_tag, confidence = "coding-decoding", "pattern-recognition", 94
+    elif _RANKING_RE.search(question) or "ranking" in subject_topic.lower():
+        pattern_tag, skill_tag, confidence = "ranking-order", "sequencing", 90
+    elif _GCD_LCM_RE.search(full_text):
+        pattern_tag, skill_tag, confidence = "gcd-lcm-calculation", "calculation", 94
+    elif _DATA_INTERP_RE.search(question) or "data interpretation" in subject_topic.lower():
+        pattern_tag, skill_tag, confidence = "data-interpretation", "calculation", 88
+    elif _ARITHMETIC_RE.search(question) or any(t in subject_topic.lower() for t in ("quantitative", "arithmetic", "number system")):
+        pattern_tag, skill_tag, confidence = "arithmetic-calculation", "calculation", 82
     elif _CHRONOLOGY_RE.search(question):
-        pattern_tag, skill_tag, confidence = "chronology", "analysis", 94
+        pattern_tag, skill_tag, confidence = "chronology", "sequencing", 94
     elif _ARTICLE_RE.search(question):
         pattern_tag, skill_tag, confidence = "article-provision", "recall", 90
     elif _COMMITTEE_RE.search(question):
-        pattern_tag, skill_tag, confidence = "committee-mapping", "recall", 88
-    elif _STATEMENT_RE.search(question):
-        pattern_tag = "statement-based"
-        skill_tag = "elimination" if _COMBO_OPTION_RE.search(full_text) else "analysis"
-        confidence = 92
+        pattern_tag, skill_tag, confidence = "committee-mapping", "mapping", 88
+    elif _SCHEME_CURRENT_RE.search(full_text) or "current affairs" in subject_topic.lower():
+        pattern_tag, skill_tag, confidence = "scheme-current-affairs", "recall", 80
+    elif _DATE_EVENT_RE.search(question):
+        pattern_tag, skill_tag, confidence = "date-event-recall", "recall", 82
+    elif _MAP_LOCATION_RE.search(question) or any(t in subject_topic.lower() for t in ("geography", "rivers", "map")):
+        pattern_tag, skill_tag, confidence = "map-location", "mapping", 78
     elif _WITH_REFERENCE_RE.search(question):
         pattern_tag, skill_tag, confidence = "concept-application", "application", 78
     elif _COMBO_OPTION_RE.search(full_text):

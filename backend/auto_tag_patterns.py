@@ -153,17 +153,38 @@ Classify each question below using EXACTLY the allowed values.
 ALLOWED VALUES (use null if none fits):
   pattern_tag   : statement-based | assertion-reason | chronology | match-the-following |
                   factual-recall | concept-application | elimination | article-provision |
-                  committee-mapping
+                  committee-mapping | statement-elimination | grammar-error-detection |
+                  fill-in-the-blank | para-jumble | coding-decoding | ranking-order |
+                  gcd-lcm-calculation | arithmetic-calculation | data-interpretation |
+                  map-location | date-event-recall | scheme-current-affairs |
+                  vocabulary-usage
   trap_tag      : absolute-wording | negation | except-not | all-of-above |
-                  double-negation | partial-truth | null
-  skill_tag     : recall | elimination | inference | application | analysis
-  question_style: direct | indirect | analytical | comparative | definitional
+                  double-negation | partial-truth | close-dates | similar-names |
+                  formula-confusion | code-pair-confusion | tense-agreement |
+                  sequence-confusion | unit-conversion | option-pairing | null
+  skill_tag     : recall | elimination | inference | application | analysis |
+                  sequencing | calculation | language-usage | pattern-recognition | mapping
+  question_style: direct | indirect | analytical | comparative | definitional |
+                  language | quantitative | reasoning
 
 CLASSIFICATION GUIDE:
   statement-based   → "Consider the following statements: 1. ... 2. ..." pattern
+  statement-elimination → statement question with option codes like 1 only / 1 and 2 / all
   assertion-reason  → "Assertion: ... Reason: ..." pattern
   chronology        → asks to arrange events/acts in correct order
   match-the-following → Column I vs Column II matching
+  grammar-error-detection → asks to spot grammatical error / correct sentence
+  fill-in-the-blank → asks to complete a sentence or blank
+  para-jumble       → asks to arrange jumbled sentences into a paragraph
+  coding-decoding   → reasoning question based on coded words/symbols
+  ranking-order     → rank/order/seating/position reasoning question
+  gcd-lcm-calculation → HCF/GCD/LCM factorisation question
+  arithmetic-calculation → percentage/profit/time-work/ratio/number-system calculation
+  data-interpretation → table/chart/data-set based calculation
+  map-location      → geography/location/river/state/map-linked recall
+  date-event-recall → asks exact year/date-event association
+  scheme-current-affairs → current affairs, scheme, budget, survey, award, policy
+  vocabulary-usage  → synonym/antonym/idiom/phrase/spelling/word meaning
   factual-recall    → pure memory question (who/what/when/where)
   concept-application → apply a principle to a scenario
   elimination       → designed so 2 options are clearly wrong, choose between 2
@@ -177,6 +198,14 @@ CLASSIFICATION GUIDE:
     all-of-above     → "all of the above" as a trap option
     double-negation  → "which of the following is NOT incorrect"
     partial-truth    → one option is 90% right but one word makes it wrong
+    close-dates      → near-by years/events are easy to confuse
+    similar-names    → names/committees/places look alike
+    formula-confusion → wrong formula or calculation shortcut trap
+    code-pair-confusion → matching/coding answer-code trap
+    tense-agreement  → grammar tense/article/agreement trap
+    sequence-confusion → order/rank/timeline trap
+    unit-conversion  → units must be converted before solving
+    option-pairing   → answer code pairings are the main trap
 
 Return ONLY a JSON array — no markdown fences, no explanation:
 [{
