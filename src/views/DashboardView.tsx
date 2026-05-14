@@ -728,7 +728,7 @@ export function DashboardView({
         const serverTopics   = serverReport?.topic_weaknesses   ?? [];
         const activePatternList = serverPatterns.length > 0 ? serverPatterns : patternWeaknesses;
         const activeTopicList   = serverTopics.length   > 0 ? serverTopics   : topicWeaknesses;
-        const loading = tab === 'patterns' && serverReport === null;
+        const loading = patternLoading;
 
         return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
