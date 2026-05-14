@@ -88,22 +88,30 @@ export function DashboardView({
     topic_weaknesses: { subject: string; topic: string; subtopic: string; accuracy: number; total: number; correct: number }[];
     weaknesses: { subject: string; accuracy: number; total: number; correct: number }[];
   } | null>(null);
+  const [patternLoading, setPatternLoading] = useState(false);
 
   useEffect(() => {
     if (tab !== 'patterns') return;
     let cancelled = false;
+    setPatternLoading(true);
     (async () => {
       try {
         const currentUser = auth.currentUser;
-        if (!currentUser) return;
+        if (!currentUser) { setPatternLoading(false); return; }
         const token = await currentUser.getIdToken();
         const res = await fetch(`${API_BASE}/user/weakness-report`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        if (!cancelled) setServerReport(data);
-      } catch {}
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          setServerReport(data);
+        }
+      } catch (e) {
+        console.error('weakness-report fetch failed:', e);
+      } finally {
+        if (!cancelled) setPatternLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [tab]);
