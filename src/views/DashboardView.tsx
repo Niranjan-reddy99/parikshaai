@@ -88,32 +88,32 @@ export function DashboardView({
     topic_weaknesses: { subject: string; topic: string; subtopic: string; accuracy: number; total: number; correct: number }[];
     weaknesses: { subject: string; accuracy: number; total: number; correct: number }[];
   } | null>(null);
-  const [patternLoading, setPatternLoading] = useState(false);
 
   useEffect(() => {
     if (tab !== 'patterns') return;
     let cancelled = false;
-    setPatternLoading(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     (async () => {
       try {
         const currentUser = auth.currentUser;
-        if (!currentUser) { setPatternLoading(false); return; }
+        if (!currentUser) return;
         const token = await currentUser.getIdToken();
         const res = await fetch(`${API_BASE}/user/weakness-report`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
         });
-        if (cancelled) return;
-        if (res.ok) {
-          const data = await res.json();
-          setServerReport(data);
-        }
-      } catch (e) {
-        console.error('weakness-report fetch failed:', e);
+        clearTimeout(timeout);
+        if (cancelled || !res.ok) return;
+        const data = await res.json();
+        setServerReport(data);
+      } catch {
+        // silently ignore — localStorage data is shown immediately
       } finally {
-        if (!cancelled) setPatternLoading(false);
+        clearTimeout(timeout);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); };
   }, [tab]);
 
   const overallAccuracy = useMemo(() => {
@@ -728,15 +728,10 @@ export function DashboardView({
         const serverTopics   = serverReport?.topic_weaknesses   ?? [];
         const activePatternList = serverPatterns.length > 0 ? serverPatterns : patternWeaknesses;
         const activeTopicList   = serverTopics.length   > 0 ? serverTopics   : topicWeaknesses;
-        const loading = patternLoading;
 
         return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {loading ? (
-            <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '40px 32px', textAlign: 'center', color: 'var(--text-tert)', fontSize: 14 }}>
-              Loading pattern analysis…
-            </div>
-          ) : activePatternList.length === 0 && activeTopicList.length === 0 ? (
+          {activePatternList.length === 0 && activeTopicList.length === 0 ? (
             <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '56px 32px', textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>No pattern data yet</div>
               <div style={{ fontSize: 13.5, color: 'var(--text-sec)', maxWidth: 380, margin: '0 auto', lineHeight: 1.7 }}>
