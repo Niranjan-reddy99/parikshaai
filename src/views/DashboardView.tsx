@@ -727,7 +727,10 @@ export function DashboardView({
         const serverPatterns = serverReport?.pattern_weaknesses ?? [];
         const serverTopics   = serverReport?.topic_weaknesses   ?? [];
         const activePatternList = serverPatterns.length > 0 ? serverPatterns : patternWeaknesses;
-        const activeTopicList   = serverTopics.length   > 0 ? serverTopics   : topicWeaknesses;
+        // needsWorkTopics is derived from recentAttempts (populated for ALL users),
+        // byTopic is newer and only has data for attempts made after this feature shipped.
+        const localTopicFallback = topicWeaknesses.length > 0 ? topicWeaknesses : needsWorkTopics;
+        const activeTopicList   = serverTopics.length   > 0 ? serverTopics   : localTopicFallback;
 
         return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
