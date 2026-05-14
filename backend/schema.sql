@@ -62,6 +62,15 @@ CREATE TABLE IF NOT EXISTS questions (
     difficulty      VARCHAR(10) NOT NULL DEFAULT 'Medium' CHECK (difficulty IN ('Easy', 'Medium', 'Hard')),
     question_type   VARCHAR(50) DEFAULT 'MCQ',
     concept         VARCHAR(300) DEFAULT NULL,
+    pattern_tag     VARCHAR(100) DEFAULT NULL,
+    trap_tag        VARCHAR(100) DEFAULT NULL,
+    skill_tag       VARCHAR(100) DEFAULT NULL,
+    question_style  VARCHAR(100) DEFAULT NULL,
+    pattern_confidence INTEGER DEFAULT NULL,
+    pattern_source  VARCHAR(30) DEFAULT NULL,
+    pattern_reason  TEXT DEFAULT NULL,
+    solve_hint      TEXT DEFAULT NULL,
+    pattern_tagged_at TIMESTAMPTZ DEFAULT NULL,
     
     -- Exam metadata
     exam_name       VARCHAR(200) NOT NULL,
@@ -105,6 +114,9 @@ CREATE TABLE IF NOT EXISTS explanations (
 -- ============================================================
 CREATE INDEX IF NOT EXISTS idx_q_subject ON questions(subject);
 CREATE INDEX IF NOT EXISTS idx_q_topic ON questions(topic);
+CREATE INDEX IF NOT EXISTS idx_q_pattern_tag ON questions(pattern_tag) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_q_trap_tag ON questions(trap_tag) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_q_skill_tag ON questions(skill_tag) WHERE is_active = TRUE;
 CREATE INDEX IF NOT EXISTS idx_q_canonical_subject ON questions(canonical_subject);
 CREATE INDEX IF NOT EXISTS idx_q_canonical_topic_family ON questions(canonical_topic_family);
 CREATE INDEX IF NOT EXISTS idx_q_canonical_subtopic_family ON questions(canonical_subtopic_family);

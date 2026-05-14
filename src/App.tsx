@@ -653,6 +653,13 @@ function AppContent() {
       shift: shiftLabel,
       has_image: q.has_image ?? false,
       image_url: q.image_url ?? undefined,
+      pattern_tag: q.pattern_tag ?? undefined,
+      trap_tag: q.trap_tag ?? undefined,
+      skill_tag: q.skill_tag ?? undefined,
+      question_style: q.question_style ?? undefined,
+      pattern_confidence: q.pattern_confidence ?? undefined,
+      pattern_reason: q.pattern_reason ?? undefined,
+      solve_hint: q.solve_hint ?? undefined,
     };
   };
 

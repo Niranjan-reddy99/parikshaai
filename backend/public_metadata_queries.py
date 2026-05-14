@@ -155,6 +155,7 @@ def collect_public_exam_rows(
         "id", "question_text", "option_a", "option_b", "option_c", "option_d",
         "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
         "question_type", "concept", "question_number", "needs_review", "passage", "has_image", "image_url", "paper_id", "practice_ready", "shift_label",
+        "pattern_tag", "trap_tag", "skill_tag", "question_style", "pattern_confidence", "pattern_reason", "solve_hint",
         "question_hash", "created_at", "updated_at",
     ], supported_cols)
 
@@ -307,6 +308,7 @@ def stream_public_exam_page(
         "id", "question_text", "option_a", "option_b", "option_c", "option_d",
         "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
         "question_type", "concept", "question_number", "needs_review", "passage", "has_image", "image_url", "paper_id", "practice_ready", "shift_label",
+        "pattern_tag", "trap_tag", "skill_tag", "question_style", "pattern_confidence", "pattern_reason", "solve_hint",
         "question_hash", "created_at", "updated_at",
     ], supported_cols)
 

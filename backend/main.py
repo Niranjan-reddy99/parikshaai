@@ -572,7 +572,7 @@ def _topic_first_page_questions(
         "id", "question_text", "option_a", "option_b", "option_c", "option_d",
         "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
         "question_type", "concept", "question_number", "needs_review", "has_image", "image_url", "paper_id", "practice_ready", "updated_at",
-        "pattern_tag", "trap_tag", "skill_tag", "question_style",
+        "pattern_tag", "trap_tag", "skill_tag", "question_style", "pattern_confidence", "pattern_reason", "solve_hint",
     ]
     if "is_active" in supported_cols and "is_active" not in base_cols:
         base_cols.append("is_active")
@@ -665,7 +665,7 @@ def _topic_bucket_questions(
         "id", "question_text", "option_a", "option_b", "option_c", "option_d",
         "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year",
         "question_type", "concept", "question_number", "needs_review", "has_image", "image_url", "paper_id", "practice_ready", "updated_at",
-        "pattern_tag", "trap_tag", "skill_tag", "question_style",
+        "pattern_tag", "trap_tag", "skill_tag", "question_style", "pattern_confidence", "pattern_reason", "solve_hint",
     ]
     if "is_active" in supported_cols and "is_active" not in base_cols:
         base_cols.append("is_active")
@@ -2584,6 +2584,7 @@ async def get_question_with_answer(question_id: str):
             "id", "question_text", "option_a", "option_b", "option_c", "option_d",
             "correct_answer", "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty",
             "exam_name", "exam_year", "question_type", "concept", "question_number", "needs_review", "has_image", "image_url", "paper_id", "public_visibility", "practice_ready",
+            "pattern_tag", "trap_tag", "skill_tag", "question_style", "pattern_confidence", "pattern_reason", "solve_hint",
         ], supported_cols)
         r = supabase.table("questions").select(
             select_clause
@@ -2901,6 +2902,7 @@ async def get_practice_questions(
         select_clause = _question_select_clause([
             "id", "question_text", "option_a", "option_b", "option_c", "option_d",
             "correct_answers", "answer_status", "subject", "topic", "subtopic", "difficulty", "exam_name", "exam_year", "has_image", "image_url", "paper_id", "practice_ready",
+            "pattern_tag", "trap_tag", "skill_tag", "question_style", "pattern_confidence", "pattern_reason", "solve_hint",
         ], supported_cols)
         q = _apply_public_question_filter(supabase.table("questions").select(select_clause), supported_cols)
 
@@ -4691,6 +4693,9 @@ class QuestionUpdate(BaseModel):
     trap_tag: Optional[str] = None
     skill_tag: Optional[str] = None
     question_style: Optional[str] = None
+    pattern_confidence: Optional[int] = None
+    pattern_reason: Optional[str] = None
+    solve_hint: Optional[str] = None
 
 
 @app.patch("/admin/questions/{question_id}", dependencies=[Depends(verify_admin)])
@@ -5783,6 +5788,7 @@ async def admin_list_all_questions(
             "correct_answer", "subject", "topic", "subtopic", "difficulty", "concept",
             "question_type", "exam_year", "exam_name", "passage", "shift_label", "has_image", "image_url",
             "is_active", "needs_review", "paper_id", "structural_status", "public_visibility",
+            "pattern_tag", "trap_tag", "skill_tag", "question_style", "pattern_confidence", "pattern_reason", "solve_hint",
             "created_at",
         ], supported_cols)
 

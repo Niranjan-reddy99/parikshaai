@@ -329,6 +329,41 @@ export function PracticeQuestionCard({
             </div>
           )}
 
+          {(question.pattern_tag || question.trap_tag || question.solve_hint || question.pattern_reason) && (
+            <div style={{ padding: '14px 16px', borderRadius: 12, marginBottom: 16, background: '#f8faff', border: '1px solid #dbeafe' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Pattern lens
+                </span>
+                {question.pattern_tag && (
+                  <span style={{ padding: '3px 8px', borderRadius: 999, background: 'white', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 11, fontWeight: 700 }}>
+                    {question.pattern_tag}
+                  </span>
+                )}
+                {question.trap_tag && (
+                  <span style={{ padding: '3px 8px', borderRadius: 999, background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c', fontSize: 11, fontWeight: 700 }}>
+                    trap: {question.trap_tag}
+                  </span>
+                )}
+                {question.skill_tag && (
+                  <span style={{ padding: '3px 8px', borderRadius: 999, background: '#ecfdf5', border: '1px solid #bbf7d0', color: '#047857', fontSize: 11, fontWeight: 700 }}>
+                    skill: {question.skill_tag}
+                  </span>
+                )}
+              </div>
+              {question.pattern_reason && (
+                <p style={{ margin: '0 0 6px', fontSize: 12.5, lineHeight: 1.65, color: '#475569' }}>
+                  {question.pattern_reason}
+                </p>
+              )}
+              {question.solve_hint && (
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: '#1e3a8a', fontWeight: 600 }}>
+                  How to approach: {question.solve_hint}
+                </p>
+              )}
+            </div>
+          )}
+
           {practiceExplanationLoading ? (
             <ExplanationSkeleton />
           ) : question.explanation === BLOCKED_EXPLANATION ? (

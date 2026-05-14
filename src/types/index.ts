@@ -37,6 +37,9 @@ export interface Question {
   trap_tag?: string;
   skill_tag?: string;
   question_style?: string;
+  pattern_confidence?: number;
+  pattern_reason?: string;
+  solve_hint?: string;
 }
 
 export interface CatalogSummary {

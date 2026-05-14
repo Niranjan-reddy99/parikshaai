@@ -38,22 +38,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from config import supabase  # noqa: E402  (needs env loaded first)
-
-# ── Valid tag values (must match EditQuestionModal / migration) ───────────────
-PATTERN_TAGS = {
-    "statement-based", "assertion-reason", "chronology", "match-the-following",
-    "factual-recall", "concept-application", "elimination",
-    "article-provision", "committee-mapping",
-}
-TRAP_TAGS = {
-    "absolute-wording", "negation", "except-not", "all-of-above",
-    "double-negation", "partial-truth",
-}
-SKILL_TAGS = {"elimination", "recall", "inference", "application", "analysis"}
-QUESTION_STYLES = {"direct", "indirect", "analytical", "comparative", "definitional"}
+from pattern_classifier import (  # noqa: E402
+    PATTERN_TAGS,
+    QUESTION_STYLES,
+    SKILL_TAGS,
+    TRAP_TAGS,
+    classify_question_rule,
+)
 
 BATCH_SIZE = 20   # questions per Gemini call (kept small so JSON fits cleanly)
 LOG_DIR = Path(__file__).parent / "cache" / "pattern_tags"
+
+
+def _supported_question_columns() -> set[str]:
+    try:
+        row = supabase.table("questions").select("*").limit(1).execute().data or []
+        if row:
+            return set(row[0].keys())
+    except Exception:
+        pass
+    return {
+        "pattern_tag", "trap_tag", "skill_tag", "question_style",
+    }
 
 
 # ── Gemini client — Vertex AI only (no API key) ───────────────────────────────
@@ -86,6 +92,7 @@ def fetch_candidates(
     exam_year: int | None,
     limit: int,
     force: bool,
+    paper_id: str | None = None,
 ) -> list[dict]:
     """
     Priority order:
@@ -115,6 +122,8 @@ def fetch_candidates(
             q = q.ilike("exam_name", f"%{exam_name}%")
         if exam_year:
             q = q.eq("exam_year", exam_year)
+        if paper_id:
+            q = q.eq("paper_id", paper_id)
 
         rows = q.execute().data or []
         if not rows:
@@ -170,7 +179,15 @@ CLASSIFICATION GUIDE:
     partial-truth    → one option is 90% right but one word makes it wrong
 
 Return ONLY a JSON array — no markdown fences, no explanation:
-[{"id": 1, "pattern_tag": "...", "trap_tag": null, "skill_tag": "...", "question_style": "..."}, ...]
+[{
+  "id": 1,
+  "pattern_tag": "...",
+  "trap_tag": null,
+  "skill_tag": "...",
+  "question_style": "...",
+  "pattern_reason": "one short reason why the exam asks this frame",
+  "solve_hint": "one short solving instruction for students"
+}, ...]
 
 QUESTIONS:
 """
@@ -246,7 +263,13 @@ def _coerce(value: str | None, allowed: set[str]) -> str | None:
 
 
 # ── Write tags to Supabase ────────────────────────────────────────────────────
-def _apply_tags(batch: list[dict], items: list[dict], dry_run: bool) -> tuple[int, int]:
+def _apply_tags(
+    batch: list[dict],
+    items: list[dict],
+    dry_run: bool,
+    supported_cols: set[str] | None = None,
+) -> tuple[int, int]:
+    supported = supported_cols or _supported_question_columns()
     updated = skipped = 0
     for item in items:
         idx = int(item.get("id", 0)) - 1
@@ -258,7 +281,13 @@ def _apply_tags(batch: list[dict], items: list[dict], dry_run: bool) -> tuple[in
             "trap_tag":       _coerce(item.get("trap_tag"), TRAP_TAGS),
             "skill_tag":      _coerce(item.get("skill_tag"), SKILL_TAGS),
             "question_style": _coerce(item.get("question_style"), QUESTION_STYLES),
+            "pattern_confidence": item.get("pattern_confidence"),
+            "pattern_reason": str(item.get("pattern_reason") or "").strip() or None,
+            "solve_hint": str(item.get("solve_hint") or "").strip() or None,
+            "pattern_source": str(item.get("pattern_source") or "ai").strip() or "ai",
+            "pattern_tagged_at": datetime.now(timezone.utc).isoformat(),
         }
+        patch = {key: value for key, value in patch.items() if key in supported}
         if not any(patch.values()):
             skipped += 1
             continue
@@ -284,23 +313,54 @@ def run(
     limit: int,
     force: bool,
     dry_run: bool,
-) -> None:
+    paper_id: str | None = None,
+) -> dict:
     print(f"\n{'[DRY RUN] ' if dry_run else ''}Pattern tagger starting — limit={limit}")
     print("Fetching candidates from Supabase...")
 
-    candidates = fetch_candidates(exam_name, exam_year, limit, force)
+    candidates = fetch_candidates(exam_name, exam_year, limit, force, paper_id=paper_id)
     if not candidates:
         print("No untagged questions found. Use --force to re-tag existing ones.")
-        return
+        return {"tagged": 0, "rule_tagged": 0, "ai_tagged": 0, "skipped": 0, "errors": 0}
 
     print(f"Found {len(candidates)} questions to tag.")
     if dry_run:
         print("[DRY RUN] Gemini will be called but Supabase will NOT be written.")
 
-    client = _build_genai_client()
+    supported_cols = _supported_question_columns()
     total_updated = total_skipped = total_errors = 0
+    rule_updated = 0
+    ai_updated = 0
     log: list[dict] = []
-    batches = [candidates[i:i+BATCH_SIZE] for i in range(0, len(candidates), BATCH_SIZE)]
+
+    ai_candidates: list[dict] = []
+    for q in candidates:
+        rule_tag = classify_question_rule(q)
+        if rule_tag and int(rule_tag.get("pattern_confidence") or 0) >= 74:
+            item = {"id": 1, **rule_tag}
+            updated, skipped = _apply_tags([q], [item], dry_run, supported_cols)
+            rule_updated += updated
+            total_updated += updated
+            total_skipped += skipped
+            if updated:
+                log.append({
+                    "question_id": q["id"],
+                    "exam": f"{q.get('exam_name')} {q.get('exam_year')}",
+                    "subject": q.get("subject"),
+                    "topic": q.get("topic"),
+                    "source": "rules",
+                    "pattern_tag": item.get("pattern_tag"),
+                    "trap_tag": item.get("trap_tag"),
+                    "skill_tag": item.get("skill_tag"),
+                    "question_style": item.get("question_style"),
+                    "question_preview": (q.get("question_text") or "")[:100],
+                })
+        else:
+            ai_candidates.append(q)
+
+    print(f"Rule pass tagged {rule_updated}; AI needed for {len(ai_candidates)} ambiguous questions.")
+    client = _build_genai_client() if ai_candidates else None
+    batches = [ai_candidates[i:i+BATCH_SIZE] for i in range(0, len(ai_candidates), BATCH_SIZE)]
 
     for b_idx, batch in enumerate(batches):
         print(f"\nBatch {b_idx+1}/{len(batches)} ({len(batch)} questions)...")
@@ -313,7 +373,8 @@ def run(
             print(f"  Batch failed entirely ({elapsed}s)")
             continue
 
-        updated, skipped = _apply_tags(batch, items, dry_run)
+        updated, skipped = _apply_tags(batch, items, dry_run, supported_cols)
+        ai_updated += updated
         total_updated += updated
         total_skipped += skipped
         print(f"  Tagged {updated}, skipped {skipped} ({elapsed}s)")
@@ -328,6 +389,7 @@ def run(
                     "exam": f"{q.get('exam_name')} {q.get('exam_year')}",
                     "subject": q.get("subject"),
                     "topic": q.get("topic"),
+                    "source": "ai",
                     "pattern_tag":    _coerce(item.get("pattern_tag"), PATTERN_TAGS),
                     "trap_tag":       _coerce(item.get("trap_tag"), TRAP_TAGS),
                     "skill_tag":      _coerce(item.get("skill_tag"), SKILL_TAGS),
@@ -367,12 +429,24 @@ def run(
             print("\nTrap distribution:")
             for tag, count in tr.most_common():
                 print(f"  {tag:<25} {count}")
+    return {
+        "tagged": total_updated,
+        "rule_tagged": rule_updated,
+        "ai_tagged": ai_updated,
+        "skipped": total_skipped,
+        "errors": total_errors,
+        "candidates": len(candidates),
+        "ai_candidates": len(ai_candidates),
+        "dry_run": dry_run,
+        "log_path": str(log_path) if log_path else None,
+    }
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Bulk pattern tagger using Gemini 2.5 Flash")
     parser.add_argument("--exam",    default=None,  help="Filter by exam name (partial match)")
     parser.add_argument("--year",    type=int, default=None, help="Filter by exam year")
+    parser.add_argument("--paper-id", default=None, help="Filter by paper UUID")
     parser.add_argument("--limit",   type=int, default=500,  help="Max questions to tag (default 500)")
     parser.add_argument("--force",   action="store_true",    help="Re-tag already-tagged questions")
     parser.add_argument("--dry-run", action="store_true",    dest="dry_run",
@@ -385,4 +459,5 @@ if __name__ == "__main__":
         limit=args.limit,
         force=args.force,
         dry_run=args.dry_run,
+        paper_id=args.paper_id,
     )
