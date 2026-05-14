@@ -116,6 +116,25 @@ import {
   type PaginatedQuestionsResponse,
 } from "./types/index";
 
+const CATALOG_CACHE_KEY = "catalog_summary_v14_public";
+const FEED_CACHE_KEY = "feed_summary_v14_public";
+const META_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
+
+function readFreshMetaCache<T>(key: string): T | null {
+  try {
+    const cached = localStorage.getItem(key);
+    if (!cached) return null;
+    const parsed = JSON.parse(cached);
+    if (!parsed?.ts || Date.now() - Number(parsed.ts) > META_CACHE_MAX_AGE_MS) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return parsed.data as T;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -225,18 +244,10 @@ function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [catalogSummary, setCatalogSummary] = useState<CatalogSummary | null>(() => {
-    try {
-      const cached = localStorage.getItem("catalog_summary_v13_public");
-      if (cached) return JSON.parse(cached).data;
-    } catch {}
-    return null;
+    return readFreshMetaCache<CatalogSummary>(CATALOG_CACHE_KEY);
   });
   const [feedSummary, setFeedSummary] = useState<FeedSummary | null>(() => {
-    try {
-      const cached = localStorage.getItem("feed_summary_v13_public");
-      if (cached) return JSON.parse(cached).data;
-    } catch {}
-    return null;
+    return readFreshMetaCache<FeedSummary>(FEED_CACHE_KEY);
   });
   // Full question data per exam, loaded lazily when an exam is opened.
   // Key: "examName::year". Re-used on revisit — no redundant fetches.
@@ -742,9 +753,6 @@ function AppContent() {
       })
     );
   };
-
-  const CATALOG_CACHE_KEY = "catalog_summary_v13_public";
-  const FEED_CACHE_KEY = "feed_summary_v13_public";
 
   const fetchData = async (options?: { background?: boolean }) => {
     if (!user) return;
@@ -1955,11 +1963,12 @@ function AppContent() {
         } else if (source === "multiple-correct-answers") {
           patch.explanation =
             "The official key accepts more than one answer for this question.";
-        } else if (
-          source === "hidden-contradiction" ||
-          source === "unavailable-error"
-        ) {
+        } else if (source === "hidden-contradiction") {
           patch.explanation = UNAVAILABLE_EXPLANATION;
+        } else if (source === "unavailable-error") {
+          if (!options?.background && !options?.deferUnavailable) {
+            patch.explanation = UNAVAILABLE_EXPLANATION;
+          }
         } else if (isRenderableExplanation(explanation)) {
           patch.explanation = explanation;
           explanationCacheRef.current[questionId] = explanation;
@@ -2062,7 +2071,7 @@ function AppContent() {
         explanationCacheRef.current[questionId] ||
         questionAtAnswerTime.explanation;
       const needsExplanationFetch =
-        !cachedExplanation || cachedExplanation.length <= 5;
+        !isRenderableExplanation(cachedExplanation);
       setPracticeAnswered(true);
       if (needsExplanationFetch) setPracticeExplanationLoading(true);
 
@@ -2143,7 +2152,7 @@ function AppContent() {
       setPracticeExplanationLoading(
         Boolean(
           nextQuestion &&
-            (!nextQuestion.explanation || nextQuestion.explanation.length <= 5)
+            !isRenderableExplanation(nextQuestion.explanation)
         )
       );
     } else {
@@ -2164,7 +2173,7 @@ function AppContent() {
       Boolean
     ) as Question[];
     queueForWarmup.forEach((item, idx) => {
-      if (item.explanation && item.explanation.length > 5) return;
+      if (isRenderableExplanation(item.explanation)) return;
       if (explanationCacheRef.current[item.id]) return;
       timers.push(
         window.setTimeout(
@@ -2187,8 +2196,7 @@ function AppContent() {
       return;
     }
     if (
-      currentPracticeQ?.explanation &&
-      currentPracticeQ.explanation.length > 5
+      isRenderableExplanation(currentPracticeQ?.explanation)
     ) {
       setPracticeExplanationLoading(false);
     }
