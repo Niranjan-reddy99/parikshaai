@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-
-import firebaseConfig from '../../firebase-applet-config.json';
+import { firebaseConfig } from './lib/firebaseConfig';
 
 const app = initializeApp(firebaseConfig);
 
