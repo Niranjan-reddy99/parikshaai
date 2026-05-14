@@ -36,6 +36,7 @@ Return ONLY a JSON array. No markdown. No prose. No explanation.
 For each readable MCQ visible on this page, return exactly:
 {{
   "question_number": 123,
+  "pattern_tag": "Type 1: Percentage increase and decrease",
   "question_text": "exact question text from the page",
   "option_a": "exact option A text",
   "option_b": "exact option B text",
@@ -46,6 +47,9 @@ For each readable MCQ visible on this page, return exactly:
 Rules:
 - Extract only MCQs from this page.
 - This page may contain both questions and solutions. Ignore solutions and extract only question MCQs.
+- Capture the active pattern heading for each question as `pattern_tag`.
+- Pattern headings may look like: "Type 1", "Pattern 2", "Questions based on successive discount", "Percentage increase/decrease".
+- If this page does not introduce a new pattern heading, carry forward the current active pattern heading provided below.
 - Preserve wording, statements, symbols, blanks, and numeric values as closely as possible.
 - Do not paraphrase.
 - Do not guess missing text.
@@ -58,6 +62,7 @@ Rules:
 
 Page type from classifier: {page_type}
 Detected heading: {heading}
+Current active pattern heading fallback: {current_pattern}
 """
 
 
@@ -88,10 +93,45 @@ def _normalize_text(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip())
 
 
-def validate_stage12_question(item: dict[str, Any]) -> tuple[bool, list[str], dict[str, Any]]:
+def _looks_like_bad_pattern_tag(value: str) -> bool:
+    text = _normalize_text(value)
+    if not text:
+        return True
+    if len(text) > 120:
+        return True
+    if re.match(r"^\d{2,4}\.", text):
+        return True
+    if "ssc chsl" in text.lower() and len(text.split()) > 8:
+        return True
+    if len(re.findall(r"\d", text)) >= 10 and len(re.findall(r"[A-Za-z]", text)) < 20:
+        return True
+    return False
+
+
+def _normalize_pattern_tag(value: Any, *, fallback: str) -> str:
+    text = _normalize_text(value)
+    text = re.sub(r"^[=—\-:;| ]+|[=—\-:;| ]+$", "", text).strip()
+    text = re.sub(r"\s+\d{1,3}$", "", text).strip()
+    if _looks_like_bad_pattern_tag(text):
+        return fallback
+    # Chapter headings are useful as a last resort, but if we've already carried
+    # forward a more specific live pattern heading from earlier in the book,
+    # prefer that over collapsing back to the chapter title.
+    if (
+        text.lower().startswith("chapter")
+        and fallback
+        and fallback != "General Pattern"
+        and not fallback.lower().startswith("chapter")
+    ):
+        return fallback
+    return text
+
+
+def validate_stage12_question(item: dict[str, Any], *, pattern_fallback: str) -> tuple[bool, list[str], dict[str, Any]]:
     reasons: list[str] = []
     normalized = {
         "question_number": item.get("question_number"),
+        "pattern_tag": _normalize_pattern_tag(item.get("pattern_tag"), fallback=pattern_fallback),
         "question_text": _normalize_text(item.get("question_text")),
         "option_a": _normalize_text(item.get("option_a")),
         "option_b": _normalize_text(item.get("option_b")),
@@ -129,8 +169,18 @@ def validate_stage12_question(item: dict[str, Any]) -> tuple[bool, list[str], di
     return len(reasons) == 0, reasons, normalized
 
 
-def _call_gemini_stage12(page_image: Image.Image, *, heading: str | None, page_type: str) -> list[dict[str, Any]]:
-    prompt = _STAGE12_PROMPT.format(page_type=page_type, heading=heading or "Unknown")
+def _call_gemini_stage12(
+    page_image: Image.Image,
+    *,
+    heading: str | None,
+    page_type: str,
+    current_pattern: str | None,
+) -> list[dict[str, Any]]:
+    prompt = _STAGE12_PROMPT.format(
+        page_type=page_type,
+        heading=heading or "Unknown",
+        current_pattern=current_pattern or heading or "Unknown",
+    )
     resp = _get_client().models.generate_content(
         model=_VISION_MODEL,
         contents=[prompt, page_image],
@@ -165,10 +215,18 @@ def run_pattern_book_gemini_stage12(
         extracted_questions: list[dict[str, Any]] = []
         valid_questions: list[dict[str, Any]] = []
         review_bucket: list[dict[str, Any]] = []
+        current_pattern_heading = "General Pattern"
 
         for page_row in classification_report["pages"]:
             if page_row["page_type"] not in {"question_page", "mixed_special_page"}:
                 continue
+
+            classifier_heading = _normalize_pattern_tag(
+                page_row.get("detected_pattern_heading"),
+                fallback=current_pattern_heading,
+            )
+            if classifier_heading and not _looks_like_bad_pattern_tag(classifier_heading):
+                current_pattern_heading = classifier_heading
 
             page_number = int(page_row["page_number"])
             page = doc[page_number - 1]
@@ -176,12 +234,14 @@ def run_pattern_book_gemini_stage12(
             page_image = Image.open(BytesIO(png_bytes))
             raw_items = caller(
                 page_image,
-                heading=page_row.get("detected_pattern_heading"),
+                heading=classifier_heading,
                 page_type=page_row["page_type"],
+                current_pattern=current_pattern_heading,
             )
 
             page_valid = 0
             page_invalid = 0
+            page_patterns: set[str] = set()
             for idx, item in enumerate(raw_items):
                 if not isinstance(item, dict):
                     page_invalid += 1
@@ -201,18 +261,22 @@ def run_pattern_book_gemini_stage12(
                         **item,
                         "source_page_number": page_number,
                         "source_page_type": page_row["page_type"],
-                        "detected_pattern_heading": page_row.get("detected_pattern_heading"),
+                        "detected_pattern_heading": classifier_heading,
                     }
                 )
-                ok, reasons, normalized = validate_stage12_question(item)
+                ok, reasons, normalized = validate_stage12_question(
+                    item,
+                    pattern_fallback=current_pattern_heading,
+                )
                 if ok:
                     page_valid += 1
+                    page_patterns.add(normalized.get("pattern_tag") or current_pattern_heading)
                     valid_questions.append(
                         {
                             **normalized,
                             "source_page_number": page_number,
                             "source_page_type": page_row["page_type"],
-                            "detected_pattern_heading": page_row.get("detected_pattern_heading"),
+                            "detected_pattern_heading": classifier_heading,
                             "classification_source": page_row.get("classification_source"),
                             "classification_confidence": page_row.get("classification_confidence"),
                         }
@@ -229,11 +293,18 @@ def run_pattern_book_gemini_stage12(
                         }
                     )
 
+            if page_patterns:
+                # Preserve the most recently seen real pattern heading so pages
+                # that continue the same section without repeating the title
+                # still inherit the right grouping.
+                current_pattern_heading = sorted(page_patterns, key=lambda value: (len(value), value))[-1]
+
             pages_processed.append(
                 {
                     "page_number": page_number,
                     "page_type": page_row["page_type"],
-                    "detected_pattern_heading": page_row.get("detected_pattern_heading"),
+                    "detected_pattern_heading": classifier_heading,
+                    "resolved_pattern_tags": sorted(page_patterns),
                     "classification_source": page_row.get("classification_source"),
                     "classification_confidence": page_row.get("classification_confidence"),
                     "questions_extracted": page_valid,

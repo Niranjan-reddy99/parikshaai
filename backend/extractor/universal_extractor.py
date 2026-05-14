@@ -339,18 +339,87 @@ _VISUAL_DEPENDENCY_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MATCH_PROMPT_RE = re.compile(r'\bmatch\s+the\s+following\b', re.IGNORECASE)
-_MATCH_LEFT_RE = re.compile(r'^\s*([A-D])\.\s*(.+?)\s*$')
-_MATCH_RIGHT_RE = re.compile(r'^\s*([1-9])\.\s*(.+?)\s*$')
+_MATCH_PROMPT_RE = re.compile(
+    r'\b(?:match\s+the\s+following|match\s+the\s+columns?|'
+    r'match\s+list|match\s+column|'
+    r'match\s+list\s*[-–]?\s*i\s+with\s+list\s*[-–]?\s*ii|'
+    r'list\s*[-–]?\s*i\b.*\blist\s*[-–]?\s*ii\b|'
+    r'column\s+[iI]+\s+(?:and|with|&)\s+column\s+[iI]+)\b',
+    re.IGNORECASE,
+)
+# Left column: A./B./C./D. OR Roman I./II./III./IV. OR 1./2./3./4.
+_MATCH_LEFT_RE = re.compile(
+    r'^\s*(?:([A-D])|([Ii]{1,4}[Vv]?[Ii]*))[\.\)]\s*(.+?)\s*$'
+)
+# Right column: 1./2./3./4. OR a./b./c./d. OR i./ii./iii./iv. (lower roman)
+_MATCH_RIGHT_RE = re.compile(
+    r'^\s*(?:([1-9])|([a-d])|([ivxlIVXL]{1,4}))[\.\)]\s*(.+?)\s*$'
+)
 _MATCH_INLINE_BOTH_RE = re.compile(
     r'^\s*([A-D])\.\s*(.+?)\s{2,}([1-9])\.\s*(.+?)\s*$'
 )
 _MATCH_END_RE = re.compile(
     r'^\s*(?:choose|select)\s+the\s+correct'
-    r'|^\s*[A-D]\s*[\)\.]'
+    # Option lines with answer codes: "A) I-2, II-3..." or "A. 1-a, 2-b..."
+    # Must contain a dash+number/letter combo (answer-code pattern) to distinguish
+    # from left-column items like "A. 42nd Amendment Act"
+    r'|^\s*[A-D]\s*[\)\.]\s*[A-D1-9I][-–]\d'
     r'|^\s*\([1-4]\)\s*[A-D]-',
     re.IGNORECASE,
 )
+
+# ─── CBT / Response-Sheet Detection ─────────────────────────────────────────
+# Markers that indicate this is a color-coded CBT answer sheet (Telegram CBT,
+# TCSiON, AP High Court, etc.) where correct options are shown in GREEN.
+_CBT_MARKERS_RE = re.compile(
+    r'(?:'
+    r'[\u2713\u2714\u2705]|'          # ✓ ✔ ✅ tick symbols
+    r'Q\.?\s*\d+.*?(?:Ans|Correct)\s+[1-4]|'  # "Q.1 ... Ans 3" pattern
+    r'(?:Test\s+Date|Test\s+Time)|'    # Telegram CBT headers
+    r'(?:TCSiON|tcsion\.com)|'         # TCSiON platform
+    r'(?:@RankMitra|@EZSSC|@ApHigh)|'  # Telegram channels
+    r'(?:AP\s+High\s+Court|APPSC|TSPSC).*?(?:CBT|Response)' # AP exams
+    r')',
+    re.IGNORECASE | re.DOTALL,
+)
+
+# ── CBT-specific vision prompt — sent when text path finds 0 answers ──────────
+_CBT_VISION_PROMPT = """This is a page from an Indian state government exam CBT (Computer-Based Test) RESPONSE SHEET.
+
+EACH QUESTION shows 4 options labeled 1, 2, 3, or 4.
+The CORRECT option is highlighted in GREEN with a ✓ tick mark.
+The WRONG options are in RED with a ✗ cross mark.
+
+YOUR TASK:
+1. Find every question number visible on this page.
+2. For each question, identify which option (1, 2, 3, or 4) is shown in GREEN with a ✓ tick.
+3. Map 1→A, 2→B, 3→C, 4→D and set correct_answer to that letter.
+4. Also extract the full question text and options.
+
+### CRITICAL RULES:
+- Set correct_answer ONLY based on GREEN color, NOT your knowledge of the subject.
+- If you cannot see the green option clearly, set correct_answer to null.
+- DO NOT guess or infer the answer from question content.
+- Extract ALL questions on the page, do not skip any.
+- Ignore Telegram watermarks (@channel), page headers, Test Date/Time lines.
+
+Return ONLY a JSON list:
+[
+  {
+    "question_number": 1,
+    "question_text": "Full question text here?",
+    "option_a": "Option 1 text",
+    "option_b": "Option 2 text",
+    "option_c": "Option 3 text",
+    "option_d": "Option 4 text",
+    "correct_answer": "B",
+    "passage": null,
+    "has_image": false,
+    "needs_review": false,
+    "question_type": "mcq"
+  }
+]
+"""
 
 # ══════════════════════════════════════════════════════════════════════════════
 UNIVERSAL_PROMPT = """1. Extract EVERY exam question visible on the page.
@@ -365,7 +434,29 @@ UNIVERSAL_PROMPT = """1. Extract EVERY exam question visible on the page.
 ### 📖 EXTRACTION RULES:
 - Preserve mathematical symbols and technical notation exactly as printed: %, +, -, ×, ÷, =, <, >, ≤, ≥, √, π, °;₹, ratios, fractions, exponents.
 - Format multi-statement questions (1, 2, 3...) inside question_text.
-- Format Match-the-following columns clearly inside question_text.
+
+### 🔗 MATCH-THE-FOLLOWING (CRITICAL):
+- When you see a question with two columns (Column I / Column II, List I / List II, or A/B/C/D paired with 1/2/3/4):
+  - Set question_type to "match"
+  - Put the left-column items IN ORDER into match_col1 (plain text strings, e.g. ["Item A", "Item B", "Item C", "Item D"])
+  - Put the right-column items IN ORDER into match_col2 (plain text strings, e.g. ["Desc 1", "Desc 2", "Desc 3", "Desc 4"])
+  - Put the answer-code options (e.g. "A-1, B-2, C-3, D-4") in option_a, option_b, option_c, option_d as usual
+  - Do NOT embed the column table in question_text — keep question_text as just the question stem (e.g. "Match the following columns about Constitutional Amendment Acts:")
+  - ALWAYS set has_image: false for match questions — the column data is captured in match_col1/match_col2, not as an image
+
+### 🖼️ IMAGE / FIGURE QUESTIONS (CRITICAL):
+- Set has_image: true ONLY when the question genuinely requires a visual to answer it:
+  - Bar charts, pie charts, line graphs, histograms, scatter plots
+  - Geometric figures, maps, diagrams, Venn diagrams
+  - Data interpretation tables where the data is in a printed grid (not a match column)
+  - Questions that say "refer to the figure above", "from the given chart", "based on the following graph"
+- For aptitude questions with figures/charts: set has_image: true and extract whatever text you can read
+- Do NOT set has_image: true for match-the-following, statement-based, or plain MCQ questions
+
+### ✅ CORRECT ANSWER EXTRACTION (IMPORTANT FOR CBT/RESPONSE SHEETS):
+- If the document is an official response sheet with color-coded options (e.g. green line, green text, or green background for the correct option and red for others), you MUST identify the option marked in GREEN.
+- Set the `correct_answer` field to the letter corresponding to the green option (e.g., "A", "B", "C", "D"). If the options are numbered 1, 2, 3, 4, map them to A, B, C, D respectively (1=A, 2=B, 3=C, 4=D) and set `correct_answer` to that mapped letter.
+- DO NOT rely on your own knowledge. Only extract the answer if it is explicitly marked (e.g. in green). If no answer is marked, leave `correct_answer` as null.
 
 ### 📚 PASSAGE / COMPREHENSION RULES (CRITICAL):
 - If a page contains a passage followed by multiple questions (Q21-Q25 etc.), you MUST copy the FULL passage text into the "passage" field for EVERY one of those questions.
@@ -374,7 +465,7 @@ UNIVERSAL_PROMPT = """1. Extract EVERY exam question visible on the page.
 - Each question in the group should have the IDENTICAL passage text in its "passage" field.
 
 ### 📦 FORMAT:
-Return ONLY a JSON list of objects:
+Return ONLY a JSON list of objects. For plain MCQ:
 [
   {
     "question_number": 1,
@@ -390,7 +481,25 @@ Return ONLY a JSON list of objects:
     "question_type": "mcq"
   }
 ]
-"""
+
+For match-the-following questions include match_col1 and match_col2:
+[
+  {
+    "question_number": 15,
+    "question_text": "Match the following columns I and II about Constitutional Amendment Acts:",
+    "match_col1": ["42nd Amendment Act", "44th Amendment Act", "61st Amendment Act", "73rd Amendment Act"],
+    "match_col2": ["Voting age reduced to 18 years", "Panchayati Raj", "Fundamental Duties added", "Right to Property removed"],
+    "option_a": "A-III, B-IV, C-I, D-II",
+    "option_b": "A-IV, B-III, C-I, D-II",
+    "option_c": "A-III, B-IV, C-II, D-I",
+    "option_d": "A-I, B-II, C-III, D-IV",
+    "correct_answer": null,
+    "passage": null,
+    "has_image": false,
+    "needs_review": false,
+    "question_type": "match"
+  }
+]"""
 FORCED_EXTRACTION_PROMPT = (
     "CRITICAL OVERRIDE: This PDF page contains exam questions that MUST be extracted. "
     "A previous attempt returned no questions. Look carefully for numbered items "
@@ -412,7 +521,7 @@ def _pdf_hash(pdf_path: str) -> str:
 def _page_cache_path(pdf_hash: str, page_idx: int) -> Path:
     # Bump cache version whenever model routing or page transport changes so
     # stale [] caches from older broken runs are never silently reused.
-    key = f"univ_v40_{pdf_hash[:16]}_p{page_idx:04d}.json"
+    key = f"univ_v43_{pdf_hash[:16]}_p{page_idx:04d}.json"
     return CACHE_DIR / key
 
 
@@ -455,12 +564,16 @@ def _strip_fences(raw: Any) -> str:
     return raw.strip()
 
 
+_ROMAN_ORDER = {"i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6, "vii": 7, "viii": 8}
+
+
 def _recover_inline_match_payload(question_text: str) -> tuple[str, list[str], list[str]] | None:
     """Recover List I / List II columns from flattened match-the-following text.
 
-    The model sometimes labels DAO-style match questions as plain MCQ and dumps
-    both columns into question_text. This helper reconstructs the columns so the
-    frontend can render them as a proper table.
+    Handles:
+    - Classic A./B./C. left, 1./2./3. right
+    - UPSC Column I/II style: Roman numerals (I./II./III.) left, a./b./c. or 1./2./3. right
+    - Inline same-line "A. Item   1. Desc" format
     """
     if not question_text or "__MATCH__:" in question_text or not _MATCH_PROMPT_RE.search(question_text):
         return None
@@ -469,31 +582,85 @@ def _recover_inline_match_payload(question_text: str) -> tuple[str, list[str], l
     right: list[tuple[str, str]] = []
     intro_lines: list[str] = []
 
+    # Detect Column I / Column II section headers so we can assign sides correctly.
+    # Some papers print "Column I\nA. ...\nB. ...\nColumn II\n1. ...\n2. ..."
+    _COL1_HDR = re.compile(r'^\s*(?:column\s*[iI1]|list\s*[iI1])\s*$', re.IGNORECASE)
+    _COL2_HDR = re.compile(r'^\s*(?:column\s*[iI]{2}|column\s*2|list\s*[iI]{2}|list\s*2)\s*$', re.IGNORECASE)
+
     lines = [ln.strip() for ln in question_text.replace("\t", "    ").splitlines() if ln.strip()]
+    current_side: str | None = None  # None = auto-detect, "left" or "right" = forced by header
+
     for line in lines:
         if _MATCH_END_RE.search(line):
             break
 
+        if _COL1_HDR.match(line):
+            current_side = "left"
+            continue
+        if _COL2_HDR.match(line):
+            current_side = "right"
+            continue
+
+        # Inline both columns on one line: "A. Item   1. Desc"
         both = _MATCH_INLINE_BOTH_RE.match(line)
         if both:
             left.append((both.group(1), both.group(2).strip()))
             right.append((both.group(3), both.group(4).strip()))
             continue
 
+        # Left column: A-D letter OR Roman numeral I/II/III/IV
         left_m = _MATCH_LEFT_RE.match(line)
         if left_m:
-            left.append((left_m.group(1), left_m.group(2).strip()))
-            continue
+            letter_key = left_m.group(1) or left_m.group(2) or ""
+            text = left_m.group(3).strip()
+            if current_side != "right" and text:
+                left.append((letter_key.upper(), text))
+                if current_side is None:
+                    current_side = "left"
+                continue
 
+        # Right column: 1-9 digit OR a-d letter OR lower roman i/ii/iii
         right_m = _MATCH_RIGHT_RE.match(line)
         if right_m:
-            right.append((right_m.group(1), right_m.group(2).strip()))
-            continue
+            digit_key = right_m.group(1) or right_m.group(2) or right_m.group(3) or ""
+            text = right_m.group(4).strip()
+            if current_side != "left" and text:
+                right.append((digit_key.lower(), text))
+                if current_side is None:
+                    current_side = "right"
+                continue
+            elif current_side == "left" and text:
+                # We're in explicit left-section but hit a number pattern — it's a right item
+                right.append((digit_key.lower(), text))
+                continue
 
         intro_lines.append(line)
 
-    left_sorted = [text for _, text in sorted(left, key=lambda x: x[0])]
-    right_sorted = [text for _, text in sorted(right, key=lambda x: int(x[0]))]
+    # Sort: letters A-D, Roman by order, numbers naturally
+    def _left_key(item: tuple[str, str]) -> int:
+        k = item[0].upper()
+        if k in _ROMAN_ORDER:
+            return _ROMAN_ORDER[k]
+        if len(k) == 1 and k.isalpha():
+            return ord(k) - ord('A')
+        try:
+            return int(k)
+        except ValueError:
+            return 99
+
+    def _right_key(item: tuple[str, str]) -> int:
+        k = item[0].lower()
+        if k in _ROMAN_ORDER:
+            return _ROMAN_ORDER[k]
+        if len(k) == 1 and k.isalpha():
+            return ord(k) - ord('a')
+        try:
+            return int(k)
+        except ValueError:
+            return 99
+
+    left_sorted = [text for _, text in sorted(left, key=_left_key)]
+    right_sorted = [text for _, text in sorted(right, key=_right_key)]
     if len(left_sorted) < 2 or len(right_sorted) < 2:
         return None
 
@@ -538,6 +705,28 @@ def _raw_page_looks_low_quality(questions: list[dict]) -> bool:
             )
 
         q_type = str(q.get("question_type") or q.get("type") or "mcq").lower()
+
+        # Match-the-following/table rows are only usable if we can actually
+        # reconstruct the left/right columns. Otherwise the frontend can only
+        # show option codes and the row is effectively broken.
+        match_col1 = q.get("match_col1") or q.get("match_left") or []
+        match_col2 = q.get("match_col2") or q.get("match_right") or []
+        is_match_like = (
+            q_type == "match"
+            or bool(_MATCH_PROMPT_RE.search(q_text))
+        )
+        if is_match_like:
+            inline_match = _recover_inline_match_payload(q_text)
+            has_structured_match = (
+                isinstance(match_col1, list)
+                and isinstance(match_col2, list)
+                and len(match_col1) >= 2
+                and len(match_col2) >= 2
+            ) or bool(inline_match)
+            if not has_structured_match:
+                broken += 1
+                continue
+
     # 3. Detect generic "Hallucination" patterns (Zero tolerance for Research/Teaching noise)
     # If the exam is NDA but Flash starts generating generic practice test questions.
     hallucination_score = 0
@@ -600,8 +789,16 @@ def _extract_page(
     text_is_rich = True  # Force AI call for all pages
     page_text = page_text_raw # Restore variable definition
 
-    # ONLY attempt Text-Only path if it DOES NOT look like scrambled junk
-    if not _is_text_scrambled(page_text_raw):
+    # ── CBT (color-coded response sheet) detection — BEFORE T2 ────────────────
+    # If the page text has CBT markers (tick symbols, Telegram channels, Test Date
+    # headers), we know the text layer has no color info. Skip T2 entirely and go
+    # straight to T3 vision which can see green/red highlights.
+    page_looks_like_cbt = bool(_CBT_MARKERS_RE.search(page_text_raw[:3000]))
+    if page_looks_like_cbt:
+        print(f"  [T1-cbt] {lbl} — CBT/response-sheet detected, skipping text path → vision")
+
+    # ONLY attempt Text-Only path if it DOES NOT look like scrambled junk AND not CBT
+    if not _is_text_scrambled(page_text_raw) and not page_looks_like_cbt:
         try:
             text_prompt = (
                 UNIVERSAL_PROMPT
@@ -626,24 +823,46 @@ def _extract_page(
                     if _raw_page_looks_low_quality(questions):
                         print(f"  [T2-text] {lbl} — low-quality parse, escalating to vision")
                     else:
-                        _save_page_cache(pdf_hash, page_idx, questions)
-                        print(f"  [T2-text] {lbl} — {len(questions)} q (cheapest path)")
-                        return questions
+                        # ── CBT answer null check ──────────────────────────────────
+                        # If ALL extracted questions have null correct_answer AND the text
+                        # has numbered options (1. / 2. / 3. / 4.) like a CBT response
+                        # sheet, this is almost certainly a color-coded PDF the text path
+                        # cannot decode. Do NOT cache — escalate to vision.
+                        all_null_answers = all(
+                            not q.get("correct_answer") for q in questions
+                        )
+                        has_numbered_opts = bool(
+                            re.search(r'(?m)^\s*[1-4]\.\s+\S', page_text_raw)
+                        )
+                        if all_null_answers and has_numbered_opts and len(questions) >= 3:
+                            print(
+                                f"  [T2-text] {lbl} — all {len(questions)} q have null answers "
+                                f"+ numbered options → CBT response sheet, escalating to vision"
+                            )
+                            # Fall through to T3 vision (do NOT cache)
+                        else:
+                            _save_page_cache(pdf_hash, page_idx, questions)
+                            print(f"  [T2-text] {lbl} — {len(questions)} q (cheapest path)")
+                            return questions
             print(f"  [T2-text] {lbl} — insufficient, escalating to vision")
         except json.JSONDecodeError as e:
             print(f"  [T2-text] {lbl} JSON error: {e}, escalating")
         except Exception as e:
             print(f"  [T2-text] {lbl} error: {e}, escalating")
 
-    # ── T3 (medium): cheap vision at 150 DPI ──────────────────────────────────
-    # This is the LAST tier in the main extraction loop. T4/T5 only run in the
-    # repair pass (triggered when expected_count is set and we are short).
+    # ── T3 (medium): vision at 200 DPI ─────────────────────────────────────────
+    # For CBT response sheets, use the dedicated CBT prompt at higher DPI (250)
+    # so color distinctions (green vs red) are visible. For normal pages, use the
+    # universal prompt at base DPI.
     try:
-        png_bytes = _render_page(page, dpi=RENDER_DPI_BASE)
+        # CBT pages need higher DPI so green/red colors render clearly
+        t3_dpi = 250 if page_looks_like_cbt else RENDER_DPI_BASE
+        t3_prompt = _CBT_VISION_PROMPT if page_looks_like_cbt else UNIVERSAL_PROMPT
+        png_bytes = _render_page(page, dpi=t3_dpi)
         image_part = types.Part.from_bytes(data=png_bytes, mime_type="image/png")
         resp = _timed_generate(
             model=_VISION_CHEAP,
-            contents=[UNIVERSAL_PROMPT, image_part],
+            contents=[t3_prompt, image_part],
             config=types.GenerateContentConfig(
                 temperature=0.0, max_output_tokens=8192,
                 thinking_config=types.ThinkingConfig(thinking_budget=0),
@@ -659,9 +878,21 @@ def _extract_page(
                 if _raw_page_looks_low_quality(questions):
                     print(f"  [T3-vis] {lbl} — low-quality parse, defer to repair pass")
                 else:
-                    _save_page_cache(pdf_hash, page_idx, questions)
-                    print(f"  [T3-vis] {lbl} — {len(questions)} q (cheap vision)")
-                    return questions
+                    # For CBT pages: only cache if we actually got answers
+                    # (prevents caching colorblind results from a bad vision call)
+                    if page_looks_like_cbt:
+                        got_answers = sum(1 for q in questions if q.get("correct_answer"))
+                        if got_answers == 0 and len(questions) >= 3:
+                            print(f"  [T3-vis] {lbl} — CBT vision got {len(questions)} q but 0 answers, NOT caching")
+                            # Don't cache; repair pass will use T4/T5
+                        else:
+                            _save_page_cache(pdf_hash, page_idx, questions)
+                            print(f"  [T3-vis] {lbl} — {len(questions)} q, {got_answers} answers (CBT vision dpi={t3_dpi})")
+                            return questions
+                    else:
+                        _save_page_cache(pdf_hash, page_idx, questions)
+                        print(f"  [T3-vis] {lbl} — {len(questions)} q (cheap vision)")
+                        return questions
         # T3 returned []. Don't cache [] because transient vision failures happen.
         # The repair pass at the end of the job will retry these missing pages with T4/T5.
         print(f"  [T3-vis] {lbl} — no questions found (will be retried in repair pass)")
@@ -982,17 +1213,23 @@ def _normalise_question(
             re.IGNORECASE
         )
         has_image = bool(raw.get("has_image"))
-        if _VISUAL_DEPENDENCY_RE.search(question_text):
-            has_image = True
-        if mapped and all(_VISUAL_OPT_RE.match(v) for v in mapped.values()):
-            # All 4 options are visual placeholders — standardise
-            has_image = True
-            mapped = {
-                "A": "Option A — see diagram",
-                "B": "Option B — see diagram",
-                "C": "Option C — see diagram",
-                "D": "Option D — see diagram",
-            }
+        # Match questions: the two-column table IS the content — rendered by the
+        # frontend MatchTable. Never treat them as image-dependent regardless of
+        # what Gemini says (it flags the column layout as a "table/image").
+        if q_type_raw == "match":
+            has_image = False
+        else:
+            if _VISUAL_DEPENDENCY_RE.search(question_text):
+                has_image = True
+            if mapped and all(_VISUAL_OPT_RE.match(v) for v in mapped.values()):
+                # All 4 options are visual placeholders — standardise
+                has_image = True
+                mapped = {
+                    "A": "Option A — see diagram",
+                    "B": "Option B — see diagram",
+                    "C": "Option C — see diagram",
+                    "D": "Option D — see diagram",
+                }
 
         # Match-the-following options may be sparse if the model only gives combos.
         # For other types: if < 4 options found, flag for review — NEVER silently drop.
@@ -1437,6 +1674,47 @@ def _find_figure_rect(page: fitz.Page) -> Optional[fitz.Rect]:
     return cluster_rect
 
 
+def _find_question_crop_rect(page: fitz.Page, question_number: int | None) -> Optional[fitz.Rect]:
+    if not isinstance(question_number, int) or question_number <= 0:
+        return None
+    try:
+        blocks = sorted(page.get_text("blocks"), key=lambda b: (b[1], b[0]))
+    except Exception:
+        return None
+    if not blocks:
+        return None
+
+    current_re = re.compile(
+        rf"(?i)(?:Question\s+Number\s*:\s*{question_number}\b|^\s*Q\.?\s*{question_number}\b|^\s*{question_number}[\.\)])",
+        re.MULTILINE,
+    )
+    any_q_re = re.compile(
+        r"(?i)(?:Question\s+Number\s*:\s*\d+\b|^\s*Q\.?\s*\d+\b|^\s*\d+[\.\)])",
+        re.MULTILINE,
+    )
+
+    anchor_idx: int | None = None
+    for idx, block in enumerate(blocks):
+        text = str(block[4] or "").strip()
+        if text and current_re.search(text):
+            anchor_idx = idx
+            break
+    if anchor_idx is None:
+        return None
+
+    anchor = blocks[anchor_idx]
+    y0 = max(0, float(anchor[1]) - 18)
+    y1 = min(page.rect.y1, y0 + max(260, page.rect.height * 0.42))
+    for next_idx in range(anchor_idx + 1, len(blocks)):
+        nxt_text = str(blocks[next_idx][4] or "").strip()
+        if nxt_text and any_q_re.search(nxt_text):
+            y1 = min(page.rect.y1, max(float(blocks[next_idx][1]) - 10, y0 + 110))
+            break
+    if (y1 - y0) < 80:
+        return None
+    return fitz.Rect(0, y0, page.rect.x1, y1)
+
+
 def _upload_page_images(
     questions: list[dict],
     pdf_path: str,
@@ -1481,11 +1759,27 @@ def _upload_page_images(
                     suffix = f"figure_p{page_idx + 1}"
                     print(f"  [img-upload] p{page_idx + 1} cropped to {fig_rect.width:.0f}×{fig_rect.height:.0f}pt")
                 else:
-                    # Fallback: full page at lower DPI
-                    mat = fitz.Matrix(150 / 72, 150 / 72)
-                    pix = page.get_pixmap(matrix=mat)
-                    suffix = f"page_{page_idx + 1}"
-                    print(f"  [img-upload] p{page_idx + 1} no figure detected — full page fallback")
+                    fallback_rect = None
+                    fallback_qn = None
+                    if len(qs) == 1:
+                        qn = qs[0].get("question_number")
+                        if isinstance(qn, int) and qn > 0:
+                            fallback_qn = qn
+                            fallback_rect = _find_question_crop_rect(page, qn)
+                    if fallback_rect and fallback_rect.get_area() > 5_000:
+                        mat = fitz.Matrix(180 / 72, 180 / 72)
+                        pix = page.get_pixmap(matrix=mat, clip=fallback_rect)
+                        suffix = f"q{fallback_qn}_p{page_idx + 1}"
+                        print(
+                            f"  [img-upload] p{page_idx + 1} no figure box detected — "
+                            f"question crop fallback for Q{fallback_qn}"
+                        )
+                    else:
+                        # Final fallback: full page at lower DPI
+                        mat = fitz.Matrix(150 / 72, 150 / 72)
+                        pix = page.get_pixmap(matrix=mat)
+                        suffix = f"page_{page_idx + 1}"
+                        print(f"  [img-upload] p{page_idx + 1} no figure detected — full page fallback")
 
                 png_bytes = pix.tobytes("png")
                 path = f"{safe_exam}/{exam_year}/{suffix}.png"
@@ -1518,6 +1812,7 @@ def process_universal_job_background(
     exam_year: int,
     answer_key_map: Optional[dict] = None,
     expected_count: int = 0,
+    force_replace: bool = False,
 ) -> None:
     """
     Drop-in replacement for pipeline.process_job_background.
@@ -1529,13 +1824,15 @@ def process_universal_job_background(
 
     try:
         from config import supabase  # type: ignore  # noqa: F401 — side-effects needed
-        from papers import mark_paper_lifecycle, paper_id_for_job
+        from papers import mark_paper_lifecycle, paper_id_for_job, should_delete_pdf_after_job
         from pipeline import (  # type: ignore
             tag_questions,
             store_questions,
             generate_explanations_bulk,
             inject_answers,
             CostTracker,
+            is_row_usable_for_recovery,
+            _targeted_vision_recovery,
         )
     except ImportError as e:
         print(f"[univ-job] Import error: {e}\n{traceback.format_exc()}")
@@ -1570,6 +1867,9 @@ def process_universal_job_background(
 
         questions: list[dict] = []
         trailing_missing: list[int] = []
+        zero_pages: list[int] = []
+        problematic_pages: list[int] = []
+        scanned_fallback_attempted = False
 
         if scanned_hint:
             from extractor.scanned_extractor import process_scanned_job
@@ -1599,13 +1899,14 @@ def process_universal_job_background(
             ph = _pdf_hash(pdf_path)
             doc = fitz.open(pdf_path)
             all_raw: list[dict] = []
-            zero_pages: list[int] = []
-            problematic_pages: list[int] = []
             page_question_numbers: list[set[int]] = []
+            pages_meta: list[tuple[int, str]] = []
             max_number_seen_so_far = 0
 
             for page_idx in range(total_pages):
                 page = doc[page_idx]
+                page_text = page.get_text("text") or ""
+                pages_meta.append((page_idx, page_text))
                 raw_qs = _extract_page(ph, page_idx, page)
                 if not raw_qs:
                     zero_pages.append(page_idx)
@@ -1640,8 +1941,11 @@ def process_universal_job_background(
                 all_raw.extend(raw_qs)
 
                 pct = 10 + int(60 * ((page_idx + 1) / max(1, total_pages)))
-                _update_job("processing", pct)
-                time.sleep(0.4)
+                _update_job(
+                    "processing",
+                    pct,
+                    f"Extracting pages: page {page_idx + 1} of {total_pages}...",
+                )
 
             doc.close()
 
@@ -1698,7 +2002,7 @@ def process_universal_job_background(
                 if to_repair:
                     target_display = expected_count if expected_count > 0 else "?"
                     print(f"[univ-job] REPAIR PASS — {len(questions)}/{target_display} q. Re-extracting {len(to_repair)} pages (zero={len(zero_pages)}, low_quality={len(problematic_pages)}) with T4/T5...")
-                    _update_job("processing", 72)
+                    _update_job("processing", 72, f"Repair pass: re-extracting {len(to_repair)} difficult pages...")
                     doc2 = fitz.open(pdf_path)
                     for i, page_idx in enumerate(to_repair, start=1):
                         page = doc2[page_idx]
@@ -1708,7 +2012,7 @@ def process_universal_job_background(
                             _merge_to_seen(raw_qs, page_idx)
                             print(f"  [repair] p{page_idx + 1} recovered {len(raw_qs)} questions")
                         repair_progress = 72 + int(3 * (i / max(1, len(to_repair))))
-                        _update_job("processing", repair_progress)
+                        _update_job("processing", repair_progress, f"Repair pass: page {i} of {len(to_repair)}...")
                     doc2.close()
                     questions = _get_sorted_questions()
                     print(f"[univ-job] After repair: {len(questions)} questions")
@@ -1737,7 +2041,7 @@ def process_universal_job_background(
                         _merge_to_seen(raw_qs, page_idx)
                         print(f"  [tail-repair] p{page_idx + 1} recovered {len(raw_qs)} questions")
                     tail_progress = 74 + int(4 * (i / max(1, len(tail_pages))))
-                    _update_job("processing", tail_progress)
+                    _update_job("processing", tail_progress, f"Tail recovery: page {i} of {len(tail_pages)}...")
                 doc_tail.close()
                 questions = _get_sorted_questions()
                 trailing_missing = _trailing_missing_question_block(questions, expected_count)
@@ -1814,6 +2118,91 @@ def process_universal_job_background(
                     questions = _get_sorted_questions()
                     print(f"[univ-job] After bilingual pair recovery: {len(questions)} questions")
 
+            # Targeted row-level image recovery:
+            # if a question number exists but the extracted row is still structurally
+            # unusable, run Vision only for those exact numbers/pages instead of
+            # leaving them as broken placeholders or losing them in later filters.
+            numbered_unusable = [
+                q for q in _numbered_questions()
+                if isinstance(q.get("question_number"), int)
+                and not is_row_usable_for_recovery({
+                    "question_text": q.get("question_text"),
+                    "option_a": q.get("option_a"),
+                    "option_b": q.get("option_b"),
+                    "option_c": q.get("option_c"),
+                    "option_d": q.get("option_d"),
+                    "question_type": q.get("question_type"),
+                    "question_number": q.get("question_number"),
+                    "correct_answer": q.get("correct_answer"),
+                    "has_image": q.get("has_image"),
+                    "image_url": q.get("image_url"),
+                })
+            ]
+            unusable_numbers = sorted({
+                int(q["question_number"])
+                for q in numbered_unusable
+                if isinstance(q.get("question_number"), int)
+            })
+            if unusable_numbers:
+                preview = ", ".join(str(n) for n in unusable_numbers[:12])
+                more = "..." if len(unusable_numbers) > 12 else ""
+                print(
+                    f"[univ-job] TARGETED ROW RECOVERY — retrying {len(unusable_numbers)} "
+                    f"hard extracted question(s): {preview}{more}"
+                )
+                _update_job("processing", 76, f"Recovering {len(unusable_numbers)} hard extracted rows via targeted vision...")
+                recovered_rows = _targeted_vision_recovery(
+                    pdf_path,
+                    unusable_numbers,
+                    pages_meta,
+                    page_nums=page_question_numbers,
+                )
+                if recovered_rows:
+                    replaced = 0
+                    for rq in recovered_rows:
+                        qn = rq.get("question_number")
+                        if not isinstance(qn, int):
+                            continue
+                        old_keys = [k for k, v in seen.items() if v.get("question_number") == qn]
+                        if not old_keys:
+                            continue
+                        old_row = seen[old_keys[0]]
+                        old_good = is_row_usable_for_recovery({
+                            "question_text": old_row.get("question_text"),
+                            "option_a": old_row.get("option_a"),
+                            "option_b": old_row.get("option_b"),
+                            "option_c": old_row.get("option_c"),
+                            "option_d": old_row.get("option_d"),
+                            "question_type": old_row.get("question_type"),
+                            "question_number": old_row.get("question_number"),
+                            "correct_answer": old_row.get("correct_answer"),
+                            "has_image": old_row.get("has_image"),
+                            "image_url": old_row.get("image_url"),
+                        })
+                        new_good = is_row_usable_for_recovery({
+                            "question_text": rq.get("question_text"),
+                            "option_a": rq.get("option_a"),
+                            "option_b": rq.get("option_b"),
+                            "option_c": rq.get("option_c"),
+                            "option_d": rq.get("option_d"),
+                            "question_type": rq.get("question_type"),
+                            "question_number": rq.get("question_number"),
+                            "correct_answer": rq.get("correct_answer"),
+                            "has_image": rq.get("has_image"),
+                            "image_url": rq.get("image_url"),
+                        })
+                        old_opts = sum(1 for k in ("option_a", "option_b", "option_c", "option_d") if old_row.get(k))
+                        new_opts = sum(1 for k in ("option_a", "option_b", "option_c", "option_d") if rq.get(k))
+                        if new_good or (not old_good and new_opts >= old_opts):
+                            for key in old_keys:
+                                del seen[key]
+                            rq["_page_idx"] = rq.get("_page_idx", old_row.get("_page_idx"))
+                            seen[f"p{rq.get('_page_idx', old_row.get('_page_idx', 0))}_repair_q{qn}"] = rq
+                            replaced += 1
+                    if replaced:
+                        questions = _get_sorted_questions()
+                        print(f"[univ-job] After targeted row recovery: replaced {replaced} hard rows")
+
             if not questions:
                 fallback_pages = zero_pages or list(range(total_pages))
                 if set(fallback_pages).issubset(set(zero_pages + problematic_pages)):
@@ -1838,9 +2227,55 @@ def process_universal_job_background(
         print(f"[univ-job] Extraction done — {len(questions)} questions")
 
         if not questions:
-            _update_job("failed", 0, "No questions extracted from PDF. Reason: Triage skipped all pages or AI returned empty.")
-            print(f"[univ-job] FAILED — no questions found")
-            return
+            if not scanned_hint:
+                print("[univ-job] UNIVERSAL PASS EMPTY — falling back to scanned extractor as last resort")
+                _update_job("processing", 79, "Universal extraction returned empty. Trying scanned fallback...")
+                scanned_fallback_attempted = True
+                try:
+                    from extractor.scanned_extractor import process_scanned_job
+
+                    scanned_tracker = CostTracker()
+                    questions = process_scanned_job(
+                        pdf_path,
+                        job_id,
+                        exam_name,
+                        exam_year,
+                        scanned_tracker,
+                        expected_count=expected_count,
+                    )
+                    for s in scanned_tracker.steps:
+                        if not hasattr(_tls, "steps"):
+                            _tls.steps = []
+                        _tls.steps.append({
+                            "step": f"Scanned fallback {s['step']}",
+                            "input_tokens": s["input_tokens"],
+                            "output_tokens": s["output_tokens"],
+                            "cost_usd": s["cost_usd"],
+                            "cost_inr": s["cost_inr"],
+                            "cached": s.get("cached", False),
+                        })
+                    print(f"[univ-job] Scanned fallback extracted {len(questions)} questions")
+                except Exception as fallback_err:
+                    print(f"[univ-job] Scanned fallback failed: {fallback_err}")
+
+            if not questions:
+                reason_parts = []
+                if scanned_hint:
+                    reason_parts.append("scanned path returned empty")
+                else:
+                    reason_parts.append("universal extraction returned empty")
+                reason_parts.append(f"zero-result pages: {len(zero_pages)}/{total_pages}")
+                if problematic_pages:
+                    reason_parts.append(f"low-quality pages: {len(problematic_pages)}")
+                if scanned_fallback_attempted:
+                    reason_parts.append("scanned fallback also returned empty")
+                _update_job(
+                    "failed",
+                    0,
+                    "No questions extracted from PDF. Reason: " + "; ".join(reason_parts) + ".",
+                )
+                print(f"[univ-job] FAILED — no questions found")
+                return
 
         # ── Auto-detect answer key embedded in same PDF (zero cost) ─────────
         if not answer_key_map:
@@ -1913,7 +2348,14 @@ def process_universal_job_background(
 
         # ── DB insert ─────────────────────────────────────────────────────────
         print(f"[univ-job] Storing {len(questions)} questions...")
-        result = store_questions(questions, pdf_path, exam_name, exam_year, job_id=job_id)
+        result = store_questions(
+            questions,
+            pdf_path,
+            exam_name,
+            exam_year,
+            job_id=job_id,
+            force_replace=force_replace,
+        )
         inserted = result.get("inserted", 0)
         skipped = result.get("skipped", 0)
         blocked = result.get("blocked", 0)
@@ -1992,7 +2434,7 @@ def process_universal_job_background(
             pass
 
     finally:
-        if os.path.exists(pdf_path):
+        if should_delete_pdf_after_job(pdf_path):
             try:
                 os.unlink(pdf_path)
             except Exception as e:

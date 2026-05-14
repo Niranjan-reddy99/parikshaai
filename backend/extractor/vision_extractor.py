@@ -122,41 +122,52 @@ MAT = fitz.Matrix(RENDER_DPI / 72, RENDER_DPI / 72)
 
 # ── Prompt ────────────────────────────────────────────────────────────────────
 
-EXTRACTION_PROMPT = """You are an expert AI data extractor parsing an APPSC exam paper (Final / Answer Key).
+EXTRACTION_PROMPT = """You are an expert AI data extractor parsing an exam paper (APPSC / TSPSC / AP High Court Final Key PDF).
 
-CRITICAL RULES - FAILURE IS NOT AN OPTION:
-1. Extract questions in ENGLISH ONLY. Strictly skip all Telugu/regional text.
-2. The CORRECT ANSWER is physically indicated by a RECTANGLE or BOX drawn around one option number. You must select it.
-3. If the page is blank, "ROUGH WORK", or an instruction page, return an empty array []. DO NOT hallucinate.
-4. "MATCH THE FOLLOWING" FATAL ERROR PREVENTION: You MUST extract EXACTLY 4 distinct, separate options. 
-   - Never combine Option 3 and Option 4.
-   - Never drop pairings. Options must look exactly like "1) A-I, B-II, C-III, D-IV".
-   - Under no circumstances should an option be missing or truncated.
-5. "ASSERTION (A) AND REASON (R)": 
-   - Ensure the text for A and R is completely extracted.
-   - Do not drop the prefix labels.
-   - Ensure the options are kept distinct and complete.
-6. CONTINUATION HANDLING: Do not hallucinate questions that are cut off. Only extract questions whose text AND options are fully visible on this page.
-7. NEVER invent extra questions. The number of JSON objects MUST exactly match the number of printed English questions on this page.
-8. If an option spans multiple lines of printed text, join it seamlessly into a single line.
+═══ FORMAT DETECTION (read this first) ═══
+• Numbered options format: Options are labeled 1. 2. 3. 4. — output keys "1","2","3","4"
+• Lettered options format: Options are labeled A. B. C. D. (or (A)(B)(C)(D)) — output keys "1","2","3","4" mapping A→1, B→2, C→3, D→4
+• APPSC Final Key: correct answer shown by a RECTANGLE or BOX drawn around one option number
+• Telegram CBT key: correct answer shown by green ✓ tick or checkmark beside an option
+• Detect which format applies and extract accordingly — do NOT mix both formats
 
-Return ONLY a valid JSON array — no markdown, no explanation, no backticks.
-Schema for each question:
+═══ CRITICAL RULES — FAILURE IS NOT AN OPTION ═══
+1. LANGUAGE: Extract questions in ENGLISH ONLY. Skip Telugu/regional text entirely.
+2. CORRECT ANSWER: Find the visually marked option (boxed rectangle OR green tick) and set "correct" to that option number (1/2/3/4). If no mark is visible, set "correct": null and "needs_review": true.
+3. BLANK/COVER PAGES: If the page is blank, "ROUGH WORK", or a pure instruction page, return [].
+4. MATCH THE FOLLOWING — FATAL ERROR PREVENTION:
+   - Extract EXACTLY 4 distinct options. NEVER combine or merge Option 3 and Option 4.
+   - Never drop pairings. Options must look like "1-A, 2-B, 3-C, 4-D" or "A-I, B-II, C-III, D-IV".
+   - All 4 options must be present and non-empty.
+5. ASSERTION-REASON: Extract the A and R statements completely with their labels. All 4 code options (e.g., "Both A and R are true") must be present.
+6. CROSS-PAGE QUESTIONS (most important change):
+   - If a question's TEXT is visible but OPTIONS are cut off at the bottom of the page:
+     → Extract the question text and whatever options ARE visible.
+     → Set "needs_review": true and "correct": null.
+     → DO NOT skip the question — a partial extraction is better than losing it.
+   - If only the tail end of a previous question's options appear at the top:
+     → Skip those trailing lines (they belong to the previous page).
+7. COUNT ACCURACY: The number of JSON objects MUST equal the number of distinct English question stems on this page. Never invent questions.
+8. MULTI-LINE OPTIONS: Join multi-line option text into one continuous string.
+
+═══ OUTPUT SCHEMA ═══
+Return ONLY a valid JSON array — no markdown fences, no explanation text.
+Each element:
 {
-  "q_num": <integer printed before the question>,
-  "question": "<English question text, joined into one string>",
+  "q_num": <integer — the question number printed on the page>,
+  "question": "<complete English question text as one string>",
   "options": {
-    "1": "<option 1 text>",
-    "2": "<option 2 text>",
-    "3": "<option 3 text>",
-    "4": "<option 4 text>"
+    "1": "<option text>",
+    "2": "<option text>",
+    "3": "<option text>",
+    "4": "<option text or empty string if cut off>"
   },
-  "correct": "<1|2|3|4 — the boxed option>",
-  "has_image": <true|false>,
-  "needs_review": <true|false>
+  "correct": "<1|2|3|4 or null if not determinable>",
+  "has_image": <true if a diagram/figure/table is part of the question, else false>,
+  "needs_review": <true if answer is uncertain OR options are incomplete, else false>
 }
 
-If no questions are on this page (e.g. it's a cover page or instructions page), return: []
+If no questions are on this page, return: []
 """
 
 
@@ -303,8 +314,7 @@ def _normalise_question(raw: dict, exam_name: str, year: int, series: str) -> Op
             if norm_k:
                 mapped[norm_k] = str(v).strip()
 
-        if len(mapped) < 4:
-            return None  # incomplete question — skip
+        partial = len(mapped) < 4  # cross-page question with cut-off options
 
         correct_raw = str(raw.get("correct") or "").strip()
         answer = _OPTION_MAP.get(correct_raw.upper()) if correct_raw else None
@@ -324,7 +334,7 @@ def _normalise_question(raw: dict, exam_name: str, year: int, series: str) -> Op
             "difficulty": "Medium",
             # ── extra metadata ────────────────────────────────────────────────
             "has_image": bool(raw.get("has_image")),
-            "needs_review": bool(raw.get("needs_review")) or answer is None,
+            "needs_review": bool(raw.get("needs_review")) or answer is None or partial,
             "series": series,
         }
     except Exception as e:
@@ -377,6 +387,7 @@ def extract_with_vision(
         for raw in raw_qs:
             q = _normalise_question(raw, exam_name, year, series)
             if q:
+                q["_page_idx"] = page_idx
                 all_questions.append(q)
 
         if progress_callback:
@@ -418,7 +429,7 @@ def process_vision_job_background(
 
     try:
         from config import supabase  # type: ignore
-        from papers import mark_paper_lifecycle, paper_id_for_job
+        from papers import mark_paper_lifecycle, paper_id_for_job, should_delete_pdf_after_job
         from pipeline import tag_questions, store_questions  # type: ignore
         from typing import Optional, Callable
     except ImportError as e:
@@ -474,7 +485,7 @@ def process_vision_job_background(
             return
 
         # --- AI tagging ---
-        from pipeline import CostTracker as PipelineCostTracker  # type: ignore
+        from pipeline import CostTracker as PipelineCostTracker, repair_structurally_broken_rows  # type: ignore
         tag_tracker = PipelineCostTracker()
         print(f"\n[vision-job] Tagging {len(questions)} questions...")
         tagged = tag_questions(questions, exam_name, tracker=tag_tracker)
@@ -486,6 +497,19 @@ def process_vision_job_background(
         inserted = result.get("inserted", 0)
         skipped = result.get("skipped", 0)
         print(f"[vision-job] Done — inserted: {inserted}, skipped: {skipped}")
+
+        repair_result = repair_structurally_broken_rows(
+            pdf_path,
+            exam_name,
+            exam_year,
+            job_id=job_id,
+            tracker=tag_tracker,
+        )
+        if repair_result.get("targeted"):
+            print(
+                f"[vision-job] Broken-row repair recovered {repair_result.get('recovered', 0)}/"
+                f"{repair_result.get('targeted', 0)} targeted rows"
+            )
         tracker.save_log(exam_name, exam_year, inserted, extra_steps=tag_tracker.steps)
 
         # ── Detect missing question numbers and report in admin dashboard ─────
@@ -527,7 +551,7 @@ def process_vision_job_background(
         except Exception:
             pass
     finally:
-        if os.path.exists(pdf_path):
+        if should_delete_pdf_after_job(pdf_path):
             os.unlink(pdf_path)
 
 

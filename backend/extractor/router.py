@@ -1,4 +1,5 @@
 import fitz
+from pathlib import Path
 import re
 
 class ExamFormat:
@@ -10,24 +11,80 @@ class ExamFormat:
     DIGITAL_MCQ = "digital_mcq"
 
 
-def _is_appsc_boxed(pdf_path: str, doc: fitz.Document) -> bool:
-    """Detects APPSC boxed answer key format based on first few pages text."""
-    for i in range(min(3, len(doc))):
+_FUZZY_FINAL_KEY_RE = re.compile(
+    r"f\W*i\W*n\W*a\W*l\W*k\W*e\W*y|"
+    r"i\W*n\W*i\W*t\W*i\W*a\W*l\W*k\W*e\W*y|"
+    r"f\W*a\W*l\W*k",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_boxed_final_key_layout(doc: fitz.Document) -> bool:
+    """
+    Detect APPSC-style final keys by page geometry, not just OCR text.
+
+    These PDFs usually repeat many medium-width rectangles/rounded boxes around
+    answer options on every question page. Regular question papers rarely have
+    that many consistent answer boxes.
+    """
+    pages_to_check = range(min(3, len(doc)), min(8, len(doc)))
+    total_boxes = 0
+    dense_pages = 0
+    for idx in pages_to_check:
+        try:
+            page = doc[idx]
+            page_boxes = 0
+            for drawing in page.get_drawings():
+                rect = fitz.Rect(drawing.get("rect"))
+                if rect.is_empty or rect.is_infinite:
+                    continue
+                width = rect.width
+                height = rect.height
+                area = rect.get_area()
+                if 60 <= width <= 380 and 14 <= height <= 90 and 1_500 <= area <= 35_000:
+                    page_boxes += 1
+            total_boxes += page_boxes
+            if page_boxes >= 6:
+                dense_pages += 1
+        except Exception:
+            continue
+    return dense_pages >= 2 or total_boxes >= 18
+
+
+def _is_appsc_boxed(pdf_path: str, doc: fitz.Document, source_filename: str | None = None) -> bool:
+    """Detect APPSC-style boxed final/initial keys using text + filename + layout."""
+    file_name = (source_filename or Path(pdf_path).name).lower()
+    filename_hints = any(token in file_name for token in ("finalkey", "initialkey", "final_key", "initial_key"))
+    appsc_name_hint = any(token in file_name for token in ("appsc", "fbo", "abo", "group", "screening"))
+
+    text_hints = False
+    authority_hint = False
+    for i in range(min(6, len(doc))):
         text = doc[i].get_text("text").lower()
         if "andhra pradesh public service commission" in text or "appsc" in text:
-            # Look for typical instruction text or "Final Key"
-            if "final key" in text or "initial key" in text:
-                return True
+            authority_hint = True
+        if "final key" in text or "initial key" in text or _FUZZY_FINAL_KEY_RE.search(text):
+            text_hints = True
+
+    layout_hint = _looks_like_boxed_final_key_layout(doc)
+
+    if authority_hint and (text_hints or layout_hint):
+        return True
+    if filename_hints and layout_hint:
+        return True
+    if filename_hints and appsc_name_hint and text_hints:
+        return True
     return False
 
 def _is_tcsion_format(pdf_path: str, doc: fitz.Document) -> bool:
     """Detects TCSiON CAE export format with extreme precision."""
     for i in range(min(10, len(doc))): # High depth for papers with lots of instructions
         text = doc[i].get_text("text")
+        text_lower = text.lower()
         # Require both markers or the domain with ID to avoid misrouting regular papers
-        if "TCSiON CAE" in text and "Question ID" in text:
+        if "tcsion cae" in text_lower and "question id" in text_lower:
             return True
-        if "tcsion.com" in text.lower() and "Question ID" in text:
+        if "tcsion.com" in text_lower and "question id" in text_lower:
             return True
     return False
 
@@ -71,7 +128,7 @@ def _is_scanned(pdf_path: str, doc: fitz.Document) -> bool:
     avg_chars = total_chars / max(1, pages_to_check)
     return avg_chars < 50
 
-def detect_format(pdf_path: str) -> str:
+def detect_format(pdf_path: str, source_filename: str | None = None) -> str:
     """
     Intelligently determines the format of the exam paper.
     Returns one of the ExamFormat constants.
@@ -82,7 +139,7 @@ def detect_format(pdf_path: str) -> str:
             return ExamFormat.TCSION_CBT
         if _is_telegram_cbt(pdf_path, doc):
             return ExamFormat.TELEGRAM_CBT
-        if _is_appsc_boxed(pdf_path, doc):
+        if _is_appsc_boxed(pdf_path, doc, source_filename=source_filename):
             return ExamFormat.APPSC_BOXED
         if _is_scanned(pdf_path, doc):
             return ExamFormat.SCANNED_IMAGE

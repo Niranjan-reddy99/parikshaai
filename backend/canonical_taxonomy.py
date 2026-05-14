@@ -6,11 +6,59 @@ from typing import Any
 
 _GENERIC_LABELS = {"", "general", "unclassified", "miscellaneous", "basics", "mixed"}
 
+# Topic names that unambiguously belong to a specific subject regardless of what subject the AI assigned.
+# These override the raw subject field when a clear mismatch is detected.
+_ALWAYS_LOGICAL_REASONING = frozenset({
+    "seating arrangement", "blood relations", "puzzles & ranking", "series",
+    "direction sense", "analogies", "coding-decoding", "statement & conclusion",
+    "venn diagrams", "syllogisms", "syllogism", "synergisms", "input-output",
+})
+_ALWAYS_QUANTITATIVE = frozenset({
+    "ratio and proportion", "data interpretation", "number system", "algebra & equations",
+    "averages & mixtures", "percentages", "geometry & mensuration",
+    "time, speed and distance", "statistics & probability", "profit and loss",
+    "interest", "arithmetic", "time and work",
+})
+_ALWAYS_ENGLISH = frozenset({
+    "para jumbles", "grammar & usage", "fill in the blanks", "vocabulary",
+    "reading comprehension", "idioms & phrases", "one-word substitution",
+    "sentence correction",
+})
+_ALWAYS_HISTORY = frozenset({
+    "ancient history", "medieval history", "modern history", "indian national movement",
+    "indus valley civilization", "mughal empire", "mauryan empire", "gupta empire",
+    "vedic period", "buddhism", "jainism", "world history", "post-independence india",
+    "social reform movements", "gandhian thought & movements",
+})
+_ALWAYS_SCIENCE = frozenset({
+    "biology", "chemistry", "physics", "biotechnology", "space technology",
+    "computer fundamentals", "information technology", "defence technology",
+    "medical science", "inventions & discoveries", "nuclear technology",
+    "programming basics", "operating systems",
+    # "mechanics" and "optics" excluded — ambiguous in QA/aptitude context
+})
+_ALWAYS_POLITY = frozenset({
+    "constitutional development", "fundamental rights", "parliament", "judiciary",
+    "preamble", "elections & political parties", "local government", "president & executive",
+    "emergency provisions", "criminal laws", "evidence act", "legal terminology",
+    "legal definitions", "legal reforms", "electoral offences",
+})
+# These topics are always Current Affairs regardless of which subject the AI assigned
+_ALWAYS_CURRENT_AFFAIRS = frozenset({
+    "domestic affairs", "summits & conferences",
+})
+
+# Known OCR/AI garbled topic names → correct canonical name
+_TOPIC_NAME_FIXES: dict[str, str] = {
+    "synergisms": "Syllogisms",
+    "awards & records": "Awards & Honours",
+}
+
 _TOPIC_RULES: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"\bnewton'?s laws?|laws? of motion|momentum|angular momentum|force\b", re.IGNORECASE), "Mechanics"),
-    (re.compile(r"\binertia|friction|work\s+energy|power|projectile|velocity|acceleration|displacement|mass\b", re.IGNORECASE), "Mechanics"),
-    (re.compile(r"\btelescope|microscope|lens|lenses|mirror|mirrors|convergent|divergent|convex|concave|optics|light\b", re.IGNORECASE), "Optics"),
-    (re.compile(r"\bcarrom|coin pile|coin\b", re.IGNORECASE), "Mechanics"),
+    (re.compile(r"\bnewton'?s laws?|laws? of motion|momentum|angular momentum|net force|applied force|balanced forces?|unbalanced forces?\b", re.IGNORECASE), "Mechanics"),
+    (re.compile(r"\binertia|friction|work done|work[- ]energy|kinetic energy|potential energy|conservation of energy|projectile|velocity|acceleration|displacement\b", re.IGNORECASE), "Mechanics"),
+    (re.compile(r"\btelescope|microscope|lens|lenses|mirror|mirrors|convergent|divergent|convex|concave|optics|reflection of light|refraction of light|ray optics|light rays?\b", re.IGNORECASE), "Optics"),
+    (re.compile(r"\bcarrom(?: striker)?|coin pile|carrom coin\b", re.IGNORECASE), "Mechanics"),
     (re.compile(r"\bresearch methodology|research limitations?|research implications?|research abstract|research title|research recommendations?\b", re.IGNORECASE), "Research Methodology"),
     (re.compile(r"\bair pollution|water pollution|noise pollution|thermal pollution|plastic pollution|chemical pollution|mercury pollution|atmospheric pollution|ocean pollution|pollution control|pollution control boards?|pollution control acts?|pollution control devices?|pollution control initiatives|pollution control technologies|environmental pollution|pollutants?\b", re.IGNORECASE), "Pollution"),
     (re.compile(r"\bbuddh(a|is|ism|ist|hist)\b", re.IGNORECASE), "Buddhism"),
@@ -37,6 +85,7 @@ _TOPIC_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bparliament|lok sabha|rajya sabha\b", re.IGNORECASE), "Parliament"),
     (re.compile(r"\bjudiciary|supreme court|high court|judicial review\b", re.IGNORECASE), "Judiciary"),
     (re.compile(r"\bpreamble\b", re.IGNORECASE), "Preamble"),
+    (re.compile(r"\bbharatiya nyaya sanhita|bharatiya nagarik suraksha sanhita|bharatiya sakshya adhiniyam|criminal laws?|criminal procedure|evidence act|legal terminology|legal definitions|legal reforms|electoral offences?\b", re.IGNORECASE), "Criminal Laws"),
     (re.compile(r"\bmonsoon|rainfall\b", re.IGNORECASE), "Monsoon & Rainfall"),
     (re.compile(r"\briver|tributary|basin\b", re.IGNORECASE), "Rivers"),
     (re.compile(r"\bsoil\b", re.IGNORECASE), "Soils"),
@@ -52,7 +101,7 @@ _TOPIC_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\btelangana schemes?|government schemes?|state policies?|policy\b", re.IGNORECASE), "Government Schemes & Policies"),
     (re.compile(r"\bseating arrangement|circular arrangement|linear arrangement|square arrangement\b", re.IGNORECASE), "Seating Arrangement"),
     (re.compile(r"\bblood relation|family tree\b", re.IGNORECASE), "Blood Relations"),
-    (re.compile(r"\bsyllogism\b", re.IGNORECASE), "Syllogism"),
+    (re.compile(r"\bsyllogisms?\b|synergism\b", re.IGNORECASE), "Syllogisms"),
     (re.compile(r"\bcoding|decoding\b", re.IGNORECASE), "Coding-Decoding"),
     (re.compile(r"\bseries\b", re.IGNORECASE), "Series"),
     (re.compile(r"\bdirection sense|direction\b", re.IGNORECASE), "Direction Sense"),
@@ -65,18 +114,21 @@ _TOPIC_RULES: list[tuple[re.Pattern[str], str]] = [
 ]
 
 _SUBJECT_RULES: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"\bnewton'?s laws?|laws? of motion|momentum|angular momentum|inertia|friction|force|acceleration|velocity|displacement|mass|projectile|work|energy|power|carrom|telescope|microscope|lens|lenses|mirror|mirrors|convergent|divergent|convex|concave|optics|light\b", re.IGNORECASE), "General Science"),
+    # Science & Technology rules FIRST (before Geography, to catch "Geography | Space Technology")
+    (re.compile(r"\bspace technology|space missions?|isro|nasa|chandrayaan|mangalyaan|gaganyaan|pslv|gslv|rocket launch|satellite launch|space station|space exploration\b", re.IGNORECASE), "Science & Technology"),
+    (re.compile(r"\bemerging technologies|scientists? and their contributions|biotechnology|information technology|computer|software|hardware|programming\b", re.IGNORECASE), "Science & Technology"),
+    # Physics / optics → Science & Technology (not "General Science")
+    (re.compile(r"\bnewton'?s laws?|laws? of motion|momentum|angular momentum|inertia|friction|acceleration|velocity|displacement|projectile|work done|kinetic energy|potential energy|conservation of energy|carrom|telescope|microscope|lens|lenses|mirror|mirrors|convergent|divergent|convex|concave|optics\b", re.IGNORECASE), "Science & Technology"),
     (re.compile(r"\bindus|harapp|vedic|maurya|gupta|mughal|buddh|jain|gandhi|gandhian|telangana movement|social reform|temples? and architecture|historical places|history of telangana|telangana history|festivals? of telangana|art and culture\b", re.IGNORECASE), "History"),
     (re.compile(r"\btribal communities|tribal welfare|tribes of india|caste system|social stratification|social issues|vulnerable sections|transgender community issues\b", re.IGNORECASE), "Social Issues"),
-    (re.compile(r"\beconomy of telangana|telangana economy|indian economy|economics?\b|\bindustr(y|ies)|industrial|msme|trade|gdp|inflation|budget|fiscal|monetary|policy resolution\b", re.IGNORECASE), "Economy"),
+    (re.compile(r"\beconomy of telangana|telangana economy|indian economy|economics\b|\bindustr(y|ies)|industrial|msme|trade and commerce|trade policy|trade deficit|trade balance|trade war|gdp|inflation|budget|fiscal|monetary|policy resolution\b", re.IGNORECASE), "Economy"),
     (re.compile(r"\bclimate|rainfall|river|tributary|soil|geography|agro-climatic|range|locations?\b", re.IGNORECASE), "Geography"),
     (re.compile(r"\bbiodiversity|ecosystem|pollution|wildlife|environment|industrial disasters?\b", re.IGNORECASE), "Environment"),
-    (re.compile(r"\bconstitution|fundamental rights|directive principles|judiciary|parliament|preamble\b", re.IGNORECASE), "Polity"),
+    (re.compile(r"\bconstitution|fundamental rights|directive principles|judiciary|parliament|preamble|bharatiya nyaya sanhita|bharatiya nagarik suraksha sanhita|bharatiya sakshya adhiniyam|criminal laws?|criminal procedure|evidence act|legal terminology|legal definitions|legal reforms|electoral offences?\b", re.IGNORECASE), "Polity"),
     (re.compile(r"\bgovernment schemes?|state policies?|public policy|welfare schemes?\b", re.IGNORECASE), "Polity"),
-    (re.compile(r"\bnato|united nations|un\b|world bank|imf|wto|international organizations?|foreign policy|bilateral relations|multilateral\b", re.IGNORECASE), "International Relations"),
+    (re.compile(r"\bnato|united nations|un\b|world bank|imf|wto|international organizations?|foreign policy|bilateral relations|multilateral\b", re.IGNORECASE), "Current Affairs"),
     (re.compile(r"\bsports awards?|awards and honors?|books and authors?|languages of india|transport systems?|defence forces|military ranks|research institutions\b", re.IGNORECASE), "General Awareness"),
     (re.compile(r"\bresearch methodology|research limitations?|research implications?|research abstract|research title|research recommendations?\b", re.IGNORECASE), "General Awareness"),
-    (re.compile(r"\bemerging technologies|scientists? and their contributions|space technology|biotechnology|information technology\b", re.IGNORECASE), "Science & Technology"),
 ]
 
 _GENERIC_SUBTOPIC_BITS = (
@@ -91,6 +143,23 @@ _INDUSTRY_PATTERN = re.compile(
 )
 _INDUS_HISTORY_PATTERN = re.compile(
     r"\bindus valley|harappan civilization|harappan culture|indus civilization\b",
+    re.IGNORECASE,
+)
+_POLITY_RESCUE_PATTERN = re.compile(
+    r"\bgovernment of india act|reorganisation act|reorganization act|state reorganisation|state reorganization|"
+    r"concurrent list|union list|state list|ordinance|fundamental rights|judgment|judgements|court|judiciary|"
+    r"parliament|waqf|workmen'?s compensation act|forest rights act|manual scavengers|transgender persons|"
+    r"disabilities act|government orders?|g\.o\.|go 610|committees? and commissions?|union territories|"
+    r"religious laws?/acts?|social legislation|legal principles|rights of persons with disabilities|"
+    r"official secrets act|right to information act|migrant workmen|personal data protection|laws and acts|"
+    r"acts and laws|acts and reforms|law enforcement initiatives|national security laws|criminal laws?|"
+    r"evidence act|electoral offences?|state formation|state reorganization acts?\b",
+    re.IGNORECASE,
+)
+_CRIMINAL_LAW_PATTERN = re.compile(
+    r"\bbharatiya nyaya sanhita|bharatiya nagarik suraksha sanhita|bharatiya sakshya adhiniyam|"
+    r"criminal laws?|criminal procedure|evidence act|legal terminology|legal definitions|legal reforms|"
+    r"electoral offences?\b",
     re.IGNORECASE,
 )
 
@@ -129,8 +198,39 @@ def canonical_subject_family(subject: Any, topic: Any, subtopic: Any) -> str:
     clean_subject = normalize_loose_label(clean_bucket_label(subject, "General Knowledge"))
     clean_topic = normalize_loose_label(clean_bucket_label(topic, "General"))
     clean_subtopic = normalize_loose_label(clean_bucket_label(subtopic, clean_topic))
+
+    # Topic-based subject overrides — topic name unambiguously signals the right subject
+    topic_lc = clean_topic.lower()
+    if topic_lc in _ALWAYS_CURRENT_AFFAIRS and clean_subject not in {"Current Affairs"}:
+        return "Current Affairs"
+    if topic_lc in _ALWAYS_LOGICAL_REASONING:
+        return "Logical Reasoning"
+    if topic_lc in _ALWAYS_QUANTITATIVE:
+        return "Quantitative Aptitude"
+    if topic_lc in _ALWAYS_ENGLISH:
+        return "English Language"
+    if topic_lc in _ALWAYS_HISTORY and clean_subject not in {"History"}:
+        return "History"
+    if topic_lc in _ALWAYS_SCIENCE and clean_subject not in {"Science & Technology"}:
+        return "Science & Technology"
+    if topic_lc in _ALWAYS_POLITY and clean_subject not in {"Polity"}:
+        return "Polity"
+    rescue_text = f"{clean_topic} {clean_subtopic}"
+    if _CRIMINAL_LAW_PATTERN.search(rescue_text) or _POLITY_RESCUE_PATTERN.search(rescue_text):
+        return "Polity"
+
     if _INDUSTRY_PATTERN.search(clean_subtopic) and not _INDUS_HISTORY_PATTERN.search(clean_subtopic):
         return "Economy"
+
+    # Subjects with well-defined canonical topic sets don't need regex reclassification.
+    # Topic-based overrides above still fire when a topic clearly belongs elsewhere.
+    _STABLE_SUBJECTS = {
+        "History", "Current Affairs", "English Language", "Logical Reasoning",
+        "Quantitative Aptitude", "Polity", "Science & Technology", "Environment",
+    }
+    if clean_subject in _STABLE_SUBJECTS:
+        return clean_subject
+
     combined = f"{clean_subject} {clean_topic} {clean_subtopic}"
     for pattern, label in _SUBJECT_RULES:
         if pattern.search(combined):
@@ -139,6 +239,22 @@ def canonical_subject_family(subject: Any, topic: Any, subtopic: Any) -> str:
         return "History"
     if clean_subject in {"General Knowledge", "General", "Unclassified"}:
         return "General Awareness"
+    # Geography mis-tagged as space → belongs in Science & Technology
+    if clean_subject == "Geography" and re.search(r"\bspace|isro|nasa|satellite|rocket|chandrayaan|mangalyaan|gaganyaan\b", f"{clean_topic} {clean_subtopic}", re.IGNORECASE):
+        return "Science & Technology"
+    # Legacy subject remaps
+    if clean_subject == "General Science":
+        return "Science & Technology"
+    if clean_subject in {"Post-Independence India", "Medieval History", "Ancient History", "Modern History", "World History"}:
+        return "History"
+    if clean_subject in {"Computer Knowledge", "Computer Science"}:
+        return "Science & Technology"
+    if clean_subject == "International Relations":
+        return "Current Affairs"
+    if clean_subject == "Mathematics":
+        return "Quantitative Aptitude"
+    if clean_subject == "Art & Culture":
+        return "History"
     return clean_subject or "General Awareness"
 
 
@@ -146,14 +262,37 @@ def canonical_topic_family(subject: Any, topic: Any, subtopic: Any) -> str:
     clean_topic = normalize_loose_label(clean_bucket_label(topic, "General"))
     clean_subtopic = normalize_loose_label(clean_bucket_label(subtopic, clean_topic))
     clean_subject = normalize_loose_label(clean_bucket_label(subject, "General Awareness"))
+
+    # Fix known OCR/AI garbled topic names before any other processing
+    if clean_topic.lower() in _TOPIC_NAME_FIXES:
+        return _TOPIC_NAME_FIXES[clean_topic.lower()]
+
     combined = f"{clean_subject} {clean_topic} {clean_subtopic}"
 
     if _INDUSTRY_PATTERN.search(clean_subtopic) and not _INDUS_HISTORY_PATTERN.search(clean_subtopic):
         return "Industries & Industrial Policy"
 
-    if re.search(r"\bnewton'?s laws?|laws? of motion|momentum|angular momentum|inertia|friction|force|acceleration|velocity|displacement|mass|projectile|work|energy|power|carrom|coin pile|coin\b", combined, re.IGNORECASE):
+    # Space Technology always belongs under Science & Technology regardless of subject
+    if re.search(r"\bspace (technology|mission|exploration|research)|isro|nasa|chandrayaan|mangalyaan|gaganyaan|pslv|gslv|satellite launch|space station\b", combined, re.IGNORECASE):
+        return "Space Technology"
+
+    rescue_text = f"{clean_topic} {clean_subtopic}"
+    if clean_subject == "Polity" and (_CRIMINAL_LAW_PATTERN.search(rescue_text) or _POLITY_RESCUE_PATTERN.search(rescue_text)):
+        if _CRIMINAL_LAW_PATTERN.search(rescue_text):
+            return "Criminal Laws"
+        if (
+            clean_subtopic
+            and clean_subtopic.lower() not in _GENERIC_LABELS
+            and clean_subtopic.lower() != clean_topic.lower()
+            and len(clean_subtopic.split()) <= 6
+            and not re.search(r"[?.!:;]", clean_subtopic)
+        ):
+            return clean_subtopic
+        return "Constitutional Development"
+
+    if re.search(r"\bnewton'?s laws?|laws? of motion|momentum|angular momentum|net force|applied force|balanced forces?|unbalanced forces?|inertia|friction|acceleration|velocity|displacement|projectile|work done|kinetic energy|potential energy|conservation of energy|carrom(?: striker)?|coin pile|carrom coin\b", combined, re.IGNORECASE):
         return "Mechanics"
-    if re.search(r"\btelescope|microscope|lens|lenses|mirror|mirrors|convergent|divergent|convex|concave|optics|light\b", combined, re.IGNORECASE):
+    if re.search(r"\btelescope|microscope|lens|lenses|mirror|mirrors|convergent|divergent|convex|concave|optics|reflection of light|refraction of light|ray optics|light rays?\b", combined, re.IGNORECASE):
         return "Optics"
 
     for pattern, label in _TOPIC_RULES:

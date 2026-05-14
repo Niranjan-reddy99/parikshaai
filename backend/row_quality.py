@@ -24,6 +24,12 @@ _IMAGE_RE = re.compile(
     re.IGNORECASE,
 )
 _INLINE_OPTION_RE = re.compile(r'(?:^|\s)(?:A[\).]|B[\).]|C[\).]|D[\).])\s+', re.IGNORECASE)
+_STATEMENT_STYLE_STEM_RE = re.compile(
+    r'(?:which\s+of\s+the\s+following\s+statements|read\s+the\s+statements|arrange\s+the\s+following|'
+    r'which\s+of\s+the\s+above|select\s+the\s+correct\s+option|select\s+the\s+correct\s+pair|'
+    r'chronological\s+order|jumbled\s+order|meaningful\s+sentences|synonyms?|antonyms?|statements?\s+\d)',
+    re.IGNORECASE,
+)
 _MATCH_CODE_OPT_RE = re.compile(
     r'^\s*(?:'
     r'(?:\d+\s*[-–]\s*[A-D](?:\s*,\s*\d+\s*[-–]\s*[A-D]){1,7})'
@@ -76,10 +82,26 @@ def _is_image_dependent(row: dict[str, Any]) -> bool:
     return bool(_IMAGE_RE.search(text))
 
 
+def _is_statement_style_question(text: str, filled_opts: list[str]) -> bool:
+    if len(_INLINE_OPTION_RE.findall(text or "")) < 2 or len(filled_opts) < 4:
+        return False
+    if not _STATEMENT_STYLE_STEM_RE.search(text or ""):
+        return False
+    return all(len(opt.strip()) <= 120 for opt in filled_opts)
+
+
+def _extract_match_payload(text: str) -> dict[str, Any]:
+    if "__MATCH__:" not in text:
+        raise ValueError("missing __MATCH__ payload")
+    payload_text = text.split("__MATCH__:", 1)[1].strip()
+    return json.loads(payload_text)
+
+
 def infer_issue_codes(row: dict[str, Any]) -> list[str]:
     text = str(row.get("question_text") or "").strip()
     opts = [(row.get("option_a") or "").strip(), (row.get("option_b") or "").strip(), (row.get("option_c") or "").strip(), (row.get("option_d") or "").strip()]
     filled_opts = [opt for opt in opts if opt]
+    publishable_image_fallback = bool(row.get("has_image") and row.get("image_url") and len(filled_opts) == 4)
     reasons: list[str] = []
     subject = str(row.get("subject") or "").strip()
     topic = str(row.get("topic") or "").strip()
@@ -90,7 +112,8 @@ def infer_issue_codes(row: dict[str, Any]) -> list[str]:
         reasons.append("unnumbered-questions")
 
     if not text or len(text) < 15:
-        reasons.append("short-or-empty-text")
+        if not publishable_image_fallback:
+            reasons.append("short-or-empty-text")
 
     image_dependent = _is_image_dependent(row)
     if len(filled_opts) < 4:
@@ -98,12 +121,17 @@ def infer_issue_codes(row: dict[str, Any]) -> list[str]:
     if image_dependent and len(filled_opts) == 0:
         reasons.append("image-dependent-review")
 
-    if len(filled_opts) >= 4 and len(_INLINE_OPTION_RE.findall(text or "")) >= 2:
+    if (
+        len(filled_opts) >= 4
+        and len(_INLINE_OPTION_RE.findall(text or "")) >= 2
+        and not _is_statement_style_question(text, filled_opts)
+        and not publishable_image_fallback
+    ):
         reasons.append("broken-extraction")
 
     exam_name = str(row.get("exam_name") or "")
     is_upsc_like = any(k in exam_name.lower() for k in ("upsc", "cisf", "nda", "cds"))
-    if not is_upsc_like and _regional_script_ratio(" ".join([text] + filled_opts)) >= 0.12:
+    if not is_upsc_like and _regional_script_ratio(" ".join([text] + filled_opts)) >= 0.12 and not publishable_image_fallback:
         reasons.append("regional-script")
 
     is_match_like = (
@@ -114,17 +142,19 @@ def infer_issue_codes(row: dict[str, Any]) -> list[str]:
     if is_match_like:
         if "__MATCH__:" in text:
             try:
-                payload = json.loads(text.split("\n\n__MATCH__:", 1)[1])
+                payload = _extract_match_payload(text)
                 if not (payload.get("col1") or []) or not (payload.get("col2") or []):
-                    reasons.append("incomplete-match-columns")
+                    if not publishable_image_fallback:
+                        reasons.append("incomplete-match-columns")
             except Exception:
-                reasons.append("invalid-match-payload")
+                if not publishable_image_fallback:
+                    reasons.append("invalid-match-payload")
         else:
             intro = re.sub(r'(?i)^match\s+the\s+following[:\s-]*', '', text).strip()
             intro_alnum = len(re.sub(r'[^A-Za-z0-9]+', '', intro))
             all_code_opts = len(filled_opts) == 4 and all(_MATCH_CODE_OPT_RE.match(o) for o in filled_opts)
             has_match_structure = bool(re.search(r'\b(?:column|list\s+i|list\s+ii|a\.|b\.|c\.|d\.|1\.|2\.|3\.|4\.)', text, re.IGNORECASE))
-            if all_code_opts and (intro_alnum < 24 or not has_match_structure):
+            if all_code_opts and (intro_alnum < 24 or not has_match_structure) and not publishable_image_fallback:
                 reasons.append("incomplete-match-stem")
 
     if row.get("needs_review") is True:
@@ -162,7 +192,12 @@ def derive_quality_fields(
     structural_status = "broken" if structural_reasons else "valid"
 
     answer = str(row.get("correct_answer") or "").strip().upper()
-    if answer_reasons or answer not in {"A", "B", "C", "D"}:
+    explicit_answer_status = str(row.get("answer_status") or "").strip().lower()
+    if explicit_answer_status == "deleted":
+        answer_status = "deleted"
+    elif explicit_answer_status == "multiple":
+        answer_status = "multiple"
+    elif answer_reasons or answer not in {"A", "B", "C", "D"}:
         answer_status = "invalid"
     elif row.get("needs_review") is True:
         answer_status = "ai_inferred"
