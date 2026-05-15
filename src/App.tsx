@@ -116,8 +116,8 @@ import {
   type PaginatedQuestionsResponse,
 } from "./types/index";
 
-const CATALOG_CACHE_KEY = "catalog_summary_v14_public";
-const FEED_CACHE_KEY = "feed_summary_v14_public";
+const CATALOG_CACHE_KEY = "catalog_summary_v15_public";
+const FEED_CACHE_KEY = "feed_summary_v15_public";
 const META_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
 
 function readFreshMetaCache<T>(key: string): T | null {
