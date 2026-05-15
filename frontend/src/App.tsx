@@ -279,7 +279,7 @@ function QuestionEditorModal({ question, onClose, onSaved }: QuestionEditorModal
   const uploadImageDataUrl = async (base64Image: string) => {
     const res = await fetch(`${API_BASE}/admin/questions/${question.id}/image`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...adminHeaders() },
+      headers: { 'Content-Type': 'application/json', ...await adminHeaders() },
       body: JSON.stringify({ base64_image: base64Image }),
     });
     if (!res.ok) {
@@ -363,7 +363,7 @@ function QuestionEditorModal({ question, onClose, onSaved }: QuestionEditorModal
     try {
       const res = await fetch(`${API_BASE}/admin/questions/${question.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...adminHeaders() },
+        headers: { 'Content-Type': 'application/json', ...await adminHeaders() },
         body: JSON.stringify({
           question_text: questionText.trim(),
           passage: passage.trim(),
@@ -746,7 +746,7 @@ export default function App() {
     setJobsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/admin/jobs?limit=8`, {
-        headers: adminHeaders(),
+        headers: await adminHeaders(),
       });
       if (!res.ok) throw new Error(`Failed to load jobs (${res.status})`);
       const data = await res.json();
@@ -768,9 +768,10 @@ export default function App() {
         exam_name: target.examName,
         exam_year: String(target.examYear),
       });
+      const hdrs = await adminHeaders();
       const [repairRes, questionRes] = await Promise.all([
-        fetch(`${API_BASE}/admin/repair-queue?${params}`, { headers: adminHeaders() }).catch(() => null),
-        fetch(`${API_BASE}/admin/questions?${params}&page_size=500&latest_only=true`, { headers: adminHeaders() }),
+        fetch(`${API_BASE}/admin/repair-queue?${params}`, { headers: hdrs }).catch(() => null),
+        fetch(`${API_BASE}/admin/questions?${params}&page_size=500&latest_only=true`, { headers: hdrs }),
       ]);
       if (!questionRes.ok) throw new Error(`Question list failed (${questionRes.status})`);
 
@@ -849,7 +850,7 @@ export default function App() {
       pollRef.current = window.setInterval(async () => {
         try {
           const res = await fetch(`${API_BASE}/admin/jobs/${jobId}`, {
-            headers: adminHeaders(),
+            headers: await adminHeaders(),
           });
           if (!res.ok) {
             if (res.status === 404) {
@@ -978,7 +979,7 @@ export default function App() {
         const endpoint = mode === 'pattern' ? `${API_BASE}/admin/upload-pattern-book` : `${API_BASE}/admin/upload-pdf`;
         const res = await fetch(endpoint, {
           method: 'POST',
-          headers: adminHeaders(),
+          headers: await adminHeaders(),
           body: form,
         });
         const data = await res.json();
@@ -1072,7 +1073,7 @@ export default function App() {
       try {
         const res = await fetch(`${API_BASE}/admin/add-blank-question`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...adminHeaders() },
+          headers: { 'Content-Type': 'application/json', ...await adminHeaders() },
           body: JSON.stringify({
             exam_name: item.exam_name,
             exam_year: item.exam_year,
@@ -1113,7 +1114,7 @@ export default function App() {
     setReviewError('');
     try {
       const res = await fetch(`${API_BASE}/admin/questions/${questionId}`, {
-        headers: adminHeaders(),
+        headers: await adminHeaders(),
       });
       if (!res.ok) throw new Error(`Question fetch failed (${res.status})`);
       const data = await res.json();
@@ -1154,7 +1155,7 @@ export default function App() {
       });
       const res = await fetch(`${API_BASE}/admin/rename-exam?${params.toString()}`, {
         method: 'PATCH',
-        headers: adminHeaders(),
+        headers: await adminHeaders(),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1187,7 +1188,7 @@ export default function App() {
       });
       const res = await fetch(`${API_BASE}/admin/publish-paper?${params.toString()}`, {
         method: 'POST',
-        headers: adminHeaders(),
+        headers: await adminHeaders(),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1219,7 +1220,7 @@ export default function App() {
       });
       const res = await fetch(`${API_BASE}/admin/generate-explanations?${params.toString()}`, {
         method: 'POST',
-        headers: adminHeaders(),
+        headers: await adminHeaders(),
       });
       const data = await res.json();
       if (!res.ok) {
