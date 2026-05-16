@@ -661,6 +661,13 @@ function AppContent() {
     void fetchData({ background: Boolean(catalogSummary && feedSummary) });
   }, [user]);
 
+  // Guard: if mock or results view is reached without an active session, redirect to home.
+  useEffect(() => {
+    if ((view === 'mock' || view === 'results') && !examSession) {
+      setView('home');
+    }
+  }, [view, examSession]);
+
   // If meta never loaded (e.g. backend was down at login), retry whenever user navigates to a view that needs it.
   useEffect(() => {
     if (user && (!catalogSummary || !feedSummary) && !dataLoading) {
@@ -826,7 +833,7 @@ function AppContent() {
     if (!currentUser) return;
 
     try {
-      const token = await currentUser.getIdToken();
+      const token = await currentUser.getIdToken(true);
       await fetch(`${API_BASE}/attempt`, {
         method: "POST",
         headers: {
@@ -2481,44 +2488,6 @@ function AppContent() {
       setPracticeBatchLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (!examSession) return;
-    try {
-      localStorage.setItem(
-        `mock_autosave_${examSession.examName}::${examSession.year}`,
-        JSON.stringify({
-          answers: examSession.answers,
-          currentIndex: examSession.currentIndex,
-          ts: Date.now(),
-        })
-      );
-    } catch {}
-  }, [examSession?.answers, examSession?.currentIndex]);
-
-  useEffect(() => {
-    if (!selectedExamName || !selectedYear || view !== "practice") return;
-    try {
-      localStorage.setItem(
-        `practice_autosave_${selectedExamName}::${selectedYear}`,
-        JSON.stringify({
-          index: practiceIndex,
-          answers: practiceSessionAnswers,
-          paperId: practicePaperId,
-          shiftLabel: practiceShiftLabel,
-          ts: Date.now(),
-        })
-      );
-    } catch {}
-  }, [
-    view,
-    selectedExamName,
-    selectedYear,
-    practiceIndex,
-    practiceSessionAnswers,
-    practicePaperId,
-    practiceShiftLabel,
-  ]);
 
   const startMockExam = async (examName: string, year: number) => {
     const selector = await resolvePaperSelector(examName, year);

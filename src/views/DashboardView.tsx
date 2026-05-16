@@ -99,7 +99,7 @@ export function DashboardView({
       try {
         const currentUser = auth.currentUser;
         if (!currentUser) return;
-        const token = await currentUser.getIdToken();
+        const token = await currentUser.getIdToken(true);
         const res = await fetch(`${API_BASE}/user/weakness-report`, {
           headers: { Authorization: `Bearer ${token}` },
           signal: controller.signal,
