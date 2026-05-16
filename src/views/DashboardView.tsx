@@ -16,6 +16,7 @@ interface DashboardViewProps {
   setView: (v: View) => void;
   openCommission?: (c: string) => void;
   startPractice: (examName: string, year: number, subject?: string, topic?: string) => void;
+  onOpenFeed?: (subject?: string) => void;
 }
 
 const BENCHMARK = 70;
@@ -77,7 +78,7 @@ function SectionHeader({
 }
 
 export function DashboardView({
-  stats, setView, startPractice, commissionMap,
+  stats, setView, startPractice, commissionMap, onOpenFeed,
 }: DashboardViewProps) {
   const [tab, setTab] = useState<Tab>('overview');
 
@@ -485,11 +486,24 @@ export function DashboardView({
                   ) : (
                     <div className="progress-list">
                       {weakSubjects.slice(0, 3).map(({ subject, pct }, index) => (
-                        <div className="progress-list-row" key={subject}>
+                        <div className="progress-list-row" key={subject} style={{ alignItems: 'flex-start' }}>
                           <span className="progress-row-index">{index + 1}</span>
-                          <div>
+                          <div style={{ flex: 1 }}>
                             <strong>{subject}</strong>
                             <p>{pct}% accuracy. Review this before adding new topics.</p>
+                            {onOpenFeed && (
+                              <button
+                                onClick={() => onOpenFeed(subject)}
+                                style={{
+                                  marginTop: 4, background: 'none', border: 'none',
+                                  padding: 0, fontSize: 11.5, color: '#2563eb',
+                                  fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                                  display: 'flex', alignItems: 'center', gap: 3,
+                                }}
+                              >
+                                Browse PYQ Feed →
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}

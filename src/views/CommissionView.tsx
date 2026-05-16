@@ -61,7 +61,16 @@ export function CommissionView({
       return [examType, info.fullName, selectedCommission, ...(info.years || []).map(String)]
         .join(' ').toLowerCase().includes(norm);
     })
-    .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }));
+    .sort((a, b) => {
+      const [aType, aInfo] = a;
+      const [bType, bInfo] = b;
+      const aLatest = aInfo.years[0] ?? 0;
+      const bLatest = bInfo.years[0] ?? 0;
+      const aLocked = isLocked(aInfo.fullName, aLatest, selectedCommission);
+      const bLocked = isLocked(bInfo.fullName, bLatest, selectedCommission);
+      if (aLocked !== bLocked) return aLocked ? 1 : -1;
+      return aType.localeCompare(bType, undefined, { numeric: true, sensitivity: 'base' });
+    });
 
   const totalQs = examTypes.reduce((s, [, e]) => s + e.count, 0);
   const allYears = [...new Set(examTypes.flatMap(([, e]) => e.years))].sort((a, b) => b - a);
@@ -149,9 +158,14 @@ export function CommissionView({
                       {abbr}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{examType}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--text-tert)' }}>
-                        {selectedCommission} · {info.years.length} year{info.years.length !== 1 ? 's' : ''} · {info.count.toLocaleString()} questions
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', marginBottom: 2, lineHeight: 1.35 }}>
+                        {info.fullName || examType}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tert)' }}>
+                        {selectedCommission} · {info.years.length} year{info.years.length !== 1 ? 's' : ''} · {info.count.toLocaleString()} Qs
+                        {info.fullName && info.fullName !== examType && (
+                          <span style={{ marginLeft: 5, opacity: 0.7 }}>· {examType}</span>
+                        )}
                       </div>
                     </div>
                   </div>

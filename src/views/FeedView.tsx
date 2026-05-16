@@ -9,6 +9,7 @@ interface FeedViewProps {
   startPractice?: (examName: string, year: number, subject?: string, topic?: string) => void;
   startTopicPractice?: (subject: string, topic: string) => void;
   prefetchTopicPractice?: (subject: string, topic: string) => void;
+  initialSubject?: string;
 }
 
 type FeedTab = 'by-topic' | 'by-exam';
@@ -302,10 +303,10 @@ function ExamRow({ exam, accentColor, onPick }: { exam: ExamEntry; accentColor: 
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────
-export function FeedView({ subjects, exams = [], startPractice, startTopicPractice, prefetchTopicPractice }: FeedViewProps) {
+export function FeedView({ subjects, exams = [], startPractice, startTopicPractice, prefetchTopicPractice, initialSubject }: FeedViewProps) {
   const [tab, setTab] = useState<FeedTab>('by-topic');
   const [sortMode, setSortMode] = useState<SortMode>('count');
-  const [filterSubject, setFilterSubject] = useState('All');
+  const [filterSubject, setFilterSubject] = useState(initialSubject && initialSubject !== 'All' ? initialSubject : 'All');
 
   const [selectedCommission, setSelectedCommission] = useState<string | null>(null);
   const [selectedExam, setSelectedExam] = useState<string | null>(null);

@@ -2471,6 +2471,16 @@ async def ingest_pattern_book_from_cache(
     return {"status": "ingested", "book_id": book_id, "question_count": len(rows)}
 
 
+_ANSWER_FIELDS = ("correct_answer", "correct_answers")
+
+
+def _strip_answer_fields(questions: list[dict]) -> list[dict]:
+    """Remove correct_answer / correct_answers from public bulk responses."""
+    if not questions:
+        return questions
+    return [{k: v for k, v in q.items() if k not in _ANSWER_FIELDS} for q in questions]
+
+
 @app.get("/questions")
 async def get_questions(
     subject: Optional[str] = Query(None),
@@ -2487,7 +2497,8 @@ async def get_questions(
     cursor: Optional[str] = Query(None),
     response: Response = None,
 ):
-    """Fetch filtered + paginated questions from stored publishable papers only."""
+    """Fetch filtered + paginated questions. Answers are NOT included here —
+    use GET /questions/{id} after the user selects, or POST /reveal-answers after exam submission."""
     try:
         start = safe_cursor_to_index(cursor) if cursor else offset
         page_data = _stream_public_exam_page(
@@ -2503,8 +2514,10 @@ async def get_questions(
             limit=limit,
             offset=start,
         )
-        # Allow browser/CDN to cache stable question pages for 5 min,
-        # serve stale for up to 10 min while revalidating in background.
+        # Strip correct answers from bulk response — revealed lazily per question
+        if isinstance(page_data, dict) and "questions" in page_data:
+            page_data = dict(page_data)
+            page_data["questions"] = _strip_answer_fields(page_data["questions"])
         if response is not None and not search:
             response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
         return page_data
@@ -2607,6 +2620,46 @@ async def get_question_with_answer(question_id: str):
         if sanitized is None:
             raise HTTPException(404, "Question not found")
         return sanitized
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Database error: {e}")
+
+
+@app.post("/reveal-answers")
+async def reveal_answers(body: dict):
+    """Batch reveal correct answers after exam submission.
+    Accepts {question_ids: [str, ...]} (max 300).
+    Returns {answers: {id: {correct_answer, correct_answers, answer_status, needs_review}}}.
+    Only returns rows that pass the public visibility check."""
+    try:
+        question_ids = body.get("question_ids") or []
+        if not isinstance(question_ids, list) or len(question_ids) == 0:
+            raise HTTPException(400, "question_ids must be a non-empty list")
+        if len(question_ids) > 300:
+            raise HTTPException(400, "Maximum 300 question_ids per request")
+
+        # Fetch only answer fields
+        r = supabase.table("questions").select(
+            "id, correct_answer, correct_answers, answer_status, needs_review, "
+            "is_active, public_visibility, practice_ready, paper_id, exam_name, exam_year"
+        ).in_("id", question_ids).execute()
+
+        supported_cols = _question_supported_columns()
+        answers: dict = {}
+        for row in (r.data or []):
+            if not _row_is_public(row, supported_cols):
+                continue
+            qid = row.get("id")
+            if not qid:
+                continue
+            answers[qid] = {
+                "correct_answer": str(row.get("correct_answer") or "").strip().upper() or None,
+                "correct_answers": row.get("correct_answers") or [],
+                "answer_status": row.get("answer_status") or "",
+                "needs_review": bool(row.get("needs_review")),
+            }
+        return {"answers": answers}
     except HTTPException:
         raise
     except Exception as e:
@@ -2957,6 +3010,10 @@ async def get_questions_by_topic(
                 limit=limit,
                 offset=offset,
             )
+        # Strip correct answers from bulk response
+        if isinstance(result, dict) and "questions" in result:
+            result = dict(result)
+            result["questions"] = _strip_answer_fields(result["questions"])
         if response is not None:
             response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
         return result

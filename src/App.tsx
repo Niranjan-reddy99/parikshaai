@@ -346,6 +346,7 @@ function AppContent() {
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [view, setView] = useState<View>("home");
+  const [feedInitialSubject, setFeedInitialSubject] = useState('All');
   const [selectedCommission, setSelectedCommission] = useState("");
   const [selectedExamType, setSelectedExamType] = useState("");
   const [selectedExamName, setSelectedExamName] = useState("");
@@ -358,6 +359,98 @@ function AppContent() {
   useEffect(() => {
     setMobileNavOpen(false);
   }, [view]);
+
+  // ── Hash Router ─────────────────────────────────────────────────────────────
+  const prevViewRef = useRef<View>(view);
+
+  const buildViewHash = (
+    v: View, comm: string, examName: string, year: number, examType: string
+  ): string => {
+    if (v === "commission" && comm)
+      return `#/commission/${encodeURIComponent(comm)}`;
+    if (v === "exam-detail" && comm && examName && year)
+      return `#/exam-detail/${encodeURIComponent(comm)}/${encodeURIComponent(examName)}/${year}/${encodeURIComponent(examType)}`;
+    return `#/${v}`;
+  };
+
+  // Sync URL on view / param changes
+  useEffect(() => {
+    const hash = buildViewHash(view, selectedCommission, selectedExamName, selectedYear, selectedExamType);
+    const current = window.location.hash || "#/home";
+    if (current === hash) { prevViewRef.current = view; return; }
+    const viewChanged = prevViewRef.current !== view;
+    prevViewRef.current = view;
+    if (viewChanged) {
+      window.history.pushState({ view }, "", hash);
+    } else {
+      window.history.replaceState({ view }, "", hash);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, selectedCommission, selectedExamName, selectedYear, selectedExamType]);
+
+  // Restore view on browser back/forward
+  useEffect(() => {
+    const SIMPLE_VIEWS = new Set([
+      "home", "browse", "dashboard", "feed", "bookmarks",
+      "badges", "leaderboard", "profile", "pattern-practice", "referral",
+    ]);
+    const restoreFromHash = (hash: string) => {
+      const parts = hash.replace(/^#\/?/, "").split("/").map(s => {
+        try { return decodeURIComponent(s); } catch { return s; }
+      });
+      const vName = parts[0] || "home";
+      if (vName === "commission" && parts[1]) {
+        setSelectedCommission(parts[1]);
+        setView("commission");
+      } else if (vName === "exam-detail" && parts[1] && parts[2] && parts[3]) {
+        setSelectedCommission(parts[1]);
+        setSelectedExamName(parts[2]);
+        setSelectedYear(parseInt(parts[3]) || 0);
+        if (parts[4]) setSelectedExamType(parts[4]);
+        setView("exam-detail");
+      } else if (SIMPLE_VIEWS.has(vName)) {
+        setView(vName as View);
+      } else {
+        setView("home");
+      }
+    };
+    const handlePopState = () => restoreFromHash(window.location.hash);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // On mount: restore from URL hash if present, otherwise set canonical URL
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash || hash === "#" || hash === "#/") {
+      window.history.replaceState({ view: "home" }, "", "#/home");
+      return;
+    }
+    const SIMPLE_VIEWS = new Set([
+      "home", "browse", "dashboard", "feed", "bookmarks",
+      "badges", "leaderboard", "profile", "pattern-practice", "referral",
+    ]);
+    const parts = hash.replace(/^#\/?/, "").split("/").map(s => {
+      try { return decodeURIComponent(s); } catch { return s; }
+    });
+    const vName = parts[0] || "home";
+    if (vName === "commission" && parts[1]) {
+      setSelectedCommission(parts[1]);
+      setView("commission");
+    } else if (vName === "exam-detail" && parts[1] && parts[2] && parts[3]) {
+      setSelectedCommission(parts[1]);
+      setSelectedExamName(parts[2]);
+      setSelectedYear(parseInt(parts[3]) || 0);
+      if (parts[4]) setSelectedExamType(parts[4]);
+      setView("exam-detail");
+    } else if (SIMPLE_VIEWS.has(vName)) {
+      setView(vName as View);
+    }
+    // practice/mock/results/report: not restorable — stay on default 'home'
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [examPaperManifestCache, setExamPaperManifestCache] = useState<
     Record<string, ExamPaperManifest>
   >({});
@@ -2475,15 +2568,45 @@ function AppContent() {
   };
 
   const finishExam = async () => {
-    if (examSession) {
-      const finalSession = {
-        ...examSession,
-        isFinished: true,
-      };
-      void persistMockAttempts(finalSession);
-      setExamSession(finalSession);
-      setView("results");
+    if (!examSession) return;
+
+    let finalSession = { ...examSession, isFinished: true };
+
+    // Batch-fetch correct answers (stripped from bulk load for security)
+    const ids = finalSession.questions.map(q => q.id).filter(Boolean);
+    if (ids.length > 0) {
+      try {
+        const res = await fetch(`${API_BASE}/reveal-answers`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question_ids: ids }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const answerMap: Record<string, { correct_answer: string | null; correct_answers: string[]; answer_status: string; needs_review: boolean }> = data.answers || {};
+          finalSession = {
+            ...finalSession,
+            questions: finalSession.questions.map(q => {
+              const ans = answerMap[q.id];
+              if (!ans) return q;
+              const primary = ans.correct_answer ?? "";
+              return {
+                ...q,
+                answer: primary,
+                answers: ans.correct_answers?.length ? ans.correct_answers : (primary ? [primary] : []),
+                answerStatus: ans.answer_status as any,
+              };
+            }),
+          };
+        }
+      } catch {
+        // Keep session without answers — ResultsView handles missing answers gracefully
+      }
     }
+
+    void persistMockAttempts(finalSession);
+    setExamSession(finalSession);
+    setView("results");
   };
 
   const loadMoreResultQuestions = async () => {
@@ -2744,6 +2867,8 @@ function AppContent() {
       selectedYear &&
       (view === "exam-detail" || view === "browse")
     ) {
+      // Do not load questions for locked (premium) exams
+      if (isLocked(selectedExamName, selectedYear, selectedCommission)) return;
       const manifest = examPaperManifestCache[`${selectedExamName}::${selectedYear}`];
       if (manifest?.papers?.length && !selectedPaperId && !selectedShiftLabel) {
         return;
@@ -2753,7 +2878,7 @@ function AppContent() {
         shiftLabel: selectedShiftLabel,
       });
     }
-  }, [selectedExamName, selectedYear, view, selectedPaperId, selectedShiftLabel, examPaperManifestCache]);
+  }, [selectedExamName, selectedYear, view, selectedPaperId, selectedShiftLabel, examPaperManifestCache, isPremium]);
 
   const selectedExamCacheKey = buildQuestionSetKey(selectedExamName, selectedYear, {
     paperId: selectedPaperId,
@@ -3101,6 +3226,10 @@ function AppContent() {
                     setView={setView}
                     openCommission={openCommission}
                     startPractice={startPractice}
+                    onOpenFeed={(subject) => {
+                      setFeedInitialSubject(subject || 'All');
+                      setView("feed");
+                    }}
                   />
                 )}
                 {view === "feed" && (
@@ -3110,12 +3239,14 @@ function AppContent() {
                     }
                   >
                   <FeedView
+                    key={feedInitialSubject}
                     subjects={feedSummary?.subjects || []}
                     exams={feedSummary?.exams || []}
                     setView={setView}
                     startPractice={startPractice}
                     startTopicPractice={startTopicPractice}
                     prefetchTopicPractice={prefetchTopicPractice}
+                    initialSubject={feedInitialSubject}
                   />
                   </Suspense>
                 )}
@@ -3284,6 +3415,8 @@ function AppContent() {
                     <BrowseView
                       examYearQs={examYearQs}
                       filteredQs={filteredQs}
+                      examIsLocked={isLocked(selectedExamName, selectedYear, selectedCommission)}
+                      onLockedClick={() => setShowPremiumModal(true)}
                       totalCount={examQuestionCount}
                       hasMore={Boolean(
                         examPageState[selectedExamCacheKey]?.hasMore

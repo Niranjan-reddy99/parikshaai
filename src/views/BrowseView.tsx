@@ -25,6 +25,8 @@ interface BrowseViewProps {
   searchQuery: string;
   commissionMap: CommissionMap;
   examLoading: boolean;
+  examIsLocked?: boolean;
+  onLockedClick?: () => void;
   setSearchQuery: (v: string) => void;
   setFilterSubject: (v: string) => void;
   setFilterTopic: (v: string) => void;
@@ -40,7 +42,7 @@ export function BrowseView({
   selectedExamName, selectedExamType, selectedYear,
   showPicker, setShowPicker, catalogSearchQuery,
   filterSubject, filterTopic, filterSubtopic, searchQuery,
-  commissionMap, examLoading,
+  commissionMap, examLoading, examIsLocked, onLockedClick,
   setSearchQuery, setFilterSubject, setFilterTopic, setFilterSubtopic,
   setSelectedQuestion, loadMoreQuestions, setView, onPickCommission,
 }: BrowseViewProps) {
@@ -85,6 +87,59 @@ export function BrowseView({
         setCategoryTab={setCategoryTab}
         onPickCommission={onPickCommission}
       />
+    );
+  }
+
+  // =========================
+  // SECTION: Render Locked Gate
+  // =========================
+  if (examIsLocked) {
+    return (
+      <div className="browse-shell">
+        <div className="browse-header">
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 3 }}>
+              {selectedExamName || selectedExamType}
+            </h2>
+            <p style={{ fontSize: 12, color: C.textSec }}>{selectedYear}</p>
+          </div>
+          <button onClick={() => setView('exam-detail')}
+            style={{ padding: '7px 14px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.textSec, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <ArrowLeft style={{ width: 13, height: 13 }} /> Back to exam
+          </button>
+        </div>
+        <div style={{
+          background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 16,
+          padding: '64px 32px', textAlign: 'center', marginTop: 16,
+        }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%',
+            background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 18px',
+            boxShadow: '0 8px 24px rgba(245,158,11,0.25)',
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>Premium Paper</div>
+          <div style={{ fontSize: 13.5, color: 'var(--text-sec)', maxWidth: 340, margin: '0 auto 22px', lineHeight: 1.7 }}>
+            Questions for this paper are available on the Premium plan. Upgrade to browse and practice all papers.
+          </div>
+          <button
+            onClick={onLockedClick}
+            style={{
+              padding: '11px 28px', background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+              border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
+              color: 'white', cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 4px 14px rgba(245,158,11,0.3)',
+            }}
+          >
+            Unlock Premium Access
+          </button>
+        </div>
+      </div>
     );
   }
 
