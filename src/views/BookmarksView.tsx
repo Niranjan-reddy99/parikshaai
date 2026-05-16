@@ -112,7 +112,7 @@ export function BookmarksView({ bookmarkMap, onRemove, onClearAll, onPracticeAll
       </div>
 
       {/* Subject filter */}
-      {allQuestions.length > 0 && subjects.length > 2 && (
+      {allQuestions.length > 0 && subjects.length >= 2 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, color: 'var(--text-tert)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filter:</span>
           {subjects.map(s => (
