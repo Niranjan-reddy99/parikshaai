@@ -114,6 +114,7 @@ import {
   type ExamSession,
   type WeightageItem,
   type PaginatedQuestionsResponse,
+  type ReportData,
 } from "./types/index";
 
 const CATALOG_CACHE_KEY = "catalog_summary_v15_public";
@@ -565,7 +566,7 @@ function AppContent() {
   const [flagQuestion, setFlagQuestion] = useState<Question | null>(null);
 
   // ── Report / Chat ───────────────────────────────────────────────────────────
-  const [reportData, setReportData] = useState<any | null>(null);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<
@@ -714,14 +715,6 @@ function AppContent() {
   }, [examSession, examTimer]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
-
-  const invalidateMetaCache = () => {
-    try {
-      localStorage.removeItem(`questions_meta_v1_public`);
-    } catch {
-      /* ignore */
-    }
-  };
 
   const handleLogin = async () => {
     try {
@@ -2481,7 +2474,6 @@ function AppContent() {
         loaded: prev.loaded + freshCount,
         total: totalCount || prev.total,
       }));
-      setPracticeInitMessage("Loading the next batch...");
     } catch (e: any) {
       setPracticeLoadMoreError(e?.message || "Failed to load more questions");
     } finally {
@@ -2675,6 +2667,7 @@ function AppContent() {
         }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Chat request failed");
       setChatMessages((prev) => [
         ...prev,
         { role: "model", text: data.reply || "No response." },

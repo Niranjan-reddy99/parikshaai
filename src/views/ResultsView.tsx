@@ -14,6 +14,8 @@ import {
 import { formatTime } from '../lib/utils';
 import { API_BASE } from '../lib/api';
 import {
+  BLOCKED_EXPLANATION,
+  UNAVAILABLE_EXPLANATION,
   DELETED_QUESTION_NOTE,
   MULTIPLE_ANSWERS_NOTE,
 } from './practice/practiceUtils';
@@ -32,8 +34,6 @@ type TopicRow = { topic: string; total: number; correct: number; wrong: number; 
 type SubjectRow = { subject: string; total: number; correct: number; wrong: number; skipped: number; topics: TopicRow[] };
 
 const COLORS = ['#F5A623','#7C6EF5','#2BBFFF','#22c55e','#FF6B6B','#FF8C42','#2dd4bf','#a78bfa','#fb7185','#34d399'];
-const BLOCKED_EXPLANATION = 'Explanation withheld until the correct answer is verified for this question.';
-const UNAVAILABLE_EXPLANATION = 'Explanation is not available for this question yet.';
 
 function pct(c: number, t: number) { return t === 0 ? 0 : Math.round((c / t) * 100); }
 function accColor(c: number, t: number) {

@@ -430,3 +430,33 @@ export interface PatternStage12Report {
   source_classification_report_path?: string;
   report_path?: string;
 }
+
+export interface ReportData {
+  examName: string;
+  year: number;
+  totalQuestions: number;
+  generatedAt: string;
+  subjectDistribution: { subject: string; count: number; percentage: number }[];
+  topicWise: { subject: string; topics: { topic: string; count: number }[] }[];
+  difficultyAnalysis: {
+    easy: number;
+    medium: number;
+    hard: number;
+    total: number;
+    easyPercent: number;
+    mediumPercent: number;
+    hardPercent: number;
+    explanation: string;
+  };
+  currentVsStatic: {
+    current: number;
+    static: number;
+    currentPercent: number;
+    staticPercent: number;
+  };
+  keyInsights: string[];
+  comparisonWithPreviousYears: string[];
+  predictionsForNextExam: string[];
+  studentStrategy: string[];
+  overallVerdict: string;
+}
