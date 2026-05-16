@@ -601,10 +601,13 @@ function AppContent() {
   // ── Effects ─────────────────────────────────────────────────────────────────
 
   const fetchSubscription = async (firebaseUser: { uid: string; getIdToken: () => Promise<string> }) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
       const token = await firebaseUser.getIdToken();
       const res = await fetch(`${API_BASE}/user/subscription`, {
         headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
       });
       if (res.ok) {
         const data = await res.json();
@@ -615,6 +618,7 @@ function AppContent() {
     } catch {
       setIsPremium(false);
     } finally {
+      clearTimeout(timeout);
       setSubscriptionLoaded(true);
     }
   };

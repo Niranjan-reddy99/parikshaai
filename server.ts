@@ -285,6 +285,25 @@ Based on this complete data, provide your expert analysis.`
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+
+    // Serve runtime config before static files so the browser gets JS not HTML
+    app.get("/runtime-config.js", (_req, res) => {
+      const apiUrl = process.env.VITE_API_URL || process.env.BACKEND_URL || "http://localhost:8000";
+      res.setHeader("Content-Type", "application/javascript");
+      res.setHeader("Cache-Control", "no-store");
+      res.send(`window.__APP_CONFIG__ = ${JSON.stringify({
+        VITE_API_URL: apiUrl,
+        VITE_FIREBASE_API_KEY: process.env.VITE_FIREBASE_API_KEY,
+        VITE_FIREBASE_AUTH_DOMAIN: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+        VITE_FIREBASE_PROJECT_ID: process.env.VITE_FIREBASE_PROJECT_ID,
+        VITE_FIREBASE_APP_ID: process.env.VITE_FIREBASE_APP_ID,
+        VITE_FIREBASE_STORAGE_BUCKET: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+        VITE_FIREBASE_MESSAGING_SENDER_ID: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        VITE_FIREBASE_MEASUREMENT_ID: process.env.VITE_FIREBASE_MEASUREMENT_ID,
+        VITE_FIREBASE_FIRESTORE_DATABASE_ID: process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID,
+      })};`);
+    });
+
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
