@@ -106,13 +106,6 @@ async function startServer() {
 
   app.use(express.json({ limit: '10mb' }));
 
-  // Required for Firebase Google sign-in popup to work without COOP warnings.
-  // Without this header the browser blocks window.closed checks on the OAuth popup.
-  app.use((_req, res, next) => {
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-    next();
-  });
-
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error("CRITICAL: GEMINI_API_KEY is not set in the environment.");
