@@ -107,7 +107,6 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
       setLoading(true);
       setError(null);
       try {
-        const token = await user.getIdToken();
         const params = new URLSearchParams({
           time_filter: timeFilter,
           limit: String(entryLimit),
@@ -115,7 +114,11 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
         if (enrolledCommissions.length > 0) {
           params.set('commissions', enrolledCommissions.join(','));
         }
-        const res = await fetch(`${API_BASE}/leaderboard?${params.toString()}`, {
+        const url = `${API_BASE}/leaderboard?${params.toString()}`;
+
+        // Force-refresh token to avoid 401s from stale cached tokens
+        const token = await user.getIdToken(true);
+        let res = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` },
           credentials: 'include',
         });
