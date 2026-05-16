@@ -168,6 +168,11 @@ export function Navbar({
       id: 'bookmarks', icon: 'bookmark', label: 'Bookmarks', isActive: view === 'bookmarks',
       onClick: () => setView('bookmarks'),
     },
+    {
+      id: 'pattern', icon: 'pulse', label: 'Pattern Practice', isActive: view === 'pattern-practice',
+      badge: { text: 'BETA', color: '#2563eb', bg: '#dbeafe' },
+      onClick: openPatternPractice,
+    },
   ];
 
   const trackItems: NavItemDef[] = [
@@ -268,26 +273,6 @@ export function Navbar({
         {/* COMMUNITY */}
         <SectionLabel label="Community" />
         {communityItems.map(renderItem)}
-
-        {/* LABS */}
-        <SectionLabel label="Labs" />
-        <div
-          onClick={() => {
-            openPatternPractice();
-            onNavigate?.();
-          }}
-          onMouseEnter={() => setHoveredItem('pattern')}
-          onMouseLeave={() => setHoveredItem(null)}
-          style={navItemStyle(view === 'pattern-practice', hoveredItem === 'pattern')}
-        >
-          <span style={{ width: 15, height: 15, flexShrink: 0, color: view === 'pattern-practice' ? '#2563eb' : 'currentColor' }}>
-            <NavIcon name="pulse" />
-          </span>
-          <span style={{ flex: 1 }}>Pattern Practice</span>
-          <span style={{ padding: '1px 5px', background: '#dbeafe', color: '#2563eb', borderRadius: 3, fontSize: 9, fontWeight: 700 }}>
-            BETA
-          </span>
-        </div>
       </nav>
 
       {/* Profile footer */}

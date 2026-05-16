@@ -484,6 +484,14 @@ def process_vision_job_background(
             print(f"[vision-job] FAILED — no questions found in PDF")
             return
 
+        # --- Image upload (graphs / figures / diagrams) ---
+        image_qs_count = sum(1 for q in questions if q.get("has_image"))
+        if image_qs_count > 0:
+            print(f"\n[vision-job] Uploading images for {image_qs_count} image question(s)...")
+            from extractor.universal_extractor import _upload_page_images, _propagate_di_images  # type: ignore
+            questions = _upload_page_images(questions, pdf_path, exam_name, exam_year, supabase)
+            questions = _propagate_di_images(questions)
+
         # --- AI tagging ---
         from pipeline import CostTracker as PipelineCostTracker, repair_structurally_broken_rows  # type: ignore
         tag_tracker = PipelineCostTracker()
@@ -498,12 +506,28 @@ def process_vision_job_background(
         skipped = result.get("skipped", 0)
         print(f"[vision-job] Done — inserted: {inserted}, skipped: {skipped}")
 
+        # Build a page→question-number map from extracted questions so that the
+        # repair pass can locate broken questions even on scanned PDFs where text
+        # extraction returns nothing. Without this, _targeted_vision_recovery sees
+        # empty page sets and silently skips all broken rows.
+        vision_page_nums_map: list[set[int]] = [set() for _ in range(total_pages)]
+        sorted_qnums = sorted({
+            q.get("question_number") for q in tagged
+            if isinstance(q.get("question_number"), int)
+        })
+        if sorted_qnums:
+            max_qn = max(sorted_qnums)
+            for qn in sorted_qnums:
+                est = round((qn - 1) / max(max_qn, 1) * max(total_pages - 1, 1))
+                vision_page_nums_map[min(est, total_pages - 1)].add(qn)
+
         repair_result = repair_structurally_broken_rows(
             pdf_path,
             exam_name,
             exam_year,
             job_id=job_id,
             tracker=tag_tracker,
+            vision_page_nums=vision_page_nums_map,
         )
         if repair_result.get("targeted"):
             print(

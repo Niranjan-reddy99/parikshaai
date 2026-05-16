@@ -237,34 +237,45 @@ export function HomeView({
             {
               label: 'Daily target',
               value: `${todayCount}/${dailyGoal}`,
-              hint: goalPct >= 100 ? 'Completed today' : `${remainingToday} left`,
+              hint: goalPct >= 100 ? 'Target hit' : `${remainingToday} left`,
               accent: '#2563eb',
+              showProgress: true,
+              progress: goalPct,
             },
             {
               label: 'Accuracy',
               value: totals.total > 0 ? `${accuracy}%` : '—',
-              hint: accuracy >= 70 ? 'Stable' : accuracy >= 50 ? 'Improving' : 'Needs attention',
+              hint: accuracy >= 70 ? 'Solid' : accuracy >= 50 ? 'Improving' : 'Needs work',
               accent: accuracy >= 70 ? '#16a34a' : accuracy >= 50 ? '#f59e0b' : '#ef4444',
+              showProgress: false,
+              progress: 0,
             },
             {
               label: 'Streak',
-              value: stats.streak > 0 ? `${stats.streak}d` : 'Start',
-              hint: stats.streak > 0 ? 'Keep the chain alive' : 'Build momentum',
+              value: stats.streak > 0 ? `${stats.streak}d` : '—',
+              hint: stats.streak > 0 ? 'Keep it alive' : 'Start today',
               accent: '#f59e0b',
+              showProgress: false,
+              progress: 0,
             },
           ].map((item) => (
             <div
               key={item.label}
               className="surface-card"
-              style={{ borderRadius: 18, padding: '16px 18px' }}
+              style={{ borderRadius: 18, padding: '16px 18px', borderLeft: `3px solid ${item.accent}` }}
             >
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
                 {item.label}
               </div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', lineHeight: 1.05, marginBottom: 5 }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)', lineHeight: 1, marginBottom: 7, letterSpacing: '-0.02em' }}>
                 {item.value}
               </div>
-              <div style={{ fontSize: 11.5, color: item.accent }}>
+              {item.showProgress && (
+                <div style={{ height: 3, background: 'var(--bg-canvas)', borderRadius: 99, marginBottom: 6, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${item.progress}%`, background: item.accent, borderRadius: 99, transition: 'width 0.4s ease' }} />
+                </div>
+              )}
+              <div style={{ fontSize: 11.5, color: item.accent, fontWeight: 600 }}>
                 {item.hint}
               </div>
             </div>

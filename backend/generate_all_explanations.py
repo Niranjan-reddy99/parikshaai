@@ -14,6 +14,7 @@ Usage:
 Options:
     --dry-run          Count missing, estimate cost, exit without API calls
     --exam "NAME YEAR" Limit to one exam (e.g. "UPSC IAS 2024")
+    --yes              Skip confirmation prompt and proceed automatically
 """
 from __future__ import annotations
 
@@ -42,6 +43,7 @@ sb = create_client(
 )
 
 DRY_RUN     = "--dry-run" in sys.argv
+YES_FLAG    = "--yes" in sys.argv
 EXAM_FILTER = next((sys.argv[i+1] for i, a in enumerate(sys.argv) if a == "--exam" and i+1 < len(sys.argv)), None)
 
 BATCH_SIZE = 15
@@ -219,10 +221,13 @@ def main() -> None:
         print("\n✅ Dry run done — no changes made.")
         return
 
-    confirm = input("\nProceed? (y/N): ").strip().lower()
-    if confirm != "y":
-        print("Aborted.")
-        return
+    if YES_FLAG:
+        print("\nProceeding automatically (--yes flag).")
+    else:
+        confirm = input("\nProceed? (y/N): ").strip().lower()
+        if confirm != "y":
+            print("Aborted.")
+            return
 
     batches = [pending[i:i+BATCH_SIZE] for i in range(0, len(pending), BATCH_SIZE)]
     generated = 0

@@ -2256,7 +2256,18 @@ def process_cbt_job_background(
                 print(f"  [warn] Shift {shift.shift_label}: found {len(merged)}, "
                       f"expected {expected_count}")
 
-            # Step 5a: tag
+            # Step 5a: upload images for any figure/graph/table questions not already uploaded
+            _image_qs = [q for q in merged if q.get("has_image") and not q.get("image_url")]
+            if _image_qs:
+                _upd(error=f"Uploading images for {len(_image_qs)} figure question(s)...")
+                try:
+                    from extractor.universal_extractor import _upload_page_images, _propagate_di_images  # type: ignore
+                    merged = _upload_page_images(merged, pdf_path, exam_name, exam_year, sb)
+                    merged = _propagate_di_images(merged)
+                except Exception as _img_err:
+                    print(f"  [cbt-img] Image upload failed (non-fatal): {_img_err}")
+
+            # Step 5b: tag
             _upd(progress=shift_end_progress - 4)
             from pipeline import tag_questions, store_questions, CostTracker as _PCT
             tag_tracker = _PCT()

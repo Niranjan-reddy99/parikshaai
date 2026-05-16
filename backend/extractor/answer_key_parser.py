@@ -29,13 +29,59 @@ load_dotenv()
 
 _NUM_TO_LETTER: dict[str, str] = {"1": "A", "2": "B", "3": "C", "4": "D"}
 
+# Sentinel values returned for special answer states — callers must handle these.
+DELETED_SENTINEL = "DELETED"   # Q was dropped by the exam board (answer key shows "X")
+MULTIPLE_SEP = "|"             # Separator for multiple-accepted answers, e.g. "B|C"
+
+
+_VALID_LETTERS = {"A", "B", "C", "D"}
+
 
 def _to_letter(s: str) -> Optional[str]:
     s = s.strip()
     u = s.upper()
-    if u in "ABCD":
+    if u in _VALID_LETTERS:
         return u
+    if u == "X":
+        return DELETED_SENTINEL
+    # Handle two-letter multiple-accepted answers like "BC", "BD" from Gemini vision
+    if len(u) == 2 and u[0] in _VALID_LETTERS and u[1] in _VALID_LETTERS and u[0] != u[1]:
+        return f"{u[0]}{MULTIPLE_SEP}{u[1]}"
     return _NUM_TO_LETTER.get(s)
+
+
+def _try_special(text: str) -> dict[int, str]:
+    """
+    Capture non-standard answer states that the main strategies skip:
+      - Deleted/dropped questions: '82 X', '82-X', '82. X'
+      - Multiple accepted answers: '97 B or C', '97 Bor C', '97 B/C', '105 B or C'
+    Returns entries alongside normal answers; callers merge with lower priority.
+    """
+    result: dict[int, str] = {}
+
+    # Deleted: number followed by X (case-insensitive, various separators)
+    DEL_PAT = re.compile(
+        r'(?<!\d)(\d{1,3})\s*[-.):,/\s]\s*[Xx](?=\s|$)',
+        re.MULTILINE,
+    )
+    for m in DEL_PAT.finditer(text):
+        num = int(m.group(1))
+        if 1 <= num <= 300 and num not in result:
+            result[num] = DELETED_SENTINEL
+
+    # Multiple accepted: number then two letters separated by "or", "/" or space
+    # e.g. "97 B or C", "97 Bor C", "97 B/C", "105 BorC"
+    MULTI_PAT = re.compile(
+        r'(?<!\d)(\d{1,3})\s*[-.):,/\s]?\s*([A-Da-d])\s*(?:or\s*|/\s*)?([A-Da-d])(?=\s|$)',
+        re.IGNORECASE | re.MULTILINE,
+    )
+    for m in MULTI_PAT.finditer(text):
+        num = int(m.group(1))
+        l1, l2 = m.group(2).upper(), m.group(3).upper()
+        if l1 != l2 and 1 <= num <= 300 and num not in result:
+            result[num] = f"{l1}{MULTIPLE_SEP}{l2}"
+
+    return result
 
 
 def _extract_pdf_text(pdf_path: str) -> str:
@@ -77,7 +123,7 @@ def _try_inline(text: str) -> dict[int, str]:
 
 def _try_tabular(text: str) -> dict[int, str]:
     """Handles single or multi-column tables: '1  A\n2  B' or '1 A 51 C'."""
-    PAT = re.compile(r'(?<!\d)(\d{1,3})\s+([A-Da-d1-4])(?=\s|$)', re.MULTILINE)
+    PAT = re.compile(r'(?<!\d)(\d{1,3})\s+([A-Da-d1-4Xx])(?=\s|$)', re.MULTILINE)
     result: dict[int, str] = {}
     for m in PAT.finditer(text):
         num = int(m.group(1))
@@ -133,6 +179,8 @@ def _vision_answer_key(pdf_path: str, expected_count: int) -> dict[int, str]:
         "Rules:\n"
         "- Map numeric codes to letters: 1→A, 2→B, 3→C, 4→D\n"
         "- Lowercase answers (a,b,c,d) → uppercase\n"
+        "- If a question is marked as dropped/deleted/cancelled (answer shown as X or crossed out), set ans to \"X\"\n"
+        "- If a question has two accepted answers (e.g. 'B or C'), set ans to the two letters joined without spaces, e.g. \"BC\"\n"
         "- Include ALL visible question numbers, even if no answer is circled (skip those)\n"
         "- No explanation, no markdown — ONLY the JSON array."
     )
@@ -187,7 +235,11 @@ def parse_answer_key(pdf_path: str, expected_count: int = 150) -> dict[int, str]
         expected_count: Expected number of questions (for coverage scoring).
 
     Returns:
-        dict mapping question_number (int) → correct_answer (str "A"/"B"/"C"/"D").
+        dict mapping question_number (int) → correct_answer.
+        Values are "A"/"B"/"C"/"D" for normal answers,
+        DELETED_SENTINEL ("DELETED") for dropped questions (answer key shows "X"),
+        or "B|C" style strings for multiple-accepted answers.
+        Callers must handle these special values.
     """
     text = _extract_pdf_text(pdf_path)
 
@@ -201,19 +253,36 @@ def parse_answer_key(pdf_path: str, expected_count: int = 150) -> dict[int, str]
 
     print(f"  📋 Answer key ({best_name}): {len(best)} answers, {score:.0%} coverage")
 
-    # Only attempt vision fallback on small PDFs (≤ 8 pages). Large PDFs are
-    # almost always question papers, not standalone answer keys, and sending
-    # the whole document through vision can stall uploads for no real gain.
-    # We still require at least a trace of answer-like text (> 2%) so scanned
-    # answer keys can recover, but that signal alone must never override the
-    # page-count guard.
+    # Merge special-state answers (deleted / multiple) that the main strategies miss.
+    # These do not count towards coverage score since they are not standard A/B/C/D.
+    special = _try_special(text)
+    for q_num, val in special.items():
+        if q_num not in best:
+            best[q_num] = val
+    if special:
+        deleted_ct = sum(1 for v in special.values() if v == DELETED_SENTINEL)
+        multi_ct = len(special) - deleted_ct
+        parts = []
+        if deleted_ct:
+            parts.append(f"{deleted_ct} deleted")
+        if multi_ct:
+            parts.append(f"{multi_ct} multiple-accepted")
+        print(f"  📋 Special answer states detected: {', '.join(parts)}")
+
+    # Attempt vision fallback on small PDFs (≤ 8 pages) whenever text coverage is
+    # below 40%. The previous guard (score > 0.02) was wrong: it silently skipped
+    # vision on pure-image scanned answer keys where PyMuPDF returns 0 text —
+    # exactly the case where vision is most needed.
     doc_page_count = len(fitz.open(pdf_path))
-    if score < 0.40 and doc_page_count <= 8 and score > 0.02:
+    if score < 0.40 and doc_page_count <= 8:
         print(f"  ⚠️  Low text coverage ({score:.0%}) — trying Gemini Vision on answer key "
               f"(PDF has {doc_page_count} pages)...")
         vision_result = _vision_answer_key(pdf_path, expected_count)
         vision_score = _score_coverage(vision_result, expected_count)
         if vision_score > score:
+            # Also merge special states from vision into the result
+            for q_num, val in special.items():
+                vision_result.setdefault(q_num, val)
             best = vision_result
             score = vision_score
             print(f"  ✅ Vision improved answer key coverage to {score:.0%}")

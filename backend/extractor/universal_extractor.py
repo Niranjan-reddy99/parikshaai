@@ -2310,11 +2310,23 @@ def process_universal_job_background(
 
         # ── Inject external answer key (if provided) ─────────────────────────
         if answer_key_map:
+            from .answer_key_parser import DELETED_SENTINEL, MULTIPLE_SEP
             print(f"[univ-job] Injecting {len(answer_key_map)} answers from external key...")
             for q in questions:
                 qn = q.get("question_number")
                 if qn and qn in answer_key_map:
-                    q["correct_answer"] = answer_key_map[qn]
+                    val = answer_key_map[qn]
+                    if val == DELETED_SENTINEL:
+                        q["correct_answer"] = ""
+                        q["answer_status"] = "deleted"
+                    elif MULTIPLE_SEP in str(val):
+                        letters = [c for c in str(val).split(MULTIPLE_SEP) if c in "ABCD"]
+                        q["correct_answer"] = letters[0] if letters else ""
+                        q["correct_answers"] = letters
+                        q["answer_status"] = "multiple"
+                    else:
+                        q["correct_answer"] = val
+                        q["answer_status"] = "verified"
                     q["needs_review"] = False
         _update_job("processing", 78)
 

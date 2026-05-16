@@ -6,23 +6,32 @@ interface PremiumGateModalProps {
 }
 
 const FEATURES = [
-  { icon: '📄', text: 'Access all previous year papers across every commission' },
-  { icon: '📊', text: 'Advanced analytics — accuracy trends, weak area deep-dives' },
-  { icon: '🔖', text: 'Unlimited bookmarks and custom practice sets' },
-  { icon: '⚡', text: 'AI-generated explanations for every question instantly' },
-  { icon: '🏆', text: 'Full leaderboard visibility and rank tracking' },
-  { icon: '🔒', text: 'Unlock all years: 2015 → present for all exams' },
+  'All previous year papers across every commission',
+  'Advanced analytics — accuracy trends, weak-area deep-dives',
+  'Unlimited bookmarks and custom practice sets',
+  'AI explanations for every question, instantly',
+  'Full leaderboard visibility and rank tracking',
+  'Unlock all years: 2015 → present for all exams',
 ];
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
 
 export function PremiumGateModal({ freePaperLabel, onClose }: PremiumGateModalProps) {
   const [hoverClose, setHoverClose] = useState(false);
+  const [notified, setNotified] = useState(false);
 
   return (
     <div
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.55)',
+        background: 'rgba(0,0,0,0.52)',
         backdropFilter: 'blur(6px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 20,
@@ -33,10 +42,10 @@ export function PremiumGateModal({ freePaperLabel, onClose }: PremiumGateModalPr
         style={{
           background: 'var(--bg)',
           borderRadius: 20,
-          padding: '36px 36px 28px',
+          padding: '32px 32px 24px',
           maxWidth: 440,
           width: '100%',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.24)',
           border: '1px solid var(--border)',
           position: 'relative',
         }}
@@ -46,6 +55,7 @@ export function PremiumGateModal({ freePaperLabel, onClose }: PremiumGateModalPr
           onClick={onClose}
           onMouseEnter={() => setHoverClose(true)}
           onMouseLeave={() => setHoverClose(false)}
+          aria-label="Close"
           style={{
             position: 'absolute', top: 14, right: 14,
             width: 30, height: 30, borderRadius: '50%',
@@ -61,58 +71,73 @@ export function PremiumGateModal({ freePaperLabel, onClose }: PremiumGateModalPr
         </button>
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <div style={{
-            width: 64, height: 64, borderRadius: '50%',
+            width: 56, height: 56, borderRadius: '50%',
             background: 'linear-gradient(135deg, #f59e0b, #d97706)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px', fontSize: 28,
-            boxShadow: '0 8px 24px rgba(245,158,11,0.3)',
+            margin: '0 auto 14px',
+            boxShadow: '0 8px 24px rgba(245,158,11,0.28)',
           }}>
-            👑
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="none" aria-hidden="true">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+            </svg>
           </div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: '0 0 8px', letterSpacing: '-0.3px' }}>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', margin: '0 0 8px', letterSpacing: '-0.3px' }}>
             Unlock Premium Access
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-sec)', margin: 0, lineHeight: 1.6 }}>
             Free plan includes <strong style={{ color: 'var(--text)' }}>{freePaperLabel}</strong> only.
-            Upgrade to access all {' '}
+            Upgrade to access all{' '}
             <strong style={{ color: 'var(--text)' }}>2,500+ papers</strong> across every exam.
           </p>
         </div>
 
         {/* Feature list */}
-        <div style={{ marginBottom: 24 }}>
-          {FEATURES.map(({ icon, text }) => (
-            <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
-              <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+        <div style={{ marginBottom: 22 }}>
+          {FEATURES.map((text) => (
+            <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 9 }}>
+              <span style={{ flexShrink: 0, marginTop: 1, color: '#16a34a', display: 'flex' }}>
+                <CheckIcon />
+              </span>
               <span style={{ fontSize: 13, color: 'var(--text-sec)', lineHeight: 1.5 }}>{text}</span>
             </div>
           ))}
         </div>
 
         {/* CTA */}
-        <button
-          style={{
-            width: '100%', padding: '13px 0',
-            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-            border: 'none', borderRadius: 10,
-            fontSize: 15, fontWeight: 700, color: 'white',
-            cursor: 'pointer', fontFamily: 'inherit',
-            boxShadow: '0 4px 16px rgba(245,158,11,0.35)',
-            marginBottom: 10,
+        {notified ? (
+          <div style={{
+            padding: '13px 0', borderRadius: 10,
+            background: '#f0fdf4', border: '1px solid #bbf7d0',
+            textAlign: 'center', marginBottom: 10,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          }}
-          onClick={() => {
-            // Payment gateway will be integrated here
-            alert('Payment gateway coming soon! Contact us to upgrade.');
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>
-          </svg>
-          Upgrade to Premium
-        </button>
+          }}>
+            <span style={{ color: '#16a34a', display: 'flex' }}><CheckIcon /></span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#15803d' }}>
+              We'll notify you when payments go live!
+            </span>
+          </div>
+        ) : (
+          <button
+            style={{
+              width: '100%', padding: '13px 0',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              border: 'none', borderRadius: 10,
+              fontSize: 15, fontWeight: 700, color: 'white',
+              cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 4px 16px rgba(245,158,11,0.32)',
+              marginBottom: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+            onClick={() => setNotified(true)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>
+            </svg>
+            Get Early Access
+          </button>
+        )}
 
         <button
           onClick={onClose}

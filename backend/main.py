@@ -3510,6 +3510,82 @@ class SyncLocalPayload(BaseModel):
     daily_activity: dict = {}
 
 
+# ── Subscription helpers ────────────────────────────────────────────────────────
+
+def _get_subscription(firebase_uid: str) -> dict:
+    """Fetch and auto-expire subscription row. Returns normalized dict."""
+    try:
+        r = supabase.table("user_subscriptions").select("*").eq("firebase_uid", firebase_uid).limit(1).execute()
+        if not r.data:
+            return {"plan": "free", "status": "active", "is_premium": False, "plan_expires_at": None}
+        sub = r.data[0]
+        plan   = str(sub.get("plan") or "free").lower()
+        status = str(sub.get("status") or "active").lower()
+        expires_at = sub.get("plan_expires_at")
+        if plan != "free" and expires_at:
+            from datetime import datetime, timezone
+            expiry = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+            if expiry < datetime.now(timezone.utc):
+                plan = "free"
+                status = "expired"
+                try:
+                    supabase.table("user_subscriptions").update({
+                        "plan": "free", "status": "expired",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }).eq("firebase_uid", firebase_uid).execute()
+                except Exception:
+                    pass
+        is_premium = (plan != "free") and (status == "active")
+        return {"plan": plan, "status": status, "is_premium": is_premium, "plan_expires_at": expires_at}
+    except Exception as e:
+        print(f"WARN _get_subscription({firebase_uid}): {e}")
+        return {"plan": "free", "status": "active", "is_premium": False, "plan_expires_at": None}
+
+
+@app.get("/user/subscription")
+def get_user_subscription(user: dict = Depends(get_current_user)):
+    return _get_subscription(user["uid"])
+
+
+class _GrantPremiumBody(BaseModel):
+    firebase_uid: str
+    plan: str = "pro"
+    days: int = 30
+
+
+@app.post("/admin/grant-premium", dependencies=[Depends(verify_admin)])
+def admin_grant_premium(body: _GrantPremiumBody):
+    from datetime import datetime, timezone, timedelta
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=body.days)).isoformat()
+    supabase.table("user_subscriptions").upsert({
+        "firebase_uid": body.firebase_uid,
+        "plan": body.plan,
+        "status": "active",
+        "plan_expires_at": expires_at,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }, on_conflict="firebase_uid").execute()
+    return {"status": "granted", "firebase_uid": body.firebase_uid, "plan": body.plan, "expires_at": expires_at}
+
+
+class _RevokePremiumBody(BaseModel):
+    firebase_uid: str
+
+
+@app.post("/admin/revoke-premium", dependencies=[Depends(verify_admin)])
+def admin_revoke_premium(body: _RevokePremiumBody):
+    from datetime import datetime, timezone
+    supabase.table("user_subscriptions").upsert({
+        "firebase_uid": body.firebase_uid,
+        "plan": "free",
+        "status": "active",
+        "plan_expires_at": None,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }, on_conflict="firebase_uid").execute()
+    return {"status": "revoked", "firebase_uid": body.firebase_uid}
+
+
+# ── User stats ──────────────────────────────────────────────────────────────────
+
 @app.get("/user/stats")
 def get_user_stats(user: dict = Depends(get_current_user)):
     """Return cached Supabase stats, falling back to Firestore if cache is cold."""
@@ -4116,11 +4192,29 @@ def admin_upload_pdf(
                     import time as _t; _t.sleep(0.5)
                     continue
                 raise
+        # Capture locals for the closure — the answer key must be injected
+        # after the job completes regardless of which pipeline ran. Previously
+        # CBT and Vision pipelines never received answer_key_map, so any key
+        # uploaded alongside them was silently dropped. This callback is the
+        # single authoritative injection point for all pipeline types.
+        _ak_map = answer_key_map
+        _ak_exam = exam_name
+        _ak_year = exam_year
+        _ak_job = job_id
+
         def _on_done(f):
-            if f.exception():
-                print(f"[job {job_id[:8]}] crashed: {f.exception()}")
+            exc = f.exception()
+            if exc:
+                print(f"[job {_ak_job[:8]}] crashed: {exc}")
+            elif _ak_map:
+                try:
+                    from pipeline import inject_answers as _inject
+                    _inject(_ak_map, _ak_exam, _ak_year)
+                    print(f"[job {_ak_job[:8]}] Post-job answer key injection complete")
+                except Exception as _e:
+                    print(f"[job {_ak_job[:8]}] Post-job inject_answers failed: {_e}")
             _invalidate_meta_cache()
-            
+
         future.add_done_callback(_on_done)
         print(f"[upload] Submitted job {job_id[:8]} to pool (active workers ≤4)")
 

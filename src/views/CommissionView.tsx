@@ -37,7 +37,7 @@ function DiffBar({ difficulty, total }: { difficulty: Record<string, number>; to
   const hard = Math.round(((difficulty.Hard || 0) / total) * 100);
   const med  = 100 - easy - hard;
   return (
-    <div style={{ display: 'flex', height: 5, borderRadius: 3, overflow: 'hidden', gap: 1.5 }}>
+    <div style={{ display: 'flex', height: 7, borderRadius: 4, overflow: 'hidden', gap: 2 }}>
       <div title={`Easy ${easy}%`}  style={{ width: `${easy}%`, background: '#10b981', minWidth: easy > 0 ? 3 : 0 }} />
       <div title={`Med ${med}%`}    style={{ width: `${med}%`,  background: '#f59e0b', minWidth: med > 0 ? 3 : 0 }} />
       <div title={`Hard ${hard}%`}  style={{ width: `${hard}%`, background: '#ef4444', minWidth: hard > 0 ? 3 : 0 }} />
@@ -68,7 +68,7 @@ export function CommissionView({
   const gradient = COMMISSION_GRADIENTS[selectedCommission] || 'linear-gradient(135deg,#334155,#475569)';
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ maxWidth: 900, margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div style={{
@@ -114,7 +114,7 @@ export function CommissionView({
           {norm ? `No papers in ${selectedCommission} match "${searchQuery}".` : `No exams found for ${selectedCommission}.`}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(340px,1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
           {examTypes.map(([examType, info]) => {
             const hov = hoveredCard === examType;
             const latestYear = info.years[0];
@@ -135,7 +135,7 @@ export function CommissionView({
                 onClick={() => openExam(info.fullName, selectedCommission, examType)}
               >
                 {/* Card top bar */}
-                <div style={{ height: 3, background: gradient }} />
+                <div style={{ height: 4, background: gradient }} />
 
                 <div style={{ padding: '16px 18px' }}>
                   {/* Title row */}

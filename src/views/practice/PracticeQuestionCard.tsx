@@ -385,6 +385,12 @@ export function PracticeQuestionCard({
               <div style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Brain style={{ width: 12, height: 12 }} /> Explanation
               </div>
+              {question.answerStatus === 'ai_inferred' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 7, background: '#fffbeb', border: '1px solid #fcd34d', marginBottom: 10 }}>
+                  <span style={{ fontSize: 12 }}>⚠️</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#92400e' }}>AI-inferred answer — no official key available. Verify independently before relying on this.</span>
+                </div>
+              )}
               <p style={{ fontSize: 13.5, lineHeight: 1.85, color: '#374151', margin: 0 }}>{question.explanation}</p>
             </div>
           ) : deletedQuestion ? (

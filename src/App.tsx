@@ -237,7 +237,8 @@ function AppContent() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // ── Premium / paywall ───────────────────────────────────────────────────────
-  const [isPremium, setIsPremium] = useState(() => localStorage.getItem('pyq_premium') === '1');
+  const [isPremium, setIsPremium] = useState(false);
+  const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   // ── Auth & Data ─────────────────────────────────────────────────────────────
@@ -506,6 +507,25 @@ function AppContent() {
 
   // ── Effects ─────────────────────────────────────────────────────────────────
 
+  const fetchSubscription = async (firebaseUser: { uid: string; getIdToken: () => Promise<string> }) => {
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch(`${API_BASE}/user/subscription`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsPremium(data.is_premium === true);
+      } else {
+        setIsPremium(false);
+      }
+    } catch {
+      setIsPremium(false);
+    } finally {
+      setSubscriptionLoaded(true);
+    }
+  };
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -515,6 +535,12 @@ function AppContent() {
       const map = loadBookmarkMap(uid);
       setBookmarkMap(map);
       bookmarkIdsRef.current = new Set(Object.keys(map));
+      if (u && u.uid !== "guest") {
+        void fetchSubscription(u);
+      } else {
+        setIsPremium(false);
+        setSubscriptionLoaded(true);
+      }
     });
     return unsub;
   }, []);
@@ -619,6 +645,8 @@ function AppContent() {
       await signOut(auth);
     } catch {}
     setUser(null);
+    setIsPremium(false);
+    setSubscriptionLoaded(false);
   };
 
   const mapQuestion = (q: any): Question => {
@@ -2782,7 +2810,7 @@ function AppContent() {
 
   // ── Auth screens ────────────────────────────────────────────────────────────
 
-  if (authLoading)
+  if (authLoading || (user && user.uid !== "guest" && !subscriptionLoaded))
     return (
       <div
         style={{

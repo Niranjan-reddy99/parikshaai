@@ -160,7 +160,11 @@ def infer_issue_codes(row: dict[str, Any]) -> list[str]:
     if row.get("needs_review") is True:
         reasons.append("answer-review")
     answer = str(row.get("correct_answer") or "").strip().upper()
-    if answer not in {"A", "B", "C", "D"}:
+    explicit_answer_status = str(row.get("answer_status") or "").strip().lower()
+    if explicit_answer_status in {"deleted", "multiple"}:
+        # Deleted and multiple-accepted questions are valid exam-board states — skip answer checks
+        pass
+    elif answer not in {"A", "B", "C", "D"}:
         reasons.append("invalid-answer")
     else:
         answer_text = str(row.get(f"option_{answer.lower()}") or "").strip()

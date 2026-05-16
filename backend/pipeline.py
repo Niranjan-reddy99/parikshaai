@@ -2429,11 +2429,19 @@ def inject_answers(answer_map: dict, exam_name: str, exam_year: int) -> dict:
     updated = 0
     updated_ids: list[str] = []
 
-    # Normalize keys to int — answer_map may have string keys from JSON parsing
+    # Normalize keys to int — answer_map may have string keys from JSON parsing.
+    # Preserve special sentinels (DELETED, "B|C") without truncating them.
+    from extractor.answer_key_parser import DELETED_SENTINEL, MULTIPLE_SEP
     norm_map: dict[int, str] = {}
     for k, v in answer_map.items():
         try:
-            norm_map[int(k)] = str(v).upper()[:1]
+            raw = str(v).strip().upper()
+            # Preserve sentinels as-is
+            if raw == DELETED_SENTINEL or MULTIPLE_SEP in raw:
+                norm_map[int(k)] = raw
+            else:
+                # Take first char for plain answers (handles stray whitespace)
+                norm_map[int(k)] = raw[:1]
         except (ValueError, TypeError):
             pass
     answer_map = norm_map
@@ -2443,13 +2451,63 @@ def inject_answers(answer_map: dict, exam_name: str, exam_year: int) -> dict:
         sb.table("answer_keys").upsert({
             "exam_name": exam_name,
             "exam_year": exam_year,
-            "answer_map": answer_map,
+            "answer_map": {str(k): v for k, v in answer_map.items()},
             "source": "user_upload",
         }, on_conflict="exam_name,exam_year").execute()
         print(f"  💾 Answer key saved ({len(answer_map)} entries)")
     except Exception as e:
         print(f"  ⚠️  Could not persist answer key (table may not exist yet): {e}")
 
+    _supported = _question_supported_columns(sb)
+
+    # ── Handle deleted questions (answer key shows "X") ───────────────────────
+    deleted_nums = [num for num, ans in answer_map.items() if ans == DELETED_SENTINEL]
+    if deleted_nums:
+        try:
+            id_res = sb.table("questions").select("id").eq("exam_name", exam_name).eq(
+                "exam_year", exam_year
+            ).in_("question_number", deleted_nums).execute()
+            del_ids = [r["id"] for r in (id_res.data or [])]
+            updated_ids.extend(del_ids)
+            del_payload: dict = {"correct_answer": "", "needs_review": False}
+            if "answer_status" in _supported:
+                del_payload["answer_status"] = "deleted"
+            if "correct_answers" in _supported:
+                del_payload["correct_answers"] = []
+            sb.table("questions").update(del_payload).eq("exam_name", exam_name).eq(
+                "exam_year", exam_year
+            ).in_("question_number", deleted_nums).execute()
+            updated += len(deleted_nums)
+            print(f"  🗑️  Marked {len(deleted_nums)} question(s) as deleted (answer key shows X): {deleted_nums}")
+        except Exception as e:
+            print(f"  ⚠️  inject_answers deleted: {e}")
+
+    # ── Handle multiple-accepted answers (answer key shows "B or C") ──────────
+    multi_entries = {num: ans for num, ans in answer_map.items() if MULTIPLE_SEP in ans}
+    for num, combined in multi_entries.items():
+        letters = [c for c in combined.split(MULTIPLE_SEP) if c in "ABCD"]
+        if len(letters) < 2:
+            continue
+        try:
+            id_res = sb.table("questions").select("id").eq("exam_name", exam_name).eq(
+                "exam_year", exam_year
+            ).eq("question_number", num).execute()
+            multi_ids = [r["id"] for r in (id_res.data or [])]
+            updated_ids.extend(multi_ids)
+            multi_payload: dict = {"correct_answer": letters[0], "needs_review": False}
+            if "answer_status" in _supported:
+                multi_payload["answer_status"] = "multiple"
+            if "correct_answers" in _supported:
+                multi_payload["correct_answers"] = letters
+            sb.table("questions").update(multi_payload).eq("exam_name", exam_name).eq(
+                "exam_year", exam_year
+            ).eq("question_number", num).execute()
+            updated += 1
+            print(f"  🔀 Q{num}: marked multiple-accepted answers {letters}")
+        except Exception as e:
+            print(f"  ⚠️  inject_answers multiple Q{num}: {e}")
+
+    # ── Handle normal single answers A/B/C/D ─────────────────────────────────
     for letter in "ABCD":
         nums = [num for num, ans in answer_map.items() if ans == letter]
         if not nums:
@@ -2465,24 +2523,12 @@ def inject_answers(answer_map: dict, exam_name: str, exam_year: int) -> dict:
             ]
             updated_ids.extend(changing_ids)
 
-            quality_updates = merge_quality_fields(
-                {
-                    "exam_name": exam_name,
-                    "question_text": "placeholder",
-                    "option_a": "A",
-                    "option_b": "B",
-                    "option_c": "C",
-                    "option_d": "D",
-                    "question_number": 1,
-                    "is_active": True,
-                },
-                {"correct_answer": letter, "needs_review": False},
-            )
-            payload = _quality_update_payload(
-                {"correct_answer": letter, "needs_review": False},
-                quality_updates,
-                _question_supported_columns(sb),
-            )
+            # Only write answer-specific fields — do NOT touch structural quality
+            # fields (issue_codes, structural_status, public_visibility) which depend
+            # on the actual question text/options and must be read from the real row.
+            payload: dict = {"correct_answer": letter, "needs_review": False}
+            if "answer_status" in _supported:
+                payload["answer_status"] = "verified"
             sb.table("questions").update(payload).eq("exam_name", exam_name).eq("exam_year", exam_year).in_(
                 "question_number", nums
             ).execute()
@@ -2493,7 +2539,6 @@ def inject_answers(answer_map: dict, exam_name: str, exam_year: int) -> dict:
     # Delete stale explanations for questions whose answer changed
     if updated_ids:
         try:
-            _supported = _question_supported_columns(sb)
             for i in range(0, len(updated_ids), 50):
                 chunk = updated_ids[i:i+50]
                 sb.table("explanations").delete().in_("question_id", chunk).execute()
@@ -3762,6 +3807,19 @@ def _targeted_vision_recovery(
             if abs(mq - lo) <= 2 or abs(mq - hi) <= 2:
                 target_page_indices.add(pi)
 
+    # Scanned-PDF fallback: text extraction returns nothing so page_nums are all
+    # empty sets — the loop above finds zero target pages and recovery silently
+    # does nothing. Use proportional estimation instead: question N is
+    # approximately at page round((N-1) / max_q * n_pages).
+    if not target_page_indices and missing:
+        n_pages = len(pages_meta)
+        max_q = max(missing)
+        for mq in missing:
+            est = round((mq - 1) / max(max_q, 1) * max(n_pages - 1, 1))
+            for p in range(max(0, est - 1), min(n_pages, est + 3)):
+                target_page_indices.add(p)
+        print(f"    ⚠️  Scanned PDF — no text page map. Using proportional page estimates for {len(missing)} questions across {n_pages} pages.")
+
     if not target_page_indices:
         return []
 
@@ -3917,13 +3975,16 @@ def repair_structurally_broken_rows(
     paper_id: str | None = None,
     job_id: str | None = None,
     tracker: "CostTracker | None" = None,
+    vision_page_nums: list[set[int]] | None = None,
 ) -> dict[str, Any]:
     """
     Post-store repair pass for rows that have a valid question number but were still
     stored as structurally broken / image-dependent after extraction.
 
-    This is the durable safety net for future uploads where we know the row exists
-    but option reconstruction or match-table parsing failed.
+    vision_page_nums: optional page→question-number map already built by the
+    vision extractor. When provided it is passed directly to _targeted_vision_recovery
+    so the scanned-PDF proportional-estimate fallback works off this map instead of
+    re-deriving it from (empty) text extraction.
     """
     sb = get_supabase()
     current_paper_id = paper_id
@@ -3977,9 +4038,14 @@ def repair_structurally_broken_rows(
     if not pages:
         return {"targeted": len(target_numbers), "recovered": 0, "unresolved": target_numbers}
 
-    raw_pages = [p[1] for p in pages]
-    page_map = detect_questions_llm(raw_pages, exam_name, tracker)
-    usable_page_map = page_map if page_map and any(nums for nums in page_map) else None
+    # Prefer the vision-derived page map (already available for scanned jobs) over
+    # re-deriving from text extraction which returns empty sets for image-only PDFs.
+    if vision_page_nums and any(nums for nums in vision_page_nums):
+        usable_page_map = vision_page_nums
+    else:
+        raw_pages = [p[1] for p in pages]
+        page_map = detect_questions_llm(raw_pages, exam_name, tracker)
+        usable_page_map = page_map if page_map and any(nums for nums in page_map) else None
     recovered = _targeted_vision_recovery(pdf_path, target_numbers, pages, tracker, page_nums=usable_page_map)
     if not recovered:
         return {"targeted": len(target_numbers), "recovered": 0, "unresolved": target_numbers}

@@ -430,6 +430,14 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
                   </div>
                 </div>
 
+                {/* AI-inferred answer disclaimer */}
+                {!deleted && q.answerStatus === 'ai_inferred' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fcd34d', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12 }}>⚠️</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#92400e' }}>AI-inferred answer — no official key available for this paper. Please verify with the official key before relying on this.</span>
+                  </div>
+                )}
+
                 {/* Explanation */}
                 {specialExplanation ? (
                   <div style={{ padding: '10px 12px', borderRadius: 10, background: C.blueDim, border: `1px solid ${C.blue}20` }}>
