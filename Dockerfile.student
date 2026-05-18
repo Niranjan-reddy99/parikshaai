@@ -7,7 +7,6 @@ RUN npm install
 
 COPY public ./public
 COPY src ./src
-COPY firebase-applet-config.json ./firebase-applet-config.json
 COPY index.html ./index.html
 COPY vite.config.ts ./vite.config.ts
 COPY tsconfig.json ./tsconfig.json

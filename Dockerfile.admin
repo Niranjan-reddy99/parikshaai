@@ -6,7 +6,6 @@ COPY package.json package-lock.json* ./
 RUN npm install
 
 COPY frontend ./frontend
-COPY firebase-applet-config.json ./firebase-applet-config.json
 
 ARG VITE_ADMIN_API_URL
 ENV VITE_ADMIN_API_URL=$VITE_ADMIN_API_URL
