@@ -25,6 +25,7 @@ Run from the backend/ directory with the venv active.
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import os
 import re
@@ -37,7 +38,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from config import supabase  # noqa: E402  (needs env loaded first)
+# Create a dedicated Supabase client for the tagger so it never shares
+# connection state with the FastAPI request-handler client (supabase-py is
+# not thread-safe; sharing it causes 500s on /attempt during bulk tagging).
+from supabase import create_client as _create_client
+_SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+_SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+supabase = _create_client(_SUPABASE_URL, _SUPABASE_KEY)  # tagger-local client
 from pattern_classifier import (  # noqa: E402
     PATTERN_TAGS,
     QUESTION_STYLES,
@@ -50,9 +57,22 @@ BATCH_SIZE = 20   # questions per Gemini call (kept small so JSON fits cleanly)
 LOG_DIR = Path(__file__).parent / "cache" / "pattern_tags"
 
 
+def _supabase_execute(query, retries: int = 3):
+    """Execute a supabase query with EAGAIN retry (BlockingIOError [Errno 35] on macOS)."""
+    for attempt in range(retries):
+        try:
+            return query.execute()
+        except OSError as e:
+            if e.errno == errno.EAGAIN and attempt < retries - 1:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise
+    return query.execute()
+
+
 def _supported_question_columns() -> set[str]:
     try:
-        row = supabase.table("questions").select("*").limit(1).execute().data or []
+        row = _supabase_execute(supabase.table("questions").select("*").limit(1)).data or []
         if row:
             return set(row[0].keys())
     except Exception:
@@ -125,7 +145,7 @@ def fetch_candidates(
         if paper_id:
             q = q.eq("paper_id", paper_id)
 
-        rows = q.execute().data or []
+        rows = _supabase_execute(q).data or []
         if not rows:
             break
 
@@ -140,6 +160,7 @@ def fetch_candidates(
         if len(rows) < page:
             break
         offset += page
+        time.sleep(0.05)  # small pause to avoid socket exhaustion on rapid page fetches
 
     return results[:limit]
 
@@ -183,13 +204,24 @@ CLASSIFICATION GUIDE:
   data-interpretation → table/chart/data-set based calculation
   map-location      → geography/location/river/state/map-linked recall
   date-event-recall → asks exact year/date-event association
-  scheme-current-affairs → current affairs, scheme, budget, survey, award, policy
-  vocabulary-usage  → synonym/antonym/idiom/phrase/spelling/word meaning
-  factual-recall    → pure memory question (who/what/when/where)
+  scheme-current-affairs → ONLY government scheme, policy, yojana, mission, budget, economic survey, index, award (e.g. "Vidya Mitra scheme aims to…", "PM-KISAN objective is…")
+  vocabulary-usage  → synonym/antonym/idiom/phrase/spelling/word meaning — ONLY in English/language section
+  factual-recall    → pure memory question (who/what/when/where) on history, geography, science, art, culture
   concept-application → apply a principle to a scenario
   elimination       → designed so 2 options are clearly wrong, choose between 2
   article-provision → asks about specific Article / Section / Schedule
   committee-mapping → links a committee/report/personality to an outcome
+
+CRITICAL NEGATIVE RULES (common mis-tags to avoid):
+  - A question with _____ (blank) is NOT fill-in-the-blank unless it is an English grammar/vocabulary exercise.
+    "The ARC was set up in the year _____" → date-event-recall, NOT fill-in-the-blank
+    "The Vidya Mitra scheme aims to _____" → scheme-current-affairs, NOT fill-in-the-blank
+  - Geography / climate / wind / river / weather questions are factual-recall or map-location, NOT scheme-current-affairs.
+    "What is the 'loo' wind?" → factual-recall, NOT scheme-current-affairs
+    "Which river flows through…?" → map-location, NOT scheme-current-affairs
+  - fill-in-the-blank and vocabulary-usage are ONLY for English language section questions.
+    If the subject is History, Geography, Polity, Science, Economy, Art, Culture — NEVER use these two tags.
+  - trap_tag tense-agreement is ONLY for English grammar questions, not factual MCQs.
 
   trap_tag: set when the question has a deliberate trick
     absolute-wording → uses "always", "never", "all", "only", "must" trap
@@ -321,7 +353,7 @@ def _apply_tags(
             skipped += 1
             continue
         if not dry_run:
-            supabase.table("questions").update(patch).eq("id", question["id"]).execute()
+            _supabase_execute(supabase.table("questions").update(patch).eq("id", question["id"]))
         updated += 1
     return updated, skipped
 

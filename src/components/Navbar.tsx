@@ -74,6 +74,11 @@ function NavIcon({ name }: { name: string }) {
         <path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
       </svg>
     ),
+    wrench: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+      </svg>
+    ),
   };
   return <>{icons[name] || null}</>;
 }
@@ -273,6 +278,7 @@ export function Navbar({
         {/* COMMUNITY */}
         <SectionLabel label="Community" />
         {communityItems.map(renderItem)}
+
       </nav>
 
       {/* Profile footer */}
@@ -285,99 +291,80 @@ export function Navbar({
           flexShrink: 0,
         }}
       >
-        {user.uid === 'guest' ? (
-          <div style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center', marginBottom: 8 }}>
-            <div style={{ fontSize: 11.5, color: 'var(--text-sec)', marginBottom: 8, lineHeight: 1.5 }}>
-              Sign in to track progress and streaks.
-            </div>
-            <button
-              onClick={() => {
-                handleLogout();
-                onNavigate?.();
-              }}
-              style={{ width: '100%', padding: '7px', background: 'var(--text)', color: 'white', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              Sign in with Google
-            </button>
-          </div>
-        ) : (
-          <div style={{ marginBottom: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 8px', borderRadius: 8 }}>
-              <UserAvatar displayName={user.displayName} email={user.email} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {user.displayName || 'Aspirant'}
-                </div>
-                <div style={{ fontSize: 10.5, color: 'var(--text-tert)', marginTop: 1 }}>
-                  Lv.{level} · {levelName}
-                </div>
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 8px', borderRadius: 8 }}>
+            <UserAvatar displayName={user.displayName} email={user.email} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user.displayName || 'Aspirant'}
               </div>
-            </div>
-            <div style={{ padding: '0 8px 6px' }}>
-              <div style={{ height: 3, background: 'var(--bg-canvas)', borderRadius: 2 }}>
-                <div style={{ height: '100%', width: `${xpProgress}%`, background: '#2563eb', borderRadius: 2, transition: 'width 0.4s ease' }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
-                <span style={{ fontSize: 9.5, color: 'var(--text-tert)', fontWeight: 600 }}>{xp} XP</span>
-                <span style={{ fontSize: 9.5, color: 'var(--text-tert)' }}>next: {xpNext}</span>
+              <div style={{ fontSize: 10.5, color: 'var(--text-tert)', marginTop: 1 }}>
+                Lv.{level} · {levelName}
               </div>
             </div>
           </div>
-        )}
+          <div style={{ padding: '0 8px 6px' }}>
+            <div style={{ height: 3, background: 'var(--bg-canvas)', borderRadius: 2 }}>
+              <div style={{ height: '100%', width: `${xpProgress}%`, background: '#2563eb', borderRadius: 2, transition: 'width 0.4s ease' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+              <span style={{ fontSize: 9.5, color: 'var(--text-tert)', fontWeight: 600 }}>{xp} XP</span>
+              <span style={{ fontSize: 9.5, color: 'var(--text-tert)' }}>next: {xpNext}</span>
+            </div>
+          </div>
+        </div>
 
-        {user.uid !== 'guest' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
-            <button
-              type="button"
-              onClick={() => {
-                setView('profile');
-                onNavigate?.();
-              }}
-              style={{
-                minHeight: 38,
-                padding: '0 12px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--bg-alt)',
-                color: 'var(--text)',
-                fontSize: 12.5,
-                fontWeight: 700,
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-              }}
-            >
-              Profile
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                handleLogout();
-                onNavigate?.();
-              }}
-              onMouseEnter={() => setHoveredItem('logout')}
-              onMouseLeave={() => setHoveredItem(null)}
-              style={{
-                minHeight: 38,
-                padding: '0 12px',
-                borderRadius: 10,
-                border: `1px solid ${hoveredItem === 'logout' ? 'rgba(220,38,38,0.28)' : 'var(--border)'}`,
-                background: hoveredItem === 'logout' ? 'rgba(254,226,226,0.7)' : 'rgba(255,255,255,0.88)',
-                color: hoveredItem === 'logout' ? '#dc2626' : 'var(--text-tert)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 7,
-                fontSize: 12.5,
-                fontWeight: 700,
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-                transition: 'all 0.12s ease',
-              }}
-            >
-              <LogOut style={{ width: 12, height: 12 }} />
-              Sign out
-            </button>
-          </div>
-        ) : null}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => {
+              setView('profile');
+              onNavigate?.();
+            }}
+            style={{
+              minHeight: 38,
+              padding: '0 12px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--bg-alt)',
+              color: 'var(--text)',
+              fontSize: 12.5,
+              fontWeight: 700,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+            }}
+          >
+            Profile
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              handleLogout();
+              onNavigate?.();
+            }}
+            onMouseEnter={() => setHoveredItem('logout')}
+            onMouseLeave={() => setHoveredItem(null)}
+            style={{
+              minHeight: 38,
+              padding: '0 12px',
+              borderRadius: 10,
+              border: `1px solid ${hoveredItem === 'logout' ? 'rgba(220,38,38,0.28)' : 'var(--border)'}`,
+              background: hoveredItem === 'logout' ? 'rgba(254,226,226,0.7)' : 'rgba(255,255,255,0.88)',
+              color: hoveredItem === 'logout' ? '#dc2626' : 'var(--text-tert)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              fontSize: 12.5,
+              fontWeight: 700,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              transition: 'all 0.12s ease',
+            }}
+          >
+            <LogOut style={{ width: 12, height: 12 }} />
+            Sign out
+          </button>
+        </div>
       </div>
     </aside>
   );

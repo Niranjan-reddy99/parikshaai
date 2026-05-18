@@ -301,14 +301,14 @@ function AppContent() {
 
   // ── User Stats (localStorage) ────────────────────────────────────────────────
   const [userStats, setUserStats] = useState<UserStats>(() =>
-    getStats("guest")
+    getStats("")
   );
   const practiceStartRef = useRef<number>(Date.now());
 
   // Reload stats when user changes; show onboarding for new users
   useEffect(() => {
     if (!user) {
-      setUserStats(getStats("guest"));
+      setUserStats(getStats(""));
       return;
     }
 
@@ -628,14 +628,14 @@ function AppContent() {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setAuthLoading(false);
-      // Load bookmarks for this user from localStorage
-      const uid = u?.uid ?? "guest";
-      const map = loadBookmarkMap(uid);
-      setBookmarkMap(map);
-      bookmarkIdsRef.current = new Set(Object.keys(map));
-      if (u && u.uid !== "guest") {
+      if (u) {
+        const map = loadBookmarkMap(u.uid);
+        setBookmarkMap(map);
+        bookmarkIdsRef.current = new Set(Object.keys(map));
         void fetchSubscription(u);
       } else {
+        setBookmarkMap({});
+        bookmarkIdsRef.current = new Set();
         setIsPremium(false);
         setSubscriptionLoaded(true);
       }
@@ -719,21 +719,8 @@ function AppContent() {
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
-    } catch (err: any) {
-      if (
-        [
-          "auth/unauthorized-domain",
-          "auth/popup-blocked",
-          "auth/popup-closed-by-user",
-        ].includes(err.code)
-      )
-        if (window.confirm(`Google Sign-In failed.\n\nContinue as Guest?`))
-          setUser({
-            uid: "guest",
-            displayName: "Guest User",
-            email: "guest@localhost",
-            photoURL: null,
-          } as any);
+    } catch {
+      // Sign-in failed or was cancelled — user stays on landing page.
     }
   };
 
@@ -808,6 +795,16 @@ function AppContent() {
       pattern_reason: q.pattern_reason ?? undefined,
       solve_hint: q.solve_hint ?? undefined,
     };
+  };
+
+  // Returns the current user's Firebase ID token, or null if not signed in.
+  // Use this before every authenticated API call.
+  const getApiToken = async (): Promise<string | null> => {
+    try {
+      return (await auth.currentUser?.getIdToken()) ?? null;
+    } catch {
+      return null;
+    }
   };
 
   const saveAttempt = async (attempt: {
@@ -1305,7 +1302,10 @@ function AppContent() {
     if (opts?.shiftLabel) params.set("shift_label", opts.shiftLabel);
     if (opts?.cursor) params.set("cursor", opts.cursor);
 
-    const res = await fetch(`${API_BASE}/questions?${params}`);
+    const token = await getApiToken();
+    const res = await fetch(`${API_BASE}/questions?${params}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!res.ok) throw new Error(`Failed to load questions (${res.status})`);
     const data: any = await res.json();
     return {
@@ -1337,7 +1337,10 @@ function AppContent() {
       limit: String(pageSize),
       offset: String(pageOffset),
     });
-    const res = await fetch(`${API_BASE}/topic-questions?${params}`);
+    const token = await getApiToken();
+    const res = await fetch(`${API_BASE}/topic-questions?${params}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!res.ok) {
       throw new Error(`Failed to load topic questions (${res.status})`);
     }
@@ -1553,13 +1556,17 @@ function AppContent() {
     questionIds: string[]
   ): Promise<Record<string, string>> => {
     const url = `${API_BASE}/explanations/batch`;
+    const token = await getApiToken();
     const merged: Record<string, string> = {};
     for (let i = 0; i < questionIds.length; i += 50) {
       const chunk = questionIds.slice(i, i + 50);
       if (!chunk.length) continue;
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ question_ids: chunk }),
         signal: AbortSignal.timeout(8000),
       });
@@ -1601,7 +1608,7 @@ function AppContent() {
       opts?.onHydrate?.(id, explanation);
     };
 
-    const fetchSingle = async (id: string): Promise<string | null> => {
+    const fetchSingle = async (id: string, token: string | null): Promise<string | null> => {
       if (!isActiveSession()) return null;
       if (
         isRenderableExplanation(explanationCacheRef.current[id]) ||
@@ -1613,6 +1620,7 @@ function AppContent() {
         try {
           const res = await fetch(singleUrl(id), {
             signal: AbortSignal.timeout(12000),
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
           if (!res.ok) return null;
           const data = await res.json();
@@ -1632,6 +1640,7 @@ function AppContent() {
     };
 
     void (async () => {
+      const token = await getApiToken();
       try {
         const batch = await fetchBatchExplanations(work);
         if (!isActiveSession()) return;
@@ -1649,7 +1658,7 @@ function AppContent() {
       for (let i = 0; i < stillMissing.length; i += 8) {
         if (!isActiveSession()) return;
         const group = stillMissing.slice(i, i + 8);
-        await Promise.allSettled(group.map(fetchSingle));
+        await Promise.allSettled(group.map(id => fetchSingle(id, token)));
         if (i + 8 < stillMissing.length) {
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
@@ -1933,7 +1942,7 @@ function AppContent() {
   const currentPracticeQ = practiceQueue[practiceIndex] ?? null;
 
   // ── Bookmark actions ────────────────────────────────────────────────────────
-  const uid = () => user?.uid ?? "guest";
+  const uid = () => user?.uid ?? "";
 
   const toggleBookmarkQ = (q: Question) => {
     const { map, added } = toggleBookmark(uid(), q);
@@ -2001,7 +2010,10 @@ function AppContent() {
   const fetchQuestionAnswerMeta = async (
     questionId: string
   ): Promise<Partial<Question> | null> => {
-    const res = await fetch(`${API_BASE}/questions/${questionId}`);
+    const token = await getApiToken();
+    const res = await fetch(`${API_BASE}/questions/${questionId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!res.ok) return null;
     const data = await res.json();
     const nextQuestion = mapQuestion(data);
@@ -2045,10 +2057,12 @@ function AppContent() {
       () => controller.abort(),
       options?.background ? 12000 : 25000
     );
+    const explanationToken = await getApiToken();
     const promise = (async () => {
       try {
         const res = await fetch(explanationUrl, {
           signal: controller.signal,
+          headers: explanationToken ? { Authorization: `Bearer ${explanationToken}` } : {},
         });
         if (!res.ok) {
           if (!options?.background && !options?.deferUnavailable) {
@@ -2541,9 +2555,13 @@ function AppContent() {
     const ids = finalSession.questions.map(q => q.id).filter(Boolean);
     if (ids.length > 0) {
       try {
+        const revealToken = await getApiToken();
         const res = await fetch(`${API_BASE}/reveal-answers`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(revealToken ? { Authorization: `Bearer ${revealToken}` } : {}),
+          },
           body: JSON.stringify({ question_ids: ids }),
         });
         if (res.ok) {
@@ -2901,7 +2919,7 @@ function AppContent() {
 
   // ── Auth screens ────────────────────────────────────────────────────────────
 
-  if (authLoading || (user && user.uid !== "guest" && !subscriptionLoaded))
+  if (authLoading || (user && !subscriptionLoaded))
     return (
       <div
         style={{
@@ -2919,19 +2937,10 @@ function AppContent() {
       </div>
     );
 
-  const continueAsGuest = () =>
-    setUser({
-      uid: "guest",
-      displayName: "Guest User",
-      email: "guest@localhost",
-      photoURL: null,
-    } as any);
-
   if (!user)
     return (
       <LandingPage
         onLogin={handleLogin}
-        onContinueGuest={continueAsGuest}
         catalogSummary={catalogSummary}
         feedSummary={feedSummary}
       />
@@ -3256,7 +3265,7 @@ function AppContent() {
                     openQuestionBankHome={openQuestionBankHome}
                     stats={userStats}
                     userDisplayName={user?.displayName ?? null}
-                    userId={user?.uid ?? "guest"}
+                    userId={user?.uid ?? ""}
                   />
                 )}
                 {view === "commission" && (

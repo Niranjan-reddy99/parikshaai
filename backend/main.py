@@ -195,6 +195,9 @@ _RL_WINDOW_S = 60
 _RL_MAX_PUBLIC = 120   # req/min for unauthenticated public endpoints
 _RL_MAX_AUTH   = 300   # req/min for authenticated users
 
+_RL_CLEANUP_COUNTER = 0
+_RL_CLEANUP_INTERVAL = 500  # clean stale IPs every N requests
+
 class _RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Ignore browser preflight noise and localhost admin traffic.
@@ -205,12 +208,27 @@ class _RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         now = time.time()
-        ip = request.client.host if request.client else "unknown"
+        # In production behind Railway/Render/Nginx the real client IP arrives
+        # via X-Forwarded-For. Fall back to the direct connection host only when
+        # no forwarding header is present (local dev).
+        forwarded_for = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        ip = forwarded_for or (request.client.host if request.client else "unknown")
         is_localhost = ip in {"127.0.0.1", "::1", "localhost"}
         is_admin_request = request.url.path.startswith("/admin/")
         admin_key = request.headers.get("x-admin-key")
         if is_localhost and is_admin_request and admin_key and admin_key == os.getenv("ADMIN_API_KEY"):
             return await call_next(request)
+
+        # Periodically evict IPs that have had no requests in the last window —
+        # prevents the dict from growing unbounded with unique IPs over days of traffic.
+        global _RL_CLEANUP_COUNTER
+        _RL_CLEANUP_COUNTER += 1
+        if _RL_CLEANUP_COUNTER >= _RL_CLEANUP_INTERVAL:
+            _RL_CLEANUP_COUNTER = 0
+            cutoff = now - _RL_WINDOW_S * 2
+            stale = [k for k, dq in _rate_limit_store.items() if not dq or dq[-1] < cutoff]
+            for k in stale:
+                del _rate_limit_store[k]
 
         key = ip
         limit = _RL_MAX_AUTH if request.headers.get("Authorization") else _RL_MAX_PUBLIC
@@ -269,6 +287,25 @@ _TOPIC_FIRST_PAGE_CACHE_TTL = 900  # 15 minutes — first topic page is the crit
 _exam_qs_cache: dict[tuple[str, int, bool], tuple[float, list[dict]]] = {}
 _EXAM_QS_CACHE_TTL_ADMIN  = 300   # 5 min
 _EXAM_QS_CACHE_TTL_PUBLIC = 600   # 10 min
+
+_stats_cache: dict | None = None
+_stats_cache_ts: float = 0.0
+_STATS_CACHE_TTL = 300  # 5 minutes
+
+# Leaderboard cache — keyed by (commissions_str, time_filter).
+# Avoids a full user_attempts table scan on every request; TTL 2 min.
+_leaderboard_cache: dict[tuple[str, str], tuple[float, dict]] = {}
+_LEADERBOARD_CACHE_TTL = 120  # 2 minutes
+
+# Free-papers cache — frozenset of (exam_name_lower, year) pairs accessible on free plan.
+# Derived from catalog snapshot; refreshed every 15 min.
+_free_papers_cache: frozenset | None = None
+_free_papers_cache_ts: float = 0.0
+_FREE_PAPERS_CACHE_TTL = 900  # 15 min
+
+# Per-user subscription cache — avoids a Supabase hit on every paginated question fetch.
+_subscription_cache: dict[str, tuple[float, dict]] = {}
+_SUBSCRIPTION_CACHE_TTL = 300  # 5 min
 
 _REUPLOAD_STRUCTURAL_THRESHOLD_MIN = 3
 _REUPLOAD_STRUCTURAL_THRESHOLD_PCT = 0.05
@@ -2156,6 +2193,12 @@ async def verify_admin(
     raise HTTPException(403, "Invalid admin authentication")
 
 
+@app.get("/admin/me")
+def admin_me(claims: dict = Depends(verify_admin)):
+    """Lightweight probe used by the frontend to check if the signed-in user is admin."""
+    return {"is_admin": True, "email": claims.get("email", "")}
+
+
 @app.post("/admin/pattern-book/classify-pages", dependencies=[Depends(verify_admin)])
 async def admin_classify_pattern_book_pages(
     file: Optional[UploadFile] = File(None),
@@ -2492,13 +2535,15 @@ async def get_questions(
     shift_label: Optional[str] = Query(None),
     difficulty: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
-    limit: int = Query(20, ge=1, le=10000),
+    limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
     cursor: Optional[str] = Query(None),
     response: Response = None,
+    _current_user: dict = Depends(get_current_user),
 ):
     """Fetch filtered + paginated questions. Answers are NOT included here —
     use GET /questions/{id} after the user selects, or POST /reveal-answers after exam submission."""
+    _require_exam_access(_current_user, exam_name, exam_year)
     try:
         start = safe_cursor_to_index(cursor) if cursor else offset
         page_data = _stream_public_exam_page(
@@ -2589,7 +2634,7 @@ async def get_exam_papers(
 
 
 @app.get("/questions/{question_id}")
-async def get_question_with_answer(question_id: str):
+async def get_question_with_answer(question_id: str, _current_user: dict = Depends(get_current_user)):
     """Single question WITH correct answer (after user submits)."""
     try:
         supported_cols = _question_supported_columns()
@@ -2627,7 +2672,7 @@ async def get_question_with_answer(question_id: str):
 
 
 @app.post("/reveal-answers")
-async def reveal_answers(body: dict):
+async def reveal_answers(body: dict, _current_user: dict = Depends(get_current_user)):
     """Batch reveal correct answers after exam submission.
     Accepts {question_ids: [str, ...]} (max 300).
     Returns {answers: {id: {correct_answer, correct_answers, answer_status, needs_review}}}.
@@ -2667,7 +2712,7 @@ async def reveal_answers(body: dict):
 
 
 @app.get("/explanation/{question_id}")
-def get_explanation(question_id: str):
+def get_explanation(question_id: str, _current_user: dict = Depends(get_current_user)):
     """
     Lazy-loaded explanation + Real-time Answer Consistency.
     If the Reasoning Engine finds a corrected answer, it is returned here
@@ -2800,7 +2845,7 @@ def _explanation_unavailable_payload(
 
 
 @app.post("/explanations/batch")
-def get_explanations_batch(body: _BatchExplRequest):
+def get_explanations_batch(body: _BatchExplRequest, _current_user: dict = Depends(get_current_user)):
     """Return already-generated explanations for up to 50 questions in one DB query.
     IDs with no explanation yet are omitted from the response — caller fetches those individually."""
     ids = list(dict.fromkeys(body.question_ids))[:50]  # dedup + cap
@@ -2878,7 +2923,7 @@ _AUTO_HIDE_FLAG_THRESHOLD = 3
 
 
 @app.post("/questions/{question_id}/flag")
-async def flag_question(question_id: str, body: FlagRequest):
+async def flag_question(question_id: str, body: FlagRequest, _current_user: dict = Depends(get_current_user)):
     """
     Submit a quality flag for a question. Authenticated users supply their uid in
     body.user_id. At threshold flags the question is auto-soft-hidden pending review.
@@ -2938,6 +2983,7 @@ async def get_practice_questions(
     topic: Optional[str] = Query(None),
     difficulty: Optional[str] = Query(None),
     count: int = Query(10, ge=1, le=50),
+    _current_user: dict = Depends(get_current_user),
 ):
     """
     Random questions for practice mode.
@@ -2991,9 +3037,10 @@ async def get_practice_questions(
 async def get_questions_by_topic(
     subject: str = Query(...),
     topic: str = Query(...),
-    limit: int = Query(500, ge=1, le=5000),
+    limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
     response: Response = None,
+    _current_user: dict = Depends(get_current_user),
 ):
     try:
         if offset == 0 and limit <= 100:
@@ -3023,7 +3070,11 @@ async def get_questions_by_topic(
 
 @app.get("/stats")
 def get_stats():
-    """Dashboard statistics — cached-friendly, no auth needed."""
+    """Dashboard statistics — cached in-process for 5 minutes."""
+    global _stats_cache, _stats_cache_ts
+    now = time.time()
+    if _stats_cache is not None and (now - _stats_cache_ts) < _STATS_CACHE_TTL:
+        return _stats_cache
     try:
         supported_cols = _question_supported_columns()
         publishable_paper_ids = None if (_public_include_all_questions() or _practice_ready_mode(supported_cols)) else latest_live_paper_ids(sb=supabase)
@@ -3062,13 +3113,16 @@ def get_stats():
         years = sorted(set(q["exam_year"] for q in all_rows), reverse=True)
         exams = sorted(set(q["exam_name"] for q in all_rows))
 
-        return {
+        result = {
             "total_questions": total,
             "subjects": subjects,
             "difficulty_distribution": diff,
             "exam_years": years,
             "exam_names": exams,
         }
+        _stats_cache = result
+        _stats_cache_ts = time.time()
+        return result
     except Exception as e:
         raise HTTPException(500, f"Stats error: {e}")
 
@@ -3233,120 +3287,153 @@ def get_leaderboard(
     selected_commissions = _parse_leaderboard_scope(commissions)
     start_dt = _leaderboard_start_dt(time_filter)
 
+    # Cache the expensive DB scan (same data for all users viewing same scope).
+    # Per-user parts (my_rank, my_entry) are derived from the cached list cheaply.
+    cache_key = (commissions or "", time_filter)
+    now_ts = time.time()
+    cached_lb = _leaderboard_cache.get(cache_key)
+
+    if cached_lb and (now_ts - cached_lb[0]) < _LEADERBOARD_CACHE_TTL:
+        aggregates: dict[str, dict] = cached_lb[1]["aggregates"]
+        commission_set: set[str] = cached_lb[1]["commission_set"]
+        ranked: list[dict] = cached_lb[1]["ranked"]
+    else:
+        try:
+            aggregates = {}
+            commission_set = set()
+            offset = 0
+            while True:
+                query = supabase.table("user_attempts").select(
+                    "firebase_uid, is_correct, exam_name, attempted_at"
+                )
+                if start_dt is not None:
+                    query = query.gte("attempted_at", start_dt.isoformat())
+                response = query.range(offset, offset + 999).execute()
+                rows = response.data or []
+                if not rows:
+                    break
+                for item in rows:
+                    uid = str(item.get("firebase_uid") or "").strip()
+                    if not uid:
+                        continue
+                    exam_name = str(item.get("exam_name") or "").strip()
+                    commission = _parse_leaderboard_commission(exam_name) if exam_name else "GENERAL"
+                    if selected_commissions and commission not in selected_commissions:
+                        continue
+                    attempted_at_raw = item.get("attempted_at")
+                    attempted_at = None
+                    if isinstance(attempted_at_raw, str) and attempted_at_raw.strip():
+                        try:
+                            attempted_at = datetime.fromisoformat(
+                                attempted_at_raw.replace("Z", "+00:00")
+                            ).astimezone(timezone.utc)
+                        except Exception:
+                            attempted_at = None
+                    attempted_at = attempted_at or datetime.now(timezone.utc)
+                    is_correct = bool(item.get("is_correct"))
+                    agg = aggregates.setdefault(uid, {
+                        "user_id": uid,
+                        "attempted": 0,
+                        "correct": 0,
+                        "score": 0,
+                        "daily_activity": {},
+                        "exam_counts": {},
+                        "commission_counts": {},
+                        "latest_attempt_at": _LEADERBOARD_EPOCH,
+                    })
+                    agg["attempted"] += 1
+                    agg["correct"] += 1 if is_correct else 0
+                    agg["score"] += 10 if is_correct else 2
+                    if exam_name:
+                        agg["exam_counts"][exam_name] = int(agg["exam_counts"].get(exam_name, 0)) + 1
+                    agg["commission_counts"][commission] = int(agg["commission_counts"].get(commission, 0)) + 1
+                    date_key = attempted_at.date().isoformat()
+                    agg["daily_activity"][date_key] = int(agg["daily_activity"].get(date_key, 0)) + 1
+                    if attempted_at > agg["latest_attempt_at"]:
+                        agg["latest_attempt_at"] = attempted_at
+                    commission_set.add(commission)
+                if len(rows) < 1000:
+                    break
+                offset += 1000
+
+            ranked = []
+            for agg in aggregates.values():
+                exam_counts = agg.get("exam_counts") or {}
+                commission_counts = agg.get("commission_counts") or {}
+                top_exam = max(
+                    exam_counts.items(),
+                    key=lambda pair: (pair[1], pair[0]),
+                    default=("No attempts yet", 0),
+                )[0]
+                top_commission = max(
+                    commission_counts.items(),
+                    key=lambda pair: (pair[1], pair[0]),
+                    default=((selected_commissions[0] if selected_commissions else "GENERAL"), 0),
+                )[0]
+                attempted = int(agg.get("attempted") or 0)
+                correct = int(agg.get("correct") or 0)
+                agg["top_exam"] = top_exam
+                agg["top_commission"] = top_commission
+                agg["accuracy"] = (correct / attempted) if attempted > 0 else 0.0
+                agg["streak"] = _compute_attempt_streak(agg.get("daily_activity") or {})
+                ranked.append(agg)
+
+            ranked.sort(
+                key=lambda agg: (
+                    -int(agg.get("score") or 0),
+                    -float(agg.get("accuracy") or 0.0),
+                    -int(agg.get("attempted") or 0),
+                    -(agg.get("latest_attempt_at") or _LEADERBOARD_EPOCH).timestamp(),
+                    str(agg.get("user_id") or ""),
+                )
+            )
+            for index, agg in enumerate(ranked, start=1):
+                agg["rank"] = index
+
+            _leaderboard_cache[cache_key] = (time.time(), {
+                "aggregates": aggregates,
+                "commission_set": commission_set,
+                "ranked": ranked,
+            })
+        except Exception as _lb_exc:
+            print(f"WARN leaderboard DB scan failed for user={current_uid}: {_lb_exc}")
+            fallback_commission = selected_commissions[0] if selected_commissions else "GENERAL"
+            fallback_name = str(user.get("name") or user.get("displayName") or "").strip() or _fallback_leaderboard_name(current_uid)
+            return {
+                "time_filter": time_filter,
+                "scope_commissions": selected_commissions,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "total_aspirants": 1,
+                "exams_covered": max(len(selected_commissions), 1),
+                "has_more": False,
+                "entries": [{"rank": 1, "name": fallback_name, "exam": "No attempts yet",
+                             "commission": fallback_commission, "score": 0, "accuracy": 0,
+                             "streak": 0, "attempts": 0, "correct": 0, "is_me": True}],
+                "my_rank": 1,
+                "my_entry": {"rank": 1, "name": fallback_name, "exam": "No attempts yet",
+                             "commission": fallback_commission, "score": 0, "accuracy": 0,
+                             "streak": 0, "attempts": 0, "correct": 0, "is_me": True},
+                "warning": "Leaderboard is temporarily using fallback mode.",
+            }
+
+    # Per-user section — runs from cached data, zero DB cost
     try:
-        aggregates: dict[str, dict] = {}
-        commission_set: set[str] = set()
-
-        offset = 0
-        while True:
-            query = supabase.table("user_attempts").select(
-                "firebase_uid, is_correct, exam_name, attempted_at"
-            )
-            if start_dt is not None:
-                query = query.gte("attempted_at", start_dt.isoformat())
-            response = query.range(offset, offset + 999).execute()
-            rows = response.data or []
-            if not rows:
-                break
-
-            for item in rows:
-                uid = str(item.get("firebase_uid") or "").strip()
-                if not uid:
-                    continue
-
-                exam_name = str(item.get("exam_name") or "").strip()
-                commission = _parse_leaderboard_commission(exam_name) if exam_name else "GENERAL"
-                if selected_commissions and commission not in selected_commissions:
-                    continue
-
-                attempted_at_raw = item.get("attempted_at")
-                attempted_at = None
-                if isinstance(attempted_at_raw, str) and attempted_at_raw.strip():
-                    try:
-                        attempted_at = datetime.fromisoformat(
-                            attempted_at_raw.replace("Z", "+00:00")
-                        ).astimezone(timezone.utc)
-                    except Exception:
-                        attempted_at = None
-                attempted_at = attempted_at or datetime.now(timezone.utc)
-                is_correct = bool(item.get("is_correct"))
-                agg = aggregates.setdefault(uid, {
-                    "user_id": uid,
-                    "attempted": 0,
-                    "correct": 0,
-                    "score": 0,
-                    "daily_activity": {},
-                    "exam_counts": {},
-                    "commission_counts": {},
-                    "latest_attempt_at": _LEADERBOARD_EPOCH,
-                })
-
-                agg["attempted"] += 1
-                agg["correct"] += 1 if is_correct else 0
-                agg["score"] += 10 if is_correct else 2
-                if exam_name:
-                    agg["exam_counts"][exam_name] = int(agg["exam_counts"].get(exam_name, 0)) + 1
-                agg["commission_counts"][commission] = int(agg["commission_counts"].get(commission, 0)) + 1
-                date_key = attempted_at.date().isoformat()
-                agg["daily_activity"][date_key] = int(agg["daily_activity"].get(date_key, 0)) + 1
-                if attempted_at > agg["latest_attempt_at"]:
-                    agg["latest_attempt_at"] = attempted_at
-                commission_set.add(commission)
-
-            if len(rows) < 1000:
-                break
-            offset += 1000
-
         aggregates.setdefault(current_uid, {
-            "user_id": current_uid,
-            "attempted": 0,
-            "correct": 0,
-            "score": 0,
-            "daily_activity": {},
-            "exam_counts": {},
-            "commission_counts": {},
+            "user_id": current_uid, "attempted": 0, "correct": 0, "score": 0,
+            "daily_activity": {}, "exam_counts": {}, "commission_counts": {},
             "latest_attempt_at": _LEADERBOARD_EPOCH,
+            "top_exam": "No attempts yet",
+            "top_commission": selected_commissions[0] if selected_commissions else "GENERAL",
+            "accuracy": 0.0, "streak": 0, "rank": len(ranked) + 1,
         })
-
-        ranked: list[dict] = []
-        for agg in aggregates.values():
-            exam_counts = agg.get("exam_counts") or {}
-            commission_counts = agg.get("commission_counts") or {}
-            top_exam = max(
-                exam_counts.items(),
-                key=lambda pair: (pair[1], pair[0]),
-                default=("No attempts yet", 0),
-            )[0]
-            top_commission = max(
-                commission_counts.items(),
-                key=lambda pair: (pair[1], pair[0]),
-                default=((selected_commissions[0] if selected_commissions else "GENERAL"), 0),
-            )[0]
-            attempted = int(agg.get("attempted") or 0)
-            correct = int(agg.get("correct") or 0)
-            agg["top_exam"] = top_exam
-            agg["top_commission"] = top_commission
-            agg["accuracy"] = (correct / attempted) if attempted > 0 else 0.0
-            agg["streak"] = _compute_attempt_streak(agg.get("daily_activity") or {})
-            ranked.append(agg)
-
-        ranked.sort(
-            key=lambda agg: (
-                -int(agg.get("score") or 0),
-                -float(agg.get("accuracy") or 0.0),
-                -int(agg.get("attempted") or 0),
-                -(agg.get("latest_attempt_at") or _LEADERBOARD_EPOCH).timestamp(),
-                str(agg.get("user_id") or ""),
-            )
-        )
 
         my_rank = 0
         my_agg: dict | None = None
-        for index, agg in enumerate(ranked, start=1):
-            agg["rank"] = index
+        for agg in ranked:
             if agg["user_id"] == current_uid:
-                my_rank = index
+                my_rank = agg["rank"]
                 my_agg = agg
+                break
 
         top_entries = ranked[:limit]
         visible_user_ids = [str(agg["user_id"]) for agg in top_entries]
@@ -3385,31 +3472,13 @@ def get_leaderboard(
             "total_aspirants": 1,
             "exams_covered": max(len(selected_commissions), 1),
             "has_more": False,
-            "entries": [{
-                "rank": 1,
-                "name": fallback_name,
-                "exam": "No attempts yet",
-                "commission": fallback_commission,
-                "score": 0,
-                "accuracy": 0,
-                "streak": 0,
-                "attempts": 0,
-                "correct": 0,
-                "is_me": True,
-            }],
+            "entries": [{"rank": 1, "name": fallback_name, "exam": "No attempts yet",
+                         "commission": fallback_commission, "score": 0, "accuracy": 0,
+                         "streak": 0, "attempts": 0, "correct": 0, "is_me": True}],
             "my_rank": 1,
-            "my_entry": {
-                "rank": 1,
-                "name": fallback_name,
-                "exam": "No attempts yet",
-                "commission": fallback_commission,
-                "score": 0,
-                "accuracy": 0,
-                "streak": 0,
-                "attempts": 0,
-                "correct": 0,
-                "is_me": True,
-            },
+            "my_entry": {"rank": 1, "name": fallback_name, "exam": "No attempts yet",
+                         "commission": fallback_commission, "score": 0, "accuracy": 0,
+                         "streak": 0, "attempts": 0, "correct": 0, "is_me": True},
             "warning": "Leaderboard is temporarily using fallback mode.",
         }
 
@@ -3417,14 +3486,16 @@ def get_leaderboard(
 @app.post("/attempt")
 def record_attempt(attempt: AttemptCreate, user: dict = Depends(get_current_user)):
     """Store user attempt in Supabase, with Firestore as best-effort secondary."""
+    import traceback as _tb
     persisted = False
     warning: str | None = None
     attempt_id: str | None = None
     attempted_at = datetime.now(timezone.utc).isoformat()
+    uid = user.get("uid", "unknown")
 
     try:
         res = supabase.table("user_attempts").insert({
-            "firebase_uid": user["uid"],
+            "firebase_uid": uid,
             "question_id": attempt.question_id,
             "selected_answer": attempt.selected_answer,
             "is_correct": attempt.is_correct,
@@ -3441,8 +3512,8 @@ def record_attempt(attempt: AttemptCreate, user: dict = Depends(get_current_user
         if inserted:
             attempt_id = str(inserted[0].get("id") or "")
         persisted = True
-    except Exception as e:
-        print(f"WARN record_attempt supabase failed for user={user.get('uid')}: {e}")
+    except BaseException as e:
+        print(f"WARN record_attempt supabase failed uid={uid}: {type(e).__name__}: {e}\n{_tb.format_exc()}")
         warning = "Attempt was not persisted to the leaderboard store."
 
     try:
@@ -3450,7 +3521,7 @@ def record_attempt(attempt: AttemptCreate, user: dict = Depends(get_current_user
         db = firestore.client()
         ref = db.collection("attempts").document()
         ref.set({
-            "userId": user["uid"],
+            "userId": uid,
             "questionId": attempt.question_id,
             "selectedAnswer": attempt.selected_answer,
             "isCorrect": attempt.is_correct,
@@ -3459,8 +3530,8 @@ def record_attempt(attempt: AttemptCreate, user: dict = Depends(get_current_user
             "subject": attempt.subject,
             "attemptedAt": firestore.SERVER_TIMESTAMP,
         })
-    except Exception as e:
-        print(f"WARN record_attempt failed for user={user.get('uid')}: {e}")
+    except BaseException as e:
+        print(f"WARN record_attempt firestore failed uid={uid}: {type(e).__name__}: {e}")
 
     if persisted:
         return {"status": "recorded", "attemptId": attempt_id, "isCorrect": attempt.is_correct}
@@ -3597,6 +3668,68 @@ def _get_subscription(firebase_uid: str) -> dict:
     except Exception as e:
         print(f"WARN _get_subscription({firebase_uid}): {e}")
         return {"plan": "free", "status": "active", "is_premium": False, "plan_expires_at": None}
+
+
+def _get_subscription_cached(firebase_uid: str) -> dict:
+    """_get_subscription with a 5-min in-process cache to avoid a DB hit on every question page."""
+    global _subscription_cache
+    now = time.time()
+    cached = _subscription_cache.get(firebase_uid)
+    if cached and (now - cached[0]) < _SUBSCRIPTION_CACHE_TTL:
+        return cached[1]
+    result = _get_subscription(firebase_uid)
+    _subscription_cache[firebase_uid] = (now, result)
+    # Evict stale entries occasionally to prevent unbounded growth.
+    if len(_subscription_cache) > 5000:
+        cutoff = now - _SUBSCRIPTION_CACHE_TTL
+        stale = [k for k, v in _subscription_cache.items() if v[0] < cutoff]
+        for k in stale:
+            del _subscription_cache[k]
+    return result
+
+
+def _get_free_papers_set() -> frozenset:
+    """Return a frozenset of (exam_name_lower, year) pairs free for all authenticated users.
+    One paper per commission = first exam type in catalog + its latest year (mirrors frontend logic)."""
+    global _free_papers_cache, _free_papers_cache_ts
+    now = time.time()
+    if _free_papers_cache is not None and (now - _free_papers_cache_ts) < _FREE_PAPERS_CACHE_TTL:
+        return _free_papers_cache
+    try:
+        snapshot = _get_public_meta_snapshot()
+        commission_map: dict = snapshot["catalog"].get("commission_map", {})
+        free_set: set[tuple[str, int]] = set()
+        for exams in commission_map.values():
+            if not exams:
+                continue
+            first_key = next(iter(exams), None)
+            if not first_key:
+                continue
+            info = exams[first_key]
+            years = info.get("years") or []
+            full_name = str(info.get("fullName") or "").strip()
+            if not full_name or not years:
+                continue
+            free_set.add((full_name.lower(), max(years)))
+        _free_papers_cache = frozenset(free_set)
+        _free_papers_cache_ts = now
+        return _free_papers_cache
+    except Exception as exc:
+        print(f"WARN _get_free_papers_set: {exc}")
+        return frozenset()
+
+
+def _require_exam_access(user: dict, exam_name: str | None, exam_year: int | None) -> None:
+    """Raise 403 if this user cannot access the requested exam paper.
+    Free users may only access one paper per commission (first exam type, latest year)."""
+    if not exam_name or not exam_year:
+        return  # No paper filter — topic/random browse, not gated
+    sub = _get_subscription_cached(user["uid"])
+    if sub.get("is_premium"):
+        return
+    if (exam_name.lower(), exam_year) in _get_free_papers_set():
+        return
+    raise HTTPException(403, "This paper requires a premium subscription.")
 
 
 @app.get("/user/subscription")
@@ -3977,10 +4110,89 @@ def admin_tag_patterns(
     paper_id: Optional[str] = None,
     limit: int = 500,
 ):
-    """Run pattern intelligence tagging on untagged questions."""
+    """Run pattern intelligence tagging on untagged questions (synchronous, small batches)."""
     from pattern_tagger import run_pattern_tagger
     result = run_pattern_tagger(paper_id=paper_id, limit=limit)
     return result
+
+
+# Global state for the background bulk tagger.
+_bulk_tag_job: dict = {
+    "running": False, "tagged": 0, "total": 0, "errors": 0,
+    "started_at": None, "finished_at": None, "error": None,
+}
+
+
+@app.post("/admin/tag-patterns-all", dependencies=[Depends(verify_admin)])
+def admin_tag_patterns_all(limit: int = 12000, force: bool = False):
+    """Kick off background pattern tagging for ALL untagged questions.
+    Returns immediately — poll GET /admin/tag-patterns-status for progress."""
+    from datetime import datetime, timezone
+    global _bulk_tag_job
+    if _bulk_tag_job.get("running"):
+        return {"status": "already_running", **_bulk_tag_job}
+
+    # Set running=True BEFORE starting the thread so the immediate fetchStatus
+    # poll from the frontend sees running=True with no race window.
+    _bulk_tag_job = {
+        "running": True, "tagged": 0, "total": 0, "errors": 0,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "finished_at": None, "error": None,
+    }
+
+    def _run() -> None:
+        global _bulk_tag_job
+        import io
+        import traceback as _tb
+        import sys as _sys
+        from auto_tag_patterns import run as _tag_run
+        from datetime import datetime, timezone
+        from pathlib import Path as _Path
+
+        # Route all print() output from the tagger to a log file so the background
+        # thread never writes to uvicorn's non-blocking stdout (which raises EAGAIN/
+        # BlockingIOError [Errno 35] on macOS when the pipe buffer is full).
+        _log_path = _Path(__file__).parent / "cache" / "pattern_tags" / "tagger_stdout.log"
+        _log_path.parent.mkdir(parents=True, exist_ok=True)
+        with _log_path.open("a", encoding="utf-8", buffering=1) as _log_f:
+            _old_stdout, _old_stderr = _sys.stdout, _sys.stderr
+            _sys.stdout = _log_f
+            _sys.stderr = _log_f
+            try:
+                result = _tag_run(
+                    exam_name=None, exam_year=None,
+                    limit=limit, force=force, dry_run=False, paper_id=None,
+                )
+                _bulk_tag_job.update({
+                    "running": False,
+                    "tagged": result.get("tagged", 0),
+                    "total": result.get("candidates", 0),
+                    "errors": result.get("errors", 0),
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                })
+            except Exception as _e:
+                _bulk_tag_job.update({
+                    "running": False,
+                    "error": f"{type(_e).__name__}: {_e}\n{_tb.format_exc()}",
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                })
+            finally:
+                _sys.stdout = _old_stdout
+                _sys.stderr = _old_stderr
+
+    threading.Thread(target=_run, daemon=True, name="bulk-pattern-tagger").start()
+    return {"status": "started", **_bulk_tag_job}
+
+
+@app.get("/admin/tag-patterns-status", dependencies=[Depends(verify_admin)])
+def admin_tag_patterns_status():
+    """Return current status of the background bulk pattern tagger plus live untagged count."""
+    try:
+        r = supabase.table("questions").select("id", count="exact").eq("is_active", True).is_("pattern_tag", "null").execute()
+        untagged = r.count or 0
+    except Exception:
+        untagged = -1
+    return {**_bulk_tag_job, "untagged_remaining": untagged}
 
 
 @app.post("/admin/upload-pdf", dependencies=[Depends(verify_admin)])
@@ -4258,6 +4470,7 @@ def admin_upload_pdf(
         _ak_exam = exam_name
         _ak_year = exam_year
         _ak_job = job_id
+        _ak_paper_id = paper["id"]
 
         def _on_done(f):
             exc = f.exception()
@@ -4271,6 +4484,19 @@ def admin_upload_pdf(
                 except Exception as _e:
                     print(f"[job {_ak_job[:8]}] Post-job inject_answers failed: {_e}")
             _invalidate_meta_cache()
+            # Auto-tag pattern intelligence for all questions in this new paper.
+            if not exc:
+                def _auto_tag():
+                    try:
+                        from auto_tag_patterns import run as _tag_run
+                        result = _tag_run(
+                            exam_name=None, exam_year=None,
+                            limit=500, force=False, dry_run=False, paper_id=_ak_paper_id,
+                        )
+                        print(f"[job {_ak_job[:8]}] Auto-tagged {result.get('tagged', 0)} pattern tags for paper {_ak_paper_id[:8]}")
+                    except Exception as _e2:
+                        print(f"[job {_ak_job[:8]}] Auto-tag patterns failed: {_e2}")
+                threading.Thread(target=_auto_tag, daemon=True, name=f"auto-tag-{_ak_job[:8]}").start()
 
         future.add_done_callback(_on_done)
         print(f"[upload] Submitted job {job_id[:8]} to pool (active workers ≤4)")

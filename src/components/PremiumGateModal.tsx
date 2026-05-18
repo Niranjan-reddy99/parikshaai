@@ -3,6 +3,9 @@ import { useState } from 'react';
 interface PremiumGateModalProps {
   freePaperLabel: string;
   onClose: () => void;
+  /** When provided, "Upgrade" button calls this instead of the "notify me" fallback.
+   *  Hook in your Razorpay / Stripe flow here. */
+  onUpgrade?: () => void;
 }
 
 const FEATURES = [
@@ -22,7 +25,7 @@ function CheckIcon() {
   );
 }
 
-export function PremiumGateModal({ freePaperLabel, onClose }: PremiumGateModalProps) {
+export function PremiumGateModal({ freePaperLabel, onClose, onUpgrade }: PremiumGateModalProps) {
   const [hoverClose, setHoverClose] = useState(false);
   const [notified, setNotified] = useState(false);
 
@@ -130,12 +133,12 @@ export function PremiumGateModal({ freePaperLabel, onClose }: PremiumGateModalPr
               marginBottom: 10,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
-            onClick={() => setNotified(true)}
+            onClick={() => { if (onUpgrade) { onUpgrade(); } else { setNotified(true); } }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>
             </svg>
-            Get Early Access
+            {onUpgrade ? 'Upgrade to Premium' : 'Get Early Access'}
           </button>
         )}
 

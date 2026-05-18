@@ -53,16 +53,26 @@ _PARA_JUMBLE_RE = re.compile(
     re.IGNORECASE,
 )
 _GRAMMAR_ERROR_RE = re.compile(
-    r"grammatical\s+error|article\s+error|contains\s+an?\s+error|part\s+of\s+the\s+sentence|"
-    r"grammatically\s+correct|correct\s+sentence|error\s+in\s+the\s+sentence|sentence\s+correction",
+    r"grammatical\s+error|grammatically\s+(?:correct|incorrect)|"
+    r"error\s+in\s+the\s+(?:given\s+)?sentence|sentence\s+(?:has|contains)\s+(?:an?\s+)?error|"
+    r"which\s+(?:part|portion)\s+of\s+the\s+sentence|sentence\s+correction|"
+    r"identify\s+the\s+error|spot\s+the\s+error",
     re.IGNORECASE,
 )
+# NOTE: _{3,} intentionally removed — MCQ blanks ("set up in the year _____") are NOT
+# English language fill-in-the-blank exercises. Only match explicit instruction phrases.
 _FILL_BLANK_RE = re.compile(
-    r"fill\s+in\s+the\s+blank|complete\s+the\s+(?:given\s+)?sentence|select\s+the\s+most\s+appropriate\s+option\s+to\s+fill|_{3,}",
+    r"fill\s+in\s+the\s+blank|complete\s+the\s+(?:given\s+)?sentence|"
+    r"select\s+the\s+most\s+appropriate\s+(?:word|option)\s+to\s+fill",
     re.IGNORECASE,
 )
 _VOCAB_RE = re.compile(
     r"synonym|antonym|idiom|phrase|one[- ]word\s+substitution|meaning\s+of\s+the\s+word|spelt\s+correctly|vocabulary",
+    re.IGNORECASE,
+)
+# Used to guard language-pattern tags — they must only fire for English/language section questions
+_LANG_SUBJECT_RE = re.compile(
+    r"\b(?:english|language|grammar|verbal\s+ability|comprehension|reading|writing|vocabulary|linguistics|general\s+english)\b",
     re.IGNORECASE,
 )
 _CODING_RE = re.compile(
@@ -71,7 +81,10 @@ _CODING_RE = re.compile(
 )
 _RANKING_RE = re.compile(
     r"\brank(?:ed|ing)?\b|secured\s+\d+(?:st|nd|rd|th)\s+rank|from\s+the\s+top|from\s+the\s+bottom|"
-    r"maximum\s+scorer|minimum\s+scorer|seating\s+arrangement|linear\s+arrangement|circular\s+arrangement",
+    r"maximum\s+scorer|minimum\s+scorer|seating\s+arrangement|linear\s+arrangement|circular\s+arrangement|"
+    r"direction\s+sense|faces?\s+(?:north|south|east|west)|turns?\s+(?:left|right)\s+and\s+walks|"
+    r"how\s+far\s+(?:is|was)\s+(?:he|she|they)\s+from\s+the\s+(?:starting|initial)|"
+    r"walks?\s+\d+\s+(?:km|m|meters?)\s+(?:towards?|to\s+the)",
     re.IGNORECASE,
 )
 _GCD_LCM_RE = re.compile(r"\b(?:gcd|hcf|lcm)\b|greatest\s+common\s+divisor|least\s+common\s+multiple", re.IGNORECASE)
@@ -91,6 +104,13 @@ _MAP_LOCATION_RE = re.compile(
 _DATE_EVENT_RE = re.compile(
     r"in\s+which\s+year|which\s+year|year\s+was|completed\s+and\s+started|founded\s+in|established\s+in|"
     r"\b(?:18|19|20)\d{2}\b",
+    re.IGNORECASE,
+)
+# Strong date signals — explicit year-asking phrases that should override committee/scheme matches
+_DATE_EVENT_STRONG_RE = re.compile(
+    r"in\s+which\s+year|which\s+year\b|year\s+was\b|in\s+the\s+year\b|set\s+up\s+in|"
+    r"when\s+was\b|when\s+did\b|year\s+of\s+(?:establishment|founding|formation|constitution)|"
+    r"founded\s+in|established\s+in",
     re.IGNORECASE,
 )
 _SCHEME_CURRENT_RE = re.compile(
@@ -116,9 +136,13 @@ _COMMITTEE_RE = re.compile(
     re.IGNORECASE,
 )
 _STATEMENT_RE = re.compile(
-    r"consider\s+the\s+following\s+statements|which\s+of\s+the\s+following\s+statements|"
-    r"which\s+of\s+the\s+above|statements?\s+(?:is|are)\s+(?:correct|incorrect|true|false)|"
-    r"\b(?:i|ii|iii|iv)\.\s+|\b[abc]\.\s+",
+    # Only match explicit statement-validation frames — NOT option labels (A. B. C.) embedded in text.
+    # Removed \b(?:i|ii|iii|iv)\.\s+ and \b[abc]\.\s+ — they caused 75+ false positives
+    # by matching bullet-point option labels written inside question body text.
+    r"consider\s+the\s+following\s+statements|which\s+of\s+the\s+following\s+statements\s+(?:is|are)|"
+    r"which\s+of\s+the\s+(?:statements?\s+)?above\s+(?:is|are)|"
+    r"(?:how\s+many|which)\s+of\s+the\s+(?:above\s+)?statements?\s+(?:is|are)\s+(?:correct|incorrect|true|false)|"
+    r"statements?\s+(?:\d+\s+and\s+\d+|given\s+above)\s+(?:is|are)\s+(?:correct|incorrect|true|false)",
     re.IGNORECASE,
 )
 _WITH_REFERENCE_RE = re.compile(r"\bwith\s+reference\s+to\b|\bin\s+the\s+context\s+of\b", re.IGNORECASE)
@@ -274,6 +298,7 @@ def classify_question_rule(row: dict[str, Any]) -> dict[str, Any] | None:
     confidence = 0
 
     subject_topic = f"{row.get('subject') or ''} {row.get('topic') or ''} {row.get('subtopic') or ''}"
+    is_language_section = bool(_LANG_SUBJECT_RE.search(subject_topic))
 
     if _MATCH_RE.search(full_text):
         pattern_tag, skill_tag, confidence = "match-the-following", "analysis", 96
@@ -281,11 +306,13 @@ def classify_question_rule(row: dict[str, Any]) -> dict[str, Any] | None:
         pattern_tag, skill_tag, confidence = "assertion-reason", "analysis", 96
     elif _PARA_JUMBLE_RE.search(question) or "para jumble" in subject_topic.lower():
         pattern_tag, skill_tag, confidence = "para-jumble", "sequencing", 96
-    elif _FILL_BLANK_RE.search(question):
+    elif _FILL_BLANK_RE.search(question) and is_language_section:
+        # Only English/language section questions are true fill-in-the-blank.
+        # History/GK questions with _____ blanks fall through to better-fitting tags.
         pattern_tag, skill_tag, confidence = "fill-in-the-blank", "language-usage", 88
-    elif _GRAMMAR_ERROR_RE.search(question) or "grammar" in subject_topic.lower():
+    elif _GRAMMAR_ERROR_RE.search(question) or ("grammar" in subject_topic.lower() and is_language_section):
         pattern_tag, skill_tag, confidence = "grammar-error-detection", "language-usage", 88
-    elif _VOCAB_RE.search(question) or "vocabulary" in subject_topic.lower():
+    elif (_VOCAB_RE.search(question) or "vocabulary" in subject_topic.lower()) and is_language_section:
         pattern_tag, skill_tag, confidence = "vocabulary-usage", "language-usage", 86
     elif _CODING_RE.search(question) or "coding" in subject_topic.lower():
         pattern_tag, skill_tag, confidence = "coding-decoding", "pattern-recognition", 94
@@ -301,6 +328,10 @@ def classify_question_rule(row: dict[str, Any]) -> dict[str, Any] | None:
         pattern_tag, skill_tag, confidence = "arithmetic-calculation", "calculation", 82
     elif _CHRONOLOGY_RE.search(question):
         pattern_tag, skill_tag, confidence = "chronology", "sequencing", 94
+    elif _DATE_EVENT_STRONG_RE.search(question):
+        # Check strong year-asking phrases before article/committee so questions like
+        # "The ARC was set up in the year ____" aren't swallowed by committee-mapping.
+        pattern_tag, skill_tag, confidence = "date-event-recall", "recall", 88
     elif _ARTICLE_RE.search(question):
         pattern_tag, skill_tag, confidence = "article-provision", "recall", 90
     elif _COMMITTEE_RE.search(question):
@@ -309,10 +340,11 @@ def classify_question_rule(row: dict[str, Any]) -> dict[str, Any] | None:
         pattern_tag = "statement-elimination" if _COMBO_OPTION_RE.search(full_text) else "statement-based"
         skill_tag = "elimination" if _COMBO_OPTION_RE.search(full_text) else "analysis"
         confidence = 92
+    elif _DATE_EVENT_RE.search(question):
+        # Check date-event BEFORE scheme so "set up in year X" questions aren't mis-tagged as scheme.
+        pattern_tag, skill_tag, confidence = "date-event-recall", "recall", 82
     elif _SCHEME_CURRENT_RE.search(full_text) or "current affairs" in subject_topic.lower():
         pattern_tag, skill_tag, confidence = "scheme-current-affairs", "recall", 80
-    elif _DATE_EVENT_RE.search(question):
-        pattern_tag, skill_tag, confidence = "date-event-recall", "recall", 82
     elif _MAP_LOCATION_RE.search(question) or any(t in subject_topic.lower() for t in ("geography", "rivers", "map")):
         pattern_tag, skill_tag, confidence = "map-location", "mapping", 78
     elif _WITH_REFERENCE_RE.search(question):

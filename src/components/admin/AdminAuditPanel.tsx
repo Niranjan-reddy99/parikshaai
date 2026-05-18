@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, EyeOff, Image as ImageIcon, Info, LayoutGrid, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CheckCircle2, EyeOff, Image as ImageIcon, Info, LayoutGrid, RefreshCw, ShieldAlert, Tag, Wrench } from 'lucide-react';
 import { motion } from 'motion/react';
 import { API_BASE, adminHeaders } from '../../lib/adminApi';
 import { C } from '../../lib/tokens';
@@ -13,6 +13,137 @@ interface AdminAuditPanelProps {
   onAddPlaceholder?: (num: number) => void;
   onEditQuestion?: (question: Question) => void;
   onDeleteQuestion?: (id: string) => void;
+}
+
+// ── Pattern Tagging Panel ─────────────────────────────────────────────────────
+
+interface TagStatus {
+  running: boolean;
+  tagged: number;
+  total: number;
+  errors: number;
+  started_at: string | null;
+  finished_at: string | null;
+  error: string | null;
+  untagged_remaining: number;
+}
+
+function PatternTagPanel() {
+  const [status, setStatus] = useState<TagStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/tag-patterns-status`, { headers: adminHeaders() });
+      if (res.ok) setStatus(await res.json());
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  useEffect(() => {
+    if (status?.running) {
+      pollRef.current = setInterval(fetchStatus, 4000);
+    } else {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [status?.running, fetchStatus]);
+
+  const handleTagAll = async () => {
+    setLoading(true);
+    try {
+      await fetch(`${API_BASE}/admin/tag-patterns-all?limit=12000`, {
+        method: 'POST', headers: adminHeaders(),
+      });
+      await fetchStatus();
+      pollRef.current = setInterval(fetchStatus, 4000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const untagged = status?.untagged_remaining ?? -1;
+  const isRunning = status?.running ?? false;
+  const allDone = untagged === 0;
+
+  return (
+    <div style={{
+      marginTop: 24,
+      padding: '16px 20px',
+      background: 'rgba(124,111,255,0.06)',
+      borderRadius: 14,
+      border: '1px solid rgba(124,111,255,0.2)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Tag size={16} color={C.accent} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Global Pattern Tagging</div>
+            <div style={{ fontSize: 11, color: C.textSec, marginTop: 2 }}>
+              {untagged < 0
+                ? 'Loading...'
+                : allDone
+                  ? 'All questions are pattern-tagged'
+                  : `${untagged.toLocaleString()} questions untagged across all exams`}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {isRunning ? (
+            <span style={{ fontSize: 12, color: C.accent, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+              Running — {status?.tagged ?? 0} tagged so far…
+            </span>
+          ) : status?.finished_at ? (
+            <span style={{ fontSize: 12, color: C.success, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckCircle2 size={13} />
+              Last run: {status.tagged} tagged, {status.errors} errors
+            </span>
+          ) : null}
+
+          <button
+            onClick={handleTagAll}
+            disabled={isRunning || loading || allDone}
+            style={{
+              padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              fontFamily: 'inherit', cursor: isRunning || loading || allDone ? 'not-allowed' : 'pointer',
+              background: allDone ? C.surface : C.accent,
+              color: allDone ? C.textSec : '#fff',
+              border: 'none',
+              opacity: isRunning || loading ? 0.6 : 1,
+            }}
+          >
+            {isRunning ? 'Running…' : allDone ? 'All Tagged' : 'Tag All Untagged'}
+          </button>
+        </div>
+      </div>
+
+      {isRunning && typeof status?.total === 'number' && status.total > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ height: 4, background: C.surface, borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: `${Math.min(100, Math.round((status.tagged / status.total) * 100))}%`,
+              background: C.accent, borderRadius: 2,
+              transition: 'width 0.6s ease',
+            }} />
+          </div>
+          <div style={{ fontSize: 10, color: C.textSec, marginTop: 4 }}>
+            {status.tagged} / {status.total} questions tagged
+          </div>
+        </div>
+      )}
+
+      {status?.error && (
+        <div style={{ marginTop: 8, fontSize: 11, color: C.danger }}>Error: {status.error}</div>
+      )}
+    </div>
+  );
 }
 
 function badgeStyle(bg: string, color: string) {
@@ -356,6 +487,8 @@ export function AdminAuditPanel({
           This queue is driven by the backend repair audit. Rows marked <span style={{ color: C.accent }}>Hide row</span> are safe to keep out of the public paper without blocking the whole exam. Rows marked <span style={{ color: C.danger }}>Blocks paper</span> need structural or numbering repair first.
         </p>
       </div>
+
+      <PatternTagPanel />
     </motion.div>
   );
 }

@@ -151,6 +151,210 @@ type QuestionEditorModalProps = {
 };
 
 const ACTIVE_JOB_KEY = 'pariksha_admin_active_upload_job';
+
+type TagJobStatus = {
+  running: boolean;
+  tagged: number;
+  total: number;
+  errors: number;
+  started_at: string | null;
+  finished_at: string | null;
+  error: string | null;
+  untagged_remaining: number;
+};
+
+function PatternTagSection({ visible }: { visible: boolean }) {
+  const [status, setStatus] = React.useState<TagJobStatus | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
+  const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startPolling = React.useCallback((fetchFn: () => Promise<void>) => {
+    if (pollRef.current) return;
+    pollRef.current = setInterval(() => void fetchFn(), 3000);
+  }, []);
+
+  const stopPolling = React.useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  }, []);
+
+  const fetchStatus = React.useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/tag-patterns-status`, { headers: await adminHeaders() });
+      if (!res.ok) { setFetchError(`Status check failed: ${res.status}`); return; }
+      const data: TagJobStatus = await res.json();
+      setStatus(data);
+      setFetchError(null);
+      if (!data.running) stopPolling();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setFetchError(`Could not reach backend: ${msg}`);
+    }
+  }, [stopPolling]);
+
+  React.useEffect(() => {
+    if (!visible) return;
+    void fetchStatus();
+  }, [visible, fetchStatus]);
+
+  React.useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
+
+  const triggerTag = async (force: boolean) => {
+    setLoading(true);
+    setFetchError(null);
+    // Optimistically mark running so the UI responds immediately
+    setStatus(prev => ({
+      running: true, tagged: prev?.tagged ?? 0, total: prev?.total ?? 0,
+      errors: prev?.errors ?? 0, started_at: new Date().toISOString(),
+      finished_at: null, error: null,
+      untagged_remaining: prev?.untagged_remaining ?? -1,
+    }));
+    try {
+      const res = await fetch(
+        `${API_BASE}/admin/tag-patterns-all?limit=20000${force ? '&force=true' : ''}`,
+        { method: 'POST', headers: await adminHeaders() },
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => res.statusText);
+        setFetchError(`Trigger failed (${res.status}): ${text}`);
+        setStatus(prev => prev ? { ...prev, running: false } : null);
+        return;
+      }
+      // Start polling immediately — don't wait for fetchStatus round-trip
+      startPolling(fetchStatus);
+      await fetchStatus();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setFetchError(`Network error: ${msg}`);
+      setStatus(prev => prev ? { ...prev, running: false } : null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!visible) return null;
+
+  const untagged = status?.untagged_remaining ?? -1;
+  const isRunning = status?.running ?? false;
+  const allDone = untagged === 0;
+  const pct = status?.total ? Math.min(100, Math.round((status.tagged / status.total) * 100)) : 0;
+
+  return (
+    <section className="panel" style={{ gridColumn: '1 / -1' }}>
+      <div className="section-header">
+        <div>
+          <div className="section-kicker">Global tagging</div>
+          <h2>Pattern tag all questions</h2>
+        </div>
+        {isRunning && (
+          <div className="live-pill">
+            <Loader2 size={14} className="spin" />
+            Running
+          </div>
+        )}
+      </div>
+
+      <p style={{ fontSize: 13, color: 'var(--text-muted, #64748b)', marginBottom: 16, lineHeight: 1.5 }}>
+        Tags every question with <strong>pattern</strong> (statement-based, assertion-reason…),{' '}
+        <strong>trap</strong> (absolute-wording, negation…), <strong>skill</strong> (recall, elimination…), and <strong>style</strong>.
+        Required for Pattern Practice in the learner app to work correctly.
+      </p>
+
+      <div className="stats-grid" style={{ marginBottom: 16 }}>
+        <div className="stat-card">
+          <span>Untagged questions</span>
+          <strong style={{ color: allDone ? '#16a34a' : untagged > 0 ? '#d97706' : undefined }}>
+            {untagged < 0 ? '…' : untagged.toLocaleString()}
+          </strong>
+        </div>
+        {status?.finished_at && (
+          <div className="stat-card">
+            <span>Last run tagged</span>
+            <strong>{status.tagged.toLocaleString()}</strong>
+          </div>
+        )}
+        {status?.finished_at && (
+          <div className="stat-card">
+            <span>Last run errors</span>
+            <strong style={{ color: status.errors > 0 ? '#dc2626' : '#16a34a' }}>{status.errors}</strong>
+          </div>
+        )}
+      </div>
+
+      {isRunning && (
+        <div style={{ marginBottom: 16 }}>
+          <div className="progress-wrap">
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="progress-meta">
+              <span>{status?.tagged ?? 0} / {status?.total ?? '?'} tagged so far…</span>
+              <strong>{pct}%</strong>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {status?.error && (
+        <div className="alert-card alert-danger compact-alert" style={{ marginBottom: 12 }}>
+          <AlertCircle size={16} />
+          <div><strong>Tagger error</strong><p>{status.error}</p></div>
+        </div>
+      )}
+
+      {fetchError && (
+        <div className="alert-card alert-danger compact-alert" style={{ marginBottom: 12 }}>
+          <AlertCircle size={16} />
+          <div><strong>Request failed</strong><p>{fetchError}</p></div>
+        </div>
+      )}
+
+      {!isRunning && status?.finished_at && !status.error && (
+        <div className="alert-card alert-success compact-alert" style={{ marginBottom: 12 }}>
+          <CheckCircle2 size={16} />
+          <div>
+            <strong>Last run complete</strong>
+            <p>Tagged {status.tagged.toLocaleString()} questions with {status.errors} error(s). Finished {new Date(status.finished_at).toLocaleString('en-IN')}.</p>
+          </div>
+        </div>
+      )}
+
+      <div className="action-row">
+        <button
+          className="primary-button"
+          onClick={() => void triggerTag(false)}
+          disabled={isRunning || loading || allDone}
+        >
+          {isRunning ? (
+            <><Loader2 size={16} className="spin" />Tagging in background…</>
+          ) : allDone ? (
+            <><CheckCircle2 size={16} />All questions tagged</>
+          ) : (
+            <><Upload size={16} />Tag all untagged ({untagged < 0 ? '?' : untagged.toLocaleString()})</>
+          )}
+        </button>
+        <button
+          className="secondary-button"
+          onClick={() => void triggerTag(true)}
+          disabled={isRunning || loading}
+          title="Re-tag already tagged questions too"
+        >
+          Force re-tag everything
+        </button>
+        <button
+          className="ghost-button"
+          onClick={() => void fetchStatus()}
+          disabled={isRunning}
+        >
+          <RefreshCw size={15} />
+          Refresh count
+        </button>
+      </div>
+    </section>
+  );
+}
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 const ANSWERS = ['A', 'B', 'C', 'D'];
 
@@ -1355,6 +1559,8 @@ export default function App() {
       </div>
 
       <div className="workspace-grid">
+        <PatternTagSection visible={true} />
+
         <section className="panel">
           <div className="section-header">
             <div>
