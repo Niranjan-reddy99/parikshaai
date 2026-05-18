@@ -2156,8 +2156,8 @@ except Exception as _e:
 
 # ── Dependencies ─────────────────────────────────────────
 
-async def get_current_user(authorization: str = Header(None)) -> dict:
-    """Verify Firebase ID token."""
+def get_current_user(authorization: str = Header(None)) -> dict:
+    """Verify Firebase ID token. Runs in threadpool (sync) to avoid blocking the event loop."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Missing Authorization header")
     token = authorization.split("Bearer ")[1]
@@ -2165,6 +2165,18 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
         return verify_firebase_token(token)
     except ValueError as e:
         raise HTTPException(401, str(e))
+
+
+def optional_user(authorization: str = Header(None)) -> dict:
+    """Like get_current_user but returns {} instead of 401 for missing/invalid tokens.
+    Use on endpoints that are public but benefit from knowing who the user is."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return {}
+    token = authorization.split("Bearer ")[1]
+    try:
+        return verify_firebase_token(token)
+    except ValueError:
+        return {}
 
 
 async def verify_admin(
@@ -2555,7 +2567,7 @@ async def get_questions(
     offset: int = Query(0, ge=0),
     cursor: Optional[str] = Query(None),
     response: Response = None,
-    _current_user: dict = Depends(get_current_user),
+    _current_user: dict = Depends(optional_user),
 ):
     """Fetch filtered + paginated questions. Answers are NOT included here —
     use GET /questions/{id} after the user selects, or POST /reveal-answers after exam submission."""
@@ -3056,7 +3068,7 @@ async def get_questions_by_topic(
     limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
     response: Response = None,
-    _current_user: dict = Depends(get_current_user),
+    _current_user: dict = Depends(optional_user),
 ):
     try:
         if offset == 0 and limit <= 100:
@@ -3737,14 +3749,19 @@ def _get_free_papers_set() -> frozenset:
 
 def _require_exam_access(user: dict, exam_name: str | None, exam_year: int | None) -> None:
     """Raise 403 if this user cannot access the requested exam paper.
-    Free users may only access one paper per commission (first exam type, latest year)."""
+    Free users may only access one paper per commission (first exam type, latest year).
+    Anonymous users (no uid) can only access free papers."""
     if not exam_name or not exam_year:
         return  # No paper filter — topic/random browse, not gated
-    sub = _get_subscription_cached(user["uid"])
-    if sub.get("is_premium"):
-        return
+    uid = user.get("uid")
+    if uid:
+        sub = _get_subscription_cached(uid)
+        if sub.get("is_premium"):
+            return
     if (exam_name.lower(), exam_year) in _get_free_papers_set():
         return
+    if not uid:
+        raise HTTPException(401, "Login required to access this exam.")
     raise HTTPException(403, "This paper requires a premium subscription.")
 
 
