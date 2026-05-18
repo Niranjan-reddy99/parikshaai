@@ -817,10 +817,7 @@ function AppContent() {
   // Use this before every authenticated API call.
   const getApiToken = async (): Promise<string | null> => {
     try {
-      const tokenPromise = auth.currentUser?.getIdToken();
-      if (!tokenPromise) return null;
-      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
-      return await Promise.race([tokenPromise, timeout]);
+      return (await auth.currentUser?.getIdToken()) ?? null;
     } catch {
       return null;
     }
