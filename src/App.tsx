@@ -320,11 +320,19 @@ function AppContent() {
     let cancelled = false;
     (async () => {
       try {
-        const token = await user.getIdToken();
+        const token = await Promise.race([
+          user.getIdToken(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("token timeout")), 6000)
+          ),
+        ]);
         // Push any locally-accumulated stats up to Supabase on login
         syncStatsToApi(user.uid, localStats, token).catch(() => {});
+        const ac = new AbortController();
+        setTimeout(() => ac.abort(), 10000);
         const res = await fetch(`${API_BASE}/user/stats`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: ac.signal,
         });
         if (!res.ok) return;
         const serverStats = await res.json();
@@ -603,9 +611,16 @@ function AppContent() {
 
   const fetchSubscription = async (firebaseUser: { uid: string; getIdToken: () => Promise<string> }) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const fetchTimeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const token = await firebaseUser.getIdToken();
+      // getIdToken() can hang indefinitely on mobile if the refresh network call stalls.
+      // Timeout it independently so the finally block always runs.
+      const token = await Promise.race([
+        firebaseUser.getIdToken(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("token timeout")), 6000)
+        ),
+      ]);
       const res = await fetch(`${API_BASE}/user/subscription`, {
         headers: { Authorization: `Bearer ${token}` },
         signal: controller.signal,
@@ -619,7 +634,7 @@ function AppContent() {
     } catch {
       setIsPremium(false);
     } finally {
-      clearTimeout(timeout);
+      clearTimeout(fetchTimeout);
       setSubscriptionLoaded(true);
     }
   };
