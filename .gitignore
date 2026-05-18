@@ -26,9 +26,6 @@ gcp-key.json
 *-key.json
 *.service-account.json
 
-# Firebase runtime config — contains live API keys
-firebase-applet-config.json
-
 # Telegram session files — contain live auth tokens
 *.session
 backend/*.session
