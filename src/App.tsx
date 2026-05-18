@@ -1248,19 +1248,12 @@ function AppContent() {
       if (nextCursor) params.set("cursor", nextCursor);
 
       const token = await getApiToken();
-      const ac = new AbortController();
-      const abortTimer = setTimeout(() => ac.abort(), 20000);
-      let res: Response;
-      try {
-        res = await fetch(`${API_BASE}/questions?${params}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          signal: ac.signal,
-        });
-      } finally {
-        clearTimeout(abortTimer);
-      }
+      let res = await fetch(`${API_BASE}/questions?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (res.status === 401) {
-        try { const t2 = await auth.currentUser?.getIdToken(true) ?? null;
+        try {
+          const t2 = await auth.currentUser?.getIdToken(true) ?? null;
           res = await fetch(`${API_BASE}/questions?${params}`, {
             headers: t2 ? { Authorization: `Bearer ${t2}` } : {},
           });
