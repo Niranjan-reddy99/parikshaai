@@ -320,10 +320,11 @@ function AppContent() {
     let cancelled = false;
     (async () => {
       try {
+        // Force-refresh: token from IndexedDB cache may be stale right after auth init
         const token = await Promise.race([
-          user.getIdToken(),
+          user.getIdToken(true),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("token timeout")), 6000)
+            setTimeout(() => reject(new Error("token timeout")), 8000)
           ),
         ]);
         // Push any locally-accumulated stats up to Supabase on login
@@ -609,16 +610,16 @@ function AppContent() {
 
   // ── Effects ─────────────────────────────────────────────────────────────────
 
-  const fetchSubscription = async (firebaseUser: { uid: string; getIdToken: () => Promise<string> }) => {
+  const fetchSubscription = async (firebaseUser: { uid: string; getIdToken: (forceRefresh?: boolean) => Promise<string> }) => {
     const controller = new AbortController();
     const fetchTimeout = setTimeout(() => controller.abort(), 8000);
     try {
-      // getIdToken() can hang indefinitely on mobile if the refresh network call stalls.
-      // Timeout it independently so the finally block always runs.
+      // Force-refresh the token: onAuthStateChanged fires before Firebase completes
+      // its background token refresh, so the cached token may be stale/expired.
       const token = await Promise.race([
-        firebaseUser.getIdToken(),
+        firebaseUser.getIdToken(true),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("token timeout")), 6000)
+          setTimeout(() => reject(new Error("token timeout")), 8000)
         ),
       ]);
       const res = await fetch(`${API_BASE}/user/subscription`, {
