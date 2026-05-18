@@ -525,7 +525,7 @@ function AppContent() {
         totalCount: number;
         hasMore: boolean;
         nextOffset: number | null;
-      }>
+      } | void>
     >
   >({});
   const feedTopicPrefetchedRef = useRef<Set<string>>(new Set());
@@ -1409,7 +1409,6 @@ function AppContent() {
       })
       .catch(() => {
         // Silent prefetch miss — click path will still do the real request.
-        throw new Error("topic prefetch failed");
       })
       .finally(() => {
         delete topicPrefetchInFlightRef.current[cacheKey];
