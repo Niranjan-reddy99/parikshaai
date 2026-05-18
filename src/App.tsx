@@ -3494,9 +3494,9 @@ function AppContent() {
               </motion.div>
             </AnimatePresence>
 
-            {/* Global Error Toast */}
+            {/* Global Error Toast — only show when logged in */}
             <AnimatePresence>
-              {globalError && (
+              {globalError && user && (
                 <motion.div
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}

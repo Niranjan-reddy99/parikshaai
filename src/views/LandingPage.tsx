@@ -274,8 +274,8 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
             </div>
 
             <h1 className="lp2-h1">
-              Every question{' '}
-              <span className="lp2-h1-accent">UPSC has ever asked</span>
+              Every official PYQ from{' '}
+              <span className="lp2-h1-accent">6 major commissions</span>
               {' '}— analysed, explained and tracked.
             </h1>
 
