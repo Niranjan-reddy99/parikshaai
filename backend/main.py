@@ -60,8 +60,12 @@ def _get_main_genai_client():
         or os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
     )
     if raw_credentials and not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-        credentials_path = Path(tempfile.gettempdir()) / "google-application-credentials.json"
-        credentials_path.write_text(raw_credentials, encoding="utf-8")
+        import stat as _stat
+        fd, _cred_path = tempfile.mkstemp(suffix=".json")
+        os.fchmod(fd, _stat.S_IRUSR | _stat.S_IWUSR)  # 0o600 — owner only
+        with os.fdopen(fd, "w", encoding="utf-8") as _f:
+            _f.write(raw_credentials)
+        credentials_path = Path(_cred_path)
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(credentials_path)
     return _genai_main.Client(
         vertexai=True,
@@ -184,8 +188,8 @@ app.add_middleware(
     allow_origins=_cors_origins,
     allow_origin_regex=_cors_origin_regex,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Admin-Key"],
 )
 
 # ── Rate limiting (in-memory sliding window, Priority 6) ─────────────────────
@@ -2226,9 +2230,12 @@ async def admin_classify_pattern_book_pages(
     if not target_path:
         raise HTTPException(400, "Provide either a PDF upload or pdf_path")
 
-    path_obj = Path(target_path)
+    _allowed_base = (Path(__file__).parent / "uploads").resolve()
+    path_obj = Path(target_path).resolve()
+    if not str(path_obj).startswith(str(_allowed_base)) and path_obj != Path(tmp_path or "").resolve():
+        raise HTTPException(400, "Invalid pdf_path")
     if not path_obj.exists():
-        raise HTTPException(404, f"PDF not found: {target_path}")
+        raise HTTPException(404, "PDF not found")
 
     try:
         report = classify_pattern_book_pdf(str(path_obj), write_report=True)
@@ -2275,9 +2282,12 @@ async def admin_extract_pattern_book_raw_blocks(
     if not target_path:
         raise HTTPException(400, "Provide either a PDF upload or pdf_path")
 
-    path_obj = Path(target_path)
+    _allowed_base = (Path(__file__).parent / "uploads").resolve()
+    path_obj = Path(target_path).resolve()
+    if not str(path_obj).startswith(str(_allowed_base)) and path_obj != Path(tmp_path or "").resolve():
+        raise HTTPException(400, "Invalid pdf_path")
     if not path_obj.exists():
-        raise HTTPException(404, f"PDF not found: {target_path}")
+        raise HTTPException(404, "PDF not found")
 
     try:
         from extractor.pattern_book_raw_blocks import extract_pattern_book_raw_blocks
@@ -2373,9 +2383,12 @@ async def admin_build_pattern_book_gemini_question_pilot(
         if not target_path:
             raise HTTPException(400, "Provide either a PDF upload or pdf_path")
 
-        path_obj = Path(target_path)
+        _allowed_base = (Path(__file__).parent / "uploads").resolve()
+        path_obj = Path(target_path).resolve()
+        if not str(path_obj).startswith(str(_allowed_base)) and path_obj != Path(tmp_path or "").resolve():
+            raise HTTPException(400, "Invalid pdf_path")
         if not path_obj.exists():
-            raise HTTPException(404, f"PDF not found: {target_path}")
+            raise HTTPException(404, "PDF not found")
 
         return extract_pattern_book_question_pages_with_gemini(str(path_obj), write_report=True)
     finally:
@@ -2411,9 +2424,12 @@ async def admin_build_pattern_book_gemini_stage12(
         if not target_path:
             raise HTTPException(400, "Provide either a PDF upload or pdf_path")
 
-        path_obj = Path(target_path)
+        _allowed_base = (Path(__file__).parent / "uploads").resolve()
+        path_obj = Path(target_path).resolve()
+        if not str(path_obj).startswith(str(_allowed_base)) and path_obj != Path(tmp_path or "").resolve():
+            raise HTTPException(400, "Invalid pdf_path")
         if not path_obj.exists():
-            raise HTTPException(404, f"PDF not found: {target_path}")
+            raise HTTPException(404, "PDF not found")
 
         return run_pattern_book_gemini_stage12(str(path_obj), write_report=True)
     finally:
@@ -4217,6 +4233,10 @@ def admin_upload_pdf(
     """
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF files accepted")
+    _pdf_content = file.file.read()
+    file.file.seek(0)
+    if not _pdf_content[:4] == b"%PDF":
+        raise HTTPException(400, "Invalid PDF file")
 
     # Normalize exam_name: collapse multiple spaces, strip edges, preserve original casing
     exam_name = normalize_exam_name(exam_name)
@@ -4539,6 +4559,10 @@ def admin_upload_pattern_book(
     """
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF files accepted")
+    _pb_magic = file.file.read(4)
+    file.file.seek(0)
+    if _pb_magic != b"%PDF":
+        raise HTTPException(400, "Invalid PDF file")
 
     exam_name = normalize_exam_name(exam_name)
     chapter = normalize_exam_name(series) or exam_name
@@ -6473,7 +6497,7 @@ async def admin_questions_by_topic(
 # When APP_ROLE=public  → strips all /admin/* routes (safe for public-facing server)
 # When APP_ROLE=admin   → keeps all routes (your private ingestion tool)
 # When APP_ROLE=both    → keeps all routes (default, local development)
-_APP_ROLE = os.getenv("APP_ROLE", "both").strip().lower()
+_APP_ROLE = os.getenv("APP_ROLE", "public").strip().lower()
 
 if _APP_ROLE == "public":
     # Remove every /admin/* route so they are completely inaccessible.

@@ -21,7 +21,9 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 
 # ── Firebase Admin (for verifying user tokens) ───────────
-FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "gen-lang-client-0575996387")
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
+if not FIREBASE_PROJECT_ID:
+    raise RuntimeError("FIREBASE_PROJECT_ID must be set in .env")
 
 if not firebase_admin._apps:
     firebase_admin.initialize_app(options={"projectId": FIREBASE_PROJECT_ID})
