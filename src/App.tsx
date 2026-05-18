@@ -1247,18 +1247,7 @@ function AppContent() {
       params.set("limit", String(pageSize));
       if (nextCursor) params.set("cursor", nextCursor);
 
-      const token = await getApiToken();
-      let res = await fetch(`${API_BASE}/questions?${params}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.status === 401) {
-        try {
-          const t2 = await auth.currentUser?.getIdToken(true) ?? null;
-          res = await fetch(`${API_BASE}/questions?${params}`, {
-            headers: t2 ? { Authorization: `Bearer ${t2}` } : {},
-          });
-        } catch { /* keep original 401 response */ }
-      }
+      const res = await fetch(`${API_BASE}/questions?${params}`);
       if (!res.ok) throw new Error(`Failed to load questions (${res.status})`);
       const data: any = await res.json();
       const batch = (data.questions || []).map(mapQuestion);
