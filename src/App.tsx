@@ -1327,10 +1327,17 @@ function AppContent() {
     if (opts?.shiftLabel) params.set("shift_label", opts.shiftLabel);
     if (opts?.cursor) params.set("cursor", opts.cursor);
 
-    const token = await getApiToken();
-    const res = await fetch(`${API_BASE}/questions?${params}`, {
+    let token = await getApiToken();
+    let res = await fetch(`${API_BASE}/questions?${params}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
+    if (res.status === 401) {
+      // Cached token was stale — force-refresh once and retry
+      try { token = await auth.currentUser?.getIdToken(true) ?? null; } catch { token = null; }
+      res = await fetch(`${API_BASE}/questions?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    }
     if (!res.ok) throw new Error(`Failed to load questions (${res.status})`);
     const data: any = await res.json();
     return {
@@ -1362,7 +1369,7 @@ function AppContent() {
       limit: String(pageSize),
       offset: String(pageOffset),
     });
-    const token = await getApiToken();
+    let token = await getApiToken();
     const ac = new AbortController();
     const abortTimer = setTimeout(() => ac.abort(), 15000);
     let res: Response;
@@ -1373,6 +1380,13 @@ function AppContent() {
       });
     } finally {
       clearTimeout(abortTimer);
+    }
+    if (res.status === 401) {
+      // Cached token was stale — force-refresh once and retry
+      try { token = await auth.currentUser?.getIdToken(true) ?? null; } catch { token = null; }
+      res = await fetch(`${API_BASE}/topic-questions?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
     }
     if (!res.ok) {
       throw new Error(`Failed to load topic questions (${res.status})`);
