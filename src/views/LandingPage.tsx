@@ -1,8 +1,8 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { motion, useInView } from 'motion/react';
 import {
   ArrowRight, BarChart3, BookOpenCheck, Brain, CheckCircle2,
-  Clock, ShieldCheck, Sparkles, TrendingUp, XCircle, Zap,
+  Clock, Moon, ShieldCheck, Sparkles, Sun, TrendingUp, XCircle, Zap,
 } from 'lucide-react';
 import type { CatalogSummary, FeedSummary } from '../types';
 
@@ -219,13 +219,22 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
   const totalQuestions = catalogSummary?.total_questions ?? 9736;
   const commissionMap = catalogSummary?.commission_map ?? {};
 
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try { return (localStorage.getItem('lp-theme') as 'light' | 'dark') || 'light'; } catch { return 'light'; }
+  });
+  const toggleTheme = () => {
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    try { localStorage.setItem('lp-theme', next); } catch { /* ignore */ }
+  };
+
   const stepsRef = useRef<HTMLDivElement>(null);
   const stepsInView = useInView(stepsRef, { once: true, margin: '-60px' });
   const pricingRef = useRef<HTMLDivElement>(null);
   const pricingInView = useInView(pricingRef, { once: true, margin: '-60px' });
 
   return (
-    <div className="lp2-shell">
+    <div className="lp2-shell" data-theme={theme}>
 
       {/* ── Navbar ── */}
       <header className="lp2-header">
@@ -240,6 +249,9 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
             <a href="#pricing" className="lp2-nav-link">Pricing</a>
           </nav>
           <div className="lp2-header-actions">
+            <button className="lp2-btn-icon-sm" onClick={toggleTheme} aria-label="Toggle theme">
+              {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+            </button>
             <button className="lp2-btn-ghost-sm" onClick={onLogin}>Sign in</button>
             <button className="lp2-btn-primary-sm" onClick={onLogin}>Get started free</button>
           </div>
@@ -452,9 +464,9 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
                 ))}
               </div>
               <div className="lp2-pd-tags">
-                <span className="lp2-pd-tag" style={{ background: 'rgba(20,184,166,0.15)', color: '#2dd4bf' }}>statement-based</span>
-                <span className="lp2-pd-tag" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24' }}>absolute-wording</span>
-                <span className="lp2-pd-tag" style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa' }}>elimination</span>
+                <span className="lp2-pd-tag lp2-pd-tag-teal">statement-based</span>
+                <span className="lp2-pd-tag lp2-pd-tag-amber">absolute-wording</span>
+                <span className="lp2-pd-tag lp2-pd-tag-blue">elimination</span>
               </div>
               <div className="lp2-pd-hint">
                 <Zap size={12} color="#14b8a6" style={{ flexShrink: 0 }} />
