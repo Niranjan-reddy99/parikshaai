@@ -885,9 +885,15 @@ function AppContent() {
     const hasVisibleCatalog = Boolean(catalogSummary);
     const hasVisibleFeed = Boolean(feedSummary);
 
+    const fetchWithTimeout = (url: string, ms = 18000): Promise<Response> => {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), ms);
+      return fetch(url, { signal: ac.signal }).finally(() => clearTimeout(timer));
+    };
+
     const fetchCatalog = async () => {
       try {
-        const res = await fetch(`${API_BASE}/meta/catalog`);
+        const res = await fetchWithTimeout(`${API_BASE}/meta/catalog`);
         if (!res.ok) {
           return { ok: false as const, kind: "http" as const };
         }
@@ -907,7 +913,7 @@ function AppContent() {
 
     const fetchFeed = async () => {
       try {
-        const res = await fetch(`${API_BASE}/meta/feed`);
+        const res = await fetchWithTimeout(`${API_BASE}/meta/feed`);
         if (!res.ok) {
           return { ok: false as const, kind: "http" as const };
         }
