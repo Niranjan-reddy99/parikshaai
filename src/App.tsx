@@ -801,7 +801,10 @@ function AppContent() {
   // Use this before every authenticated API call.
   const getApiToken = async (): Promise<string | null> => {
     try {
-      return (await auth.currentUser?.getIdToken()) ?? null;
+      const tokenPromise = auth.currentUser?.getIdToken();
+      if (!tokenPromise) return null;
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+      return await Promise.race([tokenPromise, timeout]);
     } catch {
       return null;
     }
@@ -1338,9 +1341,17 @@ function AppContent() {
       offset: String(pageOffset),
     });
     const token = await getApiToken();
-    const res = await fetch(`${API_BASE}/topic-questions?${params}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const ac = new AbortController();
+    const abortTimer = setTimeout(() => ac.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/topic-questions?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: ac.signal,
+      });
+    } finally {
+      clearTimeout(abortTimer);
+    }
     if (!res.ok) {
       throw new Error(`Failed to load topic questions (${res.status})`);
     }
@@ -1885,12 +1896,18 @@ function AppContent() {
         }
       }, 1800);
 
-      const firstPage =
-        (await topicPrefetchInFlightRef.current[prefetchKey]?.catch(() => null)) ||
-        (await requestTopicPracticePage(subject, topic, {
-          pageSize: initialPageSize,
-          offset: 0,
-        }));
+      const fetchWithTimeout = Promise.race([
+        (async () =>
+          (await topicPrefetchInFlightRef.current[prefetchKey]?.catch(() => null)) ||
+          (await requestTopicPracticePage(subject, topic, {
+            pageSize: initialPageSize,
+            offset: 0,
+          })))(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Request timed out. Check your connection and try again.")), 20000)
+        ),
+      ]);
+      const firstPage = await fetchWithTimeout;
       if (topicPracticeRequestRef.current !== requestId) return;
       window.clearTimeout(slowTimer);
 
