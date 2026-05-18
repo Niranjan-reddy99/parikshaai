@@ -2057,10 +2057,18 @@ function AppContent() {
   const fetchQuestionAnswerMeta = async (
     questionId: string
   ): Promise<Partial<Question> | null> => {
-    const token = await getApiToken();
-    const res = await fetch(`${API_BASE}/questions/${questionId}`, {
+    let token = await getApiToken();
+    let res = await fetch(`${API_BASE}/questions/${questionId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: AbortSignal.timeout(10000),
     });
+    if (res.status === 401) {
+      try { token = await auth.currentUser?.getIdToken(true) ?? null; } catch { token = null; }
+      res = await fetch(`${API_BASE}/questions/${questionId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: AbortSignal.timeout(10000),
+      });
+    }
     if (!res.ok) return null;
     const data = await res.json();
     const nextQuestion = mapQuestion(data);

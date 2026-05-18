@@ -171,6 +171,22 @@ app = FastAPI(
     description="Admin-managed exam platform. Users consume questions, admin manages content.",
 )
 
+
+@app.on_event("startup")
+async def _pre_warm_firebase_keys():
+    """Fetch Firebase public keys at startup so first real request doesn't block."""
+    import threading
+    import urllib.request
+    def _fetch():
+        try:
+            urllib.request.urlopen(
+                "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
+                timeout=10,
+            )
+        except Exception:
+            pass
+    threading.Thread(target=_fetch, daemon=True).start()
+
 _cors_origins = (
     os.getenv(
         "CORS_ORIGINS",
@@ -2740,7 +2756,7 @@ async def reveal_answers(body: dict, _current_user: dict = Depends(get_current_u
 
 
 @app.get("/explanation/{question_id}")
-def get_explanation(question_id: str, _current_user: dict = Depends(get_current_user)):
+def get_explanation(question_id: str, _current_user: dict = Depends(optional_user)):
     """
     Lazy-loaded explanation + Real-time Answer Consistency.
     If the Reasoning Engine finds a corrected answer, it is returned here
@@ -2873,7 +2889,7 @@ def _explanation_unavailable_payload(
 
 
 @app.post("/explanations/batch")
-def get_explanations_batch(body: _BatchExplRequest, _current_user: dict = Depends(get_current_user)):
+def get_explanations_batch(body: _BatchExplRequest, _current_user: dict = Depends(optional_user)):
     """Return already-generated explanations for up to 50 questions in one DB query.
     IDs with no explanation yet are omitted from the response — caller fetches those individually."""
     ids = list(dict.fromkeys(body.question_ids))[:50]  # dedup + cap
