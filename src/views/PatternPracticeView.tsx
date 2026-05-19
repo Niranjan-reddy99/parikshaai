@@ -102,7 +102,7 @@ export function PatternPracticeView({ setView, backView = 'home' as View, adminT
       setFilteredQuestions(data);
       setQuizStarted(true);
     } catch (e) {
-      console.error(e);
+      console.error("Failed to load pattern questions");
     }
     setLoadingQs(false);
   }, []);

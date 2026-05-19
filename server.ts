@@ -106,6 +106,13 @@ async function startServer() {
 
   app.use(express.json({ limit: '10mb' }));
 
+  // Required for Firebase signInWithPopup — allows the main page to track the
+  // OAuth popup's window.closed without COOP blocking it.
+  app.use((_req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    next();
+  });
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error("CRITICAL: GEMINI_API_KEY is not set in the environment.");

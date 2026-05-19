@@ -2277,7 +2277,8 @@ async def admin_classify_pattern_book_pages(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(500, f"Pattern-book page classification failed: {exc}")
+        print(f"[ERROR] Pattern-book page classification failed: {exc}")
+        raise HTTPException(500, "Pattern-book page classification failed")
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
@@ -2325,7 +2326,8 @@ async def admin_extract_pattern_book_raw_blocks(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(500, f"Pattern-book raw block extraction failed: {exc}")
+        print(f"[ERROR] Pattern-book raw block extraction failed: {exc}")
+        raise HTTPException(500, "Pattern-book raw block extraction failed")
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
@@ -2495,7 +2497,8 @@ def list_pattern_books():
         res = supabase.table("pattern_books").select("*").order("created_at").execute()
         return res.data or []
     except Exception as e:
-        raise HTTPException(503, f"Pattern books unavailable: {e}")
+        print(f"[ERROR] Pattern books unavailable: {e}")
+        raise HTTPException(503, "Pattern books unavailable")
 
 
 @app.get("/pattern-books/{book_id}/questions")
@@ -2512,7 +2515,8 @@ async def get_pattern_questions(book_id: str):
         )
         return res.data or []
     except Exception as e:
-        raise HTTPException(503, f"Pattern questions unavailable: {e}")
+        print(f"[ERROR] Pattern questions unavailable: {e}")
+        raise HTTPException(503, "Pattern questions unavailable")
 
 
 @app.post("/admin/pattern-books/ingest", dependencies=[Depends(verify_admin)])
@@ -2611,7 +2615,8 @@ async def get_questions(
             response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
         return page_data
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 
 @app.get("/questions/meta")
@@ -2624,7 +2629,8 @@ async def get_questions_meta(response: Response):
         response.headers["Cache-Control"] = _meta_cache_control_header()
         return snapshot["questions_meta"]
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 
 @app.get("/meta/catalog")
@@ -2634,7 +2640,8 @@ async def get_catalog_summary(response: Response):
         response.headers["Cache-Control"] = _meta_cache_control_header()
         return snapshot["catalog"]
     except Exception as e:
-        raise HTTPException(500, f"Catalog summary error: {e}")
+        print(f"[ERROR] Catalog summary error: {e}")
+        raise HTTPException(500, "Catalog summary error")
 
 
 @app.get("/meta/feed")
@@ -2644,7 +2651,8 @@ async def get_feed_summary(response: Response):
         response.headers["Cache-Control"] = _meta_cache_control_header()
         return snapshot["feed"]
     except Exception as e:
-        raise HTTPException(500, f"Feed summary error: {e}")
+        print(f"[ERROR] Feed summary error: {e}")
+        raise HTTPException(500, "Feed summary error")
 
 
 @app.get("/meta/exam-outline")
@@ -2663,7 +2671,8 @@ async def get_exam_outline(
         )
         return build_exam_outline(rows, normalize_exam_name(exam_name), exam_year)
     except Exception as e:
-        raise HTTPException(500, f"Exam outline error: {e}")
+        print(f"[ERROR] Exam outline error: {e}")
+        raise HTTPException(500, "Exam outline error")
 
 
 @app.get("/meta/exam-papers")
@@ -2674,7 +2683,8 @@ async def get_exam_papers(
     try:
         return _build_exam_paper_manifest(normalize_exam_name(exam_name), exam_year)
     except Exception as e:
-        raise HTTPException(500, f"Exam papers error: {e}")
+        print(f"[ERROR] Exam papers error: {e}")
+        raise HTTPException(500, "Exam papers error")
 
 
 @app.get("/questions/{question_id}")
@@ -2712,7 +2722,8 @@ async def get_question_with_answer(question_id: str, _current_user: dict = Depen
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 
 @app.post("/reveal-answers")
@@ -2752,7 +2763,8 @@ async def reveal_answers(body: dict, _current_user: dict = Depends(get_current_u
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 
 @app.get("/explanation/{question_id}")
@@ -2808,15 +2820,6 @@ def get_explanation(question_id: str, _current_user: dict = Depends(optional_use
                 verified_answers=correct_answers,
                 answer_status="multiple",
                 needs_review=False,
-            )
-        if bool(question_row.data.get("needs_review")):
-            return _explanation_unavailable_payload(
-                question_id,
-                source="blocked-unverified-answer",
-                verified_answer=question_row.data.get("correct_answer"),
-                verified_answers=correct_answers,
-                answer_status=answer_status or None,
-                needs_review=True,
             )
         result = None
         try:
@@ -3018,7 +3021,8 @@ async def flag_question(question_id: str, body: FlagRequest, _current_user: dict
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Flag error: {e}")
+        print(f"[ERROR] Flag error: {e}")
+        raise HTTPException(500, "Flag error")
 
 
 @app.get("/practice")
@@ -3109,7 +3113,8 @@ async def get_questions_by_topic(
             response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
         return result
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 
 @app.get("/stats")
@@ -3168,7 +3173,8 @@ def get_stats():
         _stats_cache_ts = time.time()
         return result
     except Exception as e:
-        raise HTTPException(500, f"Stats error: {e}")
+        print(f"[ERROR] Stats error: {e}")
+        raise HTTPException(500, "Stats error")
 
 
 # ══════════════════════════════════════════════════════════
@@ -3666,7 +3672,8 @@ def get_my_progress(user: dict = Depends(get_current_user)):
             "dailyActivity": daily_activity,
         }
     except Exception as e:
-        raise HTTPException(500, f"Failed to load progress: {e}")
+        print(f"[ERROR] Failed to load progress: {e}")
+        raise HTTPException(500, "Failed to load progress")
 
 
 # ══════════════════════════════════════════════════════════
@@ -3871,7 +3878,8 @@ def sync_local_stats(payload: SyncLocalPayload, user: dict = Depends(get_current
         }, on_conflict="firebase_uid").execute()
         return {"status": "synced"}
     except Exception as e:
-        raise HTTPException(500, f"Sync failed: {e}")
+        print(f"[ERROR] Sync failed: {e}")
+        raise HTTPException(500, "Sync failed")
 
 
 @app.get("/user/weakness-report")
@@ -4040,7 +4048,8 @@ def get_srs_queue(limit: int = 20, user: dict = Depends(get_current_user)):
                 due.append({**q, "srs_interval": r["interval_days"], "srs_reps": r["repetitions"]})
         return {"due": due, "count": len(due)}
     except Exception as e:
-        raise HTTPException(500, f"SRS queue error: {e}")
+        print(f"[ERROR] SRS queue error: {e}")
+        raise HTTPException(500, "SRS queue error")
 
 
 @app.post("/user/srs-review")
@@ -4079,7 +4088,8 @@ def submit_srs_review(payload: SrsReviewPayload, user: dict = Depends(get_curren
 
         return {"next_due": due, "interval_days": new_interval, "ease_factor": new_ease}
     except Exception as e:
-        raise HTTPException(500, f"SRS review error: {e}")
+        print(f"[ERROR] SRS review error: {e}")
+        raise HTTPException(500, "SRS review error")
 
 
 # ══════════════════════════════════════════════════════════
@@ -4101,7 +4111,8 @@ def add_bookmark(payload: BookmarkPayload, user: dict = Depends(get_current_user
         ).execute()
         return {"status": "bookmarked"}
     except Exception as e:
-        raise HTTPException(500, f"Bookmark failed: {e}")
+        print(f"[ERROR] Bookmark failed: {e}")
+        raise HTTPException(500, "Bookmark failed")
 
 
 @app.delete("/user/bookmark/{question_id}")
@@ -4111,7 +4122,8 @@ def remove_bookmark(question_id: str, user: dict = Depends(get_current_user)):
         supabase.table("bookmarks").delete().eq("firebase_uid", uid).eq("question_id", question_id).execute()
         return {"status": "removed"}
     except Exception as e:
-        raise HTTPException(500, f"Remove bookmark failed: {e}")
+        print(f"[ERROR] Remove bookmark failed: {e}")
+        raise HTTPException(500, "Remove bookmark failed")
 
 
 @app.get("/user/bookmarks")
@@ -4147,7 +4159,8 @@ def list_bookmarks(limit: int = 50, user: dict = Depends(get_current_user)):
                 bookmarks.append({**q, "bookmark_note": note_map.get(r["question_id"])})
         return {"bookmarks": bookmarks}
     except Exception as e:
-        raise HTTPException(500, f"List bookmarks failed: {e}")
+        print(f"[ERROR] List bookmarks failed: {e}")
+        raise HTTPException(500, "List bookmarks failed")
 
 
 # ══════════════════════════════════════════════════════════
@@ -4220,9 +4233,11 @@ def admin_tag_patterns_all(limit: int = 12000, force: bool = False):
                     "finished_at": datetime.now(timezone.utc).isoformat(),
                 })
             except Exception as _e:
+                # Full traceback goes to the log file (stdout is redirected to _log_f)
+                print(f"[ERROR] bulk-pattern-tagger failed: {type(_e).__name__}: {_e}\n{_tb.format_exc()}")
                 _bulk_tag_job.update({
                     "running": False,
-                    "error": f"{type(_e).__name__}: {_e}\n{_tb.format_exc()}",
+                    "error": f"{type(_e).__name__}: {_e}",
                     "finished_at": datetime.now(timezone.utc).isoformat(),
                 })
             finally:
@@ -4574,7 +4589,7 @@ def admin_upload_pdf(
         print(_tb.format_exc())
         if tmp_path.startswith(tempfile.gettempdir()) and os.path.exists(tmp_path):
             os.unlink(tmp_path)
-        raise HTTPException(500, f"Error queuing job: {e}")
+        raise HTTPException(500, "Error queuing job")
 
 
 @app.post("/admin/upload-pattern-book", dependencies=[Depends(verify_admin)])
@@ -4695,7 +4710,7 @@ def admin_upload_pattern_book(
         print(_tb.format_exc())
         if tmp_path.startswith(tempfile.gettempdir()) and os.path.exists(tmp_path):
             os.unlink(tmp_path)
-        raise HTTPException(500, f"Error queuing SSC content job: {e}")
+        raise HTTPException(500, "Error queuing SSC content job")
 
 @app.post("/admin/inject-answers", dependencies=[Depends(verify_admin)])
 def admin_inject_answers(
@@ -4733,7 +4748,8 @@ def admin_inject_answers(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Answer key injection failed: {e}")
+        print(f"[ERROR] Answer key injection failed: {e}")
+        raise HTTPException(500, "Answer key injection failed")
     finally:
         os.unlink(ak_tmp_path)
 
@@ -4811,7 +4827,8 @@ def admin_list_jobs(
                         job["quality_report"] = None
         return {"jobs": jobs}
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 @app.get("/admin/jobs/{job_id}", dependencies=[Depends(verify_admin)])
 def admin_get_job(
@@ -4851,7 +4868,8 @@ def admin_get_job(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 
 @app.get("/admin/exam-quality", dependencies=[Depends(verify_admin)])
@@ -4863,7 +4881,8 @@ def admin_exam_quality(
     try:
         return _exam_quality_report(exam_name, exam_year)
     except Exception as e:
-        raise HTTPException(500, f"Quality report error: {e}")
+        print(f"[ERROR] Quality report error: {e}")
+        raise HTTPException(500, "Quality report error")
 
 
 @app.get("/admin/publish-readiness", dependencies=[Depends(verify_admin)])
@@ -4905,7 +4924,8 @@ def admin_publish_readiness():
             "reports": reports,
         }
     except Exception as e:
-        raise HTTPException(500, f"Publish readiness error: {e}")
+        print(f"[ERROR] Publish readiness error: {e}")
+        raise HTTPException(500, "Publish readiness error")
 
 
 @app.get("/admin/repair-queue", dependencies=[Depends(verify_admin)])
@@ -4980,7 +5000,8 @@ async def admin_repair_queue(
             "papers": exam_reports,
         }
     except Exception as e:
-        raise HTTPException(500, f"Repair queue error: {e}")
+        print(f"[ERROR] Repair queue error: {e}")
+        raise HTTPException(500, "Repair queue error")
 
 
 @app.post("/admin/retry-job/{job_id}", dependencies=[Depends(verify_admin)])
@@ -5041,7 +5062,8 @@ def admin_retry_job(job_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Retry failed: {e}")
+        print(f"[ERROR] Retry failed: {e}")
+        raise HTTPException(500, "Retry failed")
 
 
 @app.post("/admin/practice-ready/rebuild", dependencies=[Depends(verify_admin)])
@@ -5062,7 +5084,8 @@ def admin_rebuild_practice_ready(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Practice-ready rebuild failed: {e}")
+        print(f"[ERROR] Practice-ready rebuild failed: {e}")
+        raise HTTPException(500, "Practice-ready rebuild failed")
 
 
 @app.post("/admin/catalog/freeze-current", dependencies=[Depends(verify_admin)])
@@ -5073,7 +5096,8 @@ def admin_freeze_current_catalog(label: Optional[str] = Query(None)):
         _invalidate_meta_cache()
         return {"status": "ok", **result}
     except Exception as e:
-        raise HTTPException(500, f"Catalog freeze failed: {e}")
+        print(f"[ERROR] Catalog freeze failed: {e}")
+        raise HTTPException(500, "Catalog freeze failed")
 
 
 @app.post("/admin/jobs/{job_id}/reset", dependencies=[Depends(verify_admin)])
@@ -5166,7 +5190,8 @@ def admin_update_question(question_id: str, update: QuestionUpdate, background_t
     try:
         supabase.table("questions").update(data).eq("id", question_id).execute()
     except Exception as e:
-        raise HTTPException(500, f"DB update failed: {e}")
+        print(f"[ERROR] DB update failed: {e}")
+        raise HTTPException(500, "DB update failed")
 
     # Manual edits can fix a row enough to make it publicly visible again.
     # Recompute quality fields so `public_visibility` tracks the repaired state.
@@ -5346,7 +5371,8 @@ async def admin_delete_question(question_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Delete error: {e}")
+        print(f"[ERROR] Delete error: {e}")
+        raise HTTPException(500, "Delete error")
 
 
 @app.patch("/admin/rename-exam", dependencies=[Depends(verify_admin)])
@@ -5381,7 +5407,8 @@ def admin_rename_exam(
             "new_name": new_name,
         }
     except Exception as e:
-        raise HTTPException(500, f"Rename error: {e}")
+        print(f"[ERROR] Rename error: {e}")
+        raise HTTPException(500, "Rename error")
 
 
 @app.post("/admin/publish-paper", dependencies=[Depends(verify_admin)])
@@ -5486,7 +5513,8 @@ def admin_publish_paper(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Publish error: {e}")
+        print(f"[ERROR] Publish error: {e}")
+        raise HTTPException(500, "Publish error")
 
 
 @app.post("/admin/add-blank-question", dependencies=[Depends(verify_admin)])
@@ -5525,7 +5553,8 @@ async def admin_add_blank_question(req: dict):
         _invalidate_meta_cache()
         return {"status": "success", "data": r.data}
     except Exception as e:
-        raise HTTPException(500, f"Error adding question: {e}")
+        print(f"[ERROR] Error adding question: {e}")
+        raise HTTPException(500, "Error adding question")
 
 @app.delete("/admin/delete-exam", dependencies=[Depends(verify_admin)])
 def admin_delete_exam(
@@ -5542,7 +5571,8 @@ def admin_delete_exam(
         _invalidate_meta_cache()
         return {"status": "deleted", "removed": len(r.data or []), "exam_name": exam_name}
     except Exception as e:
-        raise HTTPException(500, f"Delete error: {e}")
+        print(f"[ERROR] Delete error: {e}")
+        raise HTTPException(500, "Delete error")
 
 
 @app.post("/admin/retag", dependencies=[Depends(verify_admin)])
@@ -5560,7 +5590,8 @@ def admin_retag(
         result = retag_exam(exam_name, exam_year)
         return result
     except Exception as e:
-        raise HTTPException(500, f"Retag error: {e}")
+        print(f"[ERROR] Retag error: {e}")
+        raise HTTPException(500, "Retag error")
 
 
 @app.post("/admin/retag-all", dependencies=[Depends(verify_admin)])
@@ -5575,7 +5606,8 @@ def admin_retag_all():
         result = retag_all_exams()
         return result
     except Exception as e:
-        raise HTTPException(500, f"Retag-all error: {e}")
+        print(f"[ERROR] Retag-all error: {e}")
+        raise HTTPException(500, "Retag-all error")
 
 
 @app.post("/admin/normalize-taxonomy", dependencies=[Depends(verify_admin)])
@@ -5591,7 +5623,8 @@ def admin_normalize_taxonomy():
         result = normalize_subject_taxonomy()
         return result
     except Exception as e:
-        raise HTTPException(500, f"Taxonomy normalization error: {e}")
+        print(f"[ERROR] Taxonomy normalization error: {e}")
+        raise HTTPException(500, "Taxonomy normalization error")
 
 
 @app.post("/admin/generate-explanations", dependencies=[Depends(verify_admin)])
@@ -5621,7 +5654,8 @@ def admin_generate_explanations(
             ),
         }
     except Exception as e:
-        raise HTTPException(500, f"Explanation generation error: {e}")
+        print(f"[ERROR] Explanation generation error: {e}")
+        raise HTTPException(500, "Explanation generation error")
 
 
 @app.post("/admin/validate-answers", dependencies=[Depends(verify_admin)])
@@ -5641,7 +5675,8 @@ def admin_validate_answers(
         _invalidate_meta_cache()
         return result
     except Exception as e:
-        raise HTTPException(500, f"Answer validation error: {e}")
+        print(f"[ERROR] Answer validation error: {e}")
+        raise HTTPException(500, "Answer validation error")
 
 
 @app.post("/admin/fix-explanation-mismatches", dependencies=[Depends(verify_admin)])
@@ -5691,7 +5726,8 @@ def admin_fix_explanation_mismatches(
             "message": f"Deleted {deleted} stale explanations. They will regenerate correctly on next user access.",
         }
     except Exception as e:
-        raise HTTPException(500, f"Error: {e}")
+        print(f"[ERROR] Error: {e}")
+        raise HTTPException(500, "Error")
 
 
 def _is_cbt_answer_verification_candidate(row: dict, paper_by_id: dict[str, dict]) -> bool:
@@ -5858,7 +5894,8 @@ def admin_verify_cbt_answers(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"CBT verification update failed: {e}")
+        print(f"[ERROR] CBT verification update failed: {e}")
+        raise HTTPException(500, "CBT verification update failed")
 
 
 @app.get("/admin/explanation-mismatches", dependencies=[Depends(verify_admin)])
@@ -5876,7 +5913,8 @@ def admin_list_explanation_mismatches(
             "items": mismatches[:limit],
         }
     except Exception as e:
-        raise HTTPException(500, f"Explanation mismatch audit error: {e}")
+        print(f"[ERROR] Explanation mismatch audit error: {e}")
+        raise HTTPException(500, "Explanation mismatch audit error")
 
 
 @app.post("/admin/repair-explanation-mismatches", dependencies=[Depends(verify_admin)])
@@ -5945,7 +5983,8 @@ async def admin_repair_explanation_mismatches(
             "failed": failed,
         }
     except Exception as e:
-        raise HTTPException(500, f"Repair explanation mismatch error: {e}")
+        print(f"[ERROR] Repair explanation mismatch error: {e}")
+        raise HTTPException(500, "Repair explanation mismatch error")
 
 
 @app.get("/admin/question-repairs", dependencies=[Depends(verify_admin)])
@@ -5988,7 +6027,8 @@ async def admin_list_question_repairs(
 
         return {"total": len(repairs), "items": repairs[:limit]}
     except Exception as e:
-        raise HTTPException(500, f"Question repair list error: {e}")
+        print(f"[ERROR] Question repair list error: {e}")
+        raise HTTPException(500, "Question repair list error")
 
 
 @app.post("/admin/apply-question-repair/{repair_id}", dependencies=[Depends(verify_admin)])
@@ -6012,7 +6052,8 @@ async def admin_apply_question_repair(repair_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Apply question repair error: {e}")
+        print(f"[ERROR] Apply question repair error: {e}")
+        raise HTTPException(500, "Apply question repair error")
 
 
 @app.post("/admin/ai-detect-answers", dependencies=[Depends(verify_admin)])
@@ -6051,7 +6092,8 @@ def admin_ai_detect_answers(
         try:
             genai_client = _get_main_genai_client()
         except Exception as e:
-            raise HTTPException(503, f"AI client unavailable: {e}")
+            print(f"[ERROR] AI client unavailable: {e}")
+            raise HTTPException(503, "AI client unavailable")
 
         BATCH = 25
         updated = 0
@@ -6120,7 +6162,8 @@ def admin_ai_detect_answers(
             "message": f"AI detected answers for {updated} questions (needs_review=true). Verify a sample before publishing.",
         }
     except Exception as e:
-        raise HTTPException(500, f"Error: {e}")
+        print(f"[ERROR] Error: {e}")
+        raise HTTPException(500, "Error")
 
 
 @app.delete("/admin/explanations", dependencies=[Depends(verify_admin)])
@@ -6161,7 +6204,8 @@ def admin_delete_explanations(
 
         return {"deleted": deleted, "message": f"Cleared all explanations for '{exam_name}'. They regenerate on next user access."}
     except Exception as e:
-        raise HTTPException(500, f"Error: {e}")
+        print(f"[ERROR] Error: {e}")
+        raise HTTPException(500, "Error")
 
 
 @app.get("/admin/cost-log", dependencies=[Depends(verify_admin)])
@@ -6176,7 +6220,8 @@ def admin_cost_log():
         total = round(sum(r.get("total_inr", 0) for r in runs), 4)
         return {"runs": list(reversed(runs)), "total_inr": total}
     except Exception as e:
-        raise HTTPException(500, f"Could not read cost log: {e}")
+        print(f"[ERROR] Could not read cost log: {e}")
+        raise HTTPException(500, "Could not read cost log")
 
 
 @app.get("/admin/questions", dependencies=[Depends(verify_admin)])
@@ -6285,7 +6330,8 @@ async def admin_list_all_questions(
             "total": total_count,
         }
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 
 @app.get("/admin/questions/{question_id}", dependencies=[Depends(verify_admin)])
@@ -6300,7 +6346,8 @@ async def admin_get_question(question_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 
 @app.get("/admin/flags", dependencies=[Depends(verify_admin)])
@@ -6354,7 +6401,8 @@ def admin_get_flags(min_flags: int = Query(1, ge=1), limit: int = Query(100, le=
         result.sort(key=lambda x: x["flag_count"], reverse=True)
         return {"flags": result, "total": len(result)}
     except Exception as e:
-        raise HTTPException(500, f"Flags fetch error: {e}")
+        print(f"[ERROR] Flags fetch error: {e}")
+        raise HTTPException(500, "Flags fetch error")
 
 
 @app.post("/admin/flags/{flag_id}/resolve", dependencies=[Depends(verify_admin)])
@@ -6397,7 +6445,8 @@ def admin_resolve_flag(flag_id: str, action: str = Query(..., pattern=r"^(dismis
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Resolve error: {e}")
+        print(f"[ERROR] Resolve error: {e}")
+        raise HTTPException(500, "Resolve error")
 
 
 @app.post("/admin/flags/dismiss-all/{question_id}", dependencies=[Depends(verify_admin)])
@@ -6411,7 +6460,8 @@ def admin_dismiss_all_flags(question_id: str):
         }).eq("id", question_id).execute()
         return {"status": "dismissed", "question_id": question_id}
     except Exception as e:
-        raise HTTPException(500, f"Dismiss error: {e}")
+        print(f"[ERROR] Dismiss error: {e}")
+        raise HTTPException(500, "Dismiss error")
 
 
 @app.get("/admin/explanation/{question_id}", dependencies=[Depends(verify_admin)])
@@ -6421,13 +6471,6 @@ def admin_get_explanation(question_id: str):
         qr = supabase.table("questions").select("id, correct_answer, needs_review").eq("id", question_id).eq("is_active", True).single().execute()
         if not qr.data:
             raise HTTPException(404, "Question not found")
-        if bool(qr.data.get("needs_review")):
-            return _explanation_unavailable_payload(
-                question_id,
-                source="blocked-unverified-answer",
-                verified_answer=qr.data.get("correct_answer"),
-                needs_review=True,
-            )
         result = None
         try:
             from pipeline import generate_single_explanation
@@ -6484,7 +6527,8 @@ async def admin_questions_meta(is_active: Optional[bool] = Query(True)):
             _admin_meta_cache_ts = time.time()
         return {"questions": all_data, "total": len(all_data)}
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 
 @app.get("/admin/meta/catalog", dependencies=[Depends(verify_admin)])
@@ -6494,7 +6538,8 @@ async def admin_catalog_summary():
         rows = _dedupe_admin_meta_rows(meta.get("questions", []))
         return build_catalog_from_meta(rows)
     except Exception as e:
-        raise HTTPException(500, f"Admin catalog summary error: {e}")
+        print(f"[ERROR] Admin catalog summary error: {e}")
+        raise HTTPException(500, "Admin catalog summary error")
 
 
 @app.get("/admin/meta/feed", dependencies=[Depends(verify_admin)])
@@ -6504,7 +6549,8 @@ async def admin_feed_summary():
         rows = _dedupe_admin_meta_rows(meta.get("questions", []))
         return build_feed_from_meta(rows)
     except Exception as e:
-        raise HTTPException(500, f"Admin feed summary error: {e}")
+        print(f"[ERROR] Admin feed summary error: {e}")
+        raise HTTPException(500, "Admin feed summary error")
 
 
 @app.get("/admin/topic-questions", dependencies=[Depends(verify_admin)])
@@ -6523,7 +6569,8 @@ async def admin_questions_by_topic(
             offset=offset,
         )
     except Exception as e:
-        raise HTTPException(500, f"Database error: {e}")
+        print(f"[ERROR] Database error: {e}")
+        raise HTTPException(500, "Database error")
 
 
 # ── Role-based route filtering ────────────────────────────────────────────────

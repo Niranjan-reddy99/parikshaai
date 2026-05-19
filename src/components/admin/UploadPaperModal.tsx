@@ -341,14 +341,12 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
     if (replaceExisting) form.append('clear_cache', 'true');
 
     try {
-      console.log('🚀 Starting upload to 127.0.0.1:8000...');
       const res = await fetch(`${API_BASE}/admin/upload-pdf`, {
         method: 'POST',
         headers: adminHeaders(),
         body: form,
       });
       const data = await res.json();
-      console.log('📥 Backend response:', data);
       
       if (!res.ok) {
         if (res.status === 409) {

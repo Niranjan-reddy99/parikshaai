@@ -53,8 +53,28 @@ from pattern_classifier import (  # noqa: E402
     classify_question_rule,
 )
 
-BATCH_SIZE = 20   # questions per Gemini call (kept small so JSON fits cleanly)
+BATCH_SIZE = 15   # Flash thinking handles 15 questions well; fewer API roundtrips
 LOG_DIR = Path(__file__).parent / "cache" / "pattern_tags"
+CHECKPOINT_FILE = LOG_DIR / "checkpoint.json"
+
+
+def _load_checkpoint() -> dict | None:
+    if CHECKPOINT_FILE.exists():
+        try:
+            return json.loads(CHECKPOINT_FILE.read_text())
+        except Exception:
+            return None
+    return None
+
+
+def _save_checkpoint(started_at: str, batches_done: int) -> None:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    CHECKPOINT_FILE.write_text(json.dumps({"started_at": started_at, "batches_done": batches_done}))
+
+
+def _clear_checkpoint() -> None:
+    if CHECKPOINT_FILE.exists():
+        CHECKPOINT_FILE.unlink()
 
 
 def _supabase_execute(query, retries: int = 3):
@@ -102,8 +122,15 @@ def _build_genai_client():
         p.write_text(raw_creds)
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(p)
 
-    print(f"Using Vertex AI — project={project} location={location}")
-    return genai.Client(vertexai=True, project=project, location=location)
+    print(f"Using Vertex AI — project={project} location={location} model=gemini-2.5-flash")
+    # 90s socket-level timeout on every request — enforced by the underlying httpx
+    # transport, so a hanging Vertex AI call is hard-killed, not just abandoned.
+    return genai.Client(
+        vertexai=True,
+        project=project,
+        location=location,
+        http_options=genai.types.HttpOptions(timeout=90_000),  # 90 seconds in ms
+    )
 
 
 # ── Fetch untagged questions ──────────────────────────────────────────────────
@@ -113,6 +140,7 @@ def fetch_candidates(
     limit: int,
     force: bool,
     paper_id: str | None = None,
+    resume_after: str | None = None,
 ) -> list[dict]:
     """
     Priority order:
@@ -144,6 +172,9 @@ def fetch_candidates(
             q = q.eq("exam_year", exam_year)
         if paper_id:
             q = q.eq("paper_id", paper_id)
+        # Resume: skip questions already tagged in this run (pattern_tagged_at >= job start)
+        if resume_after:
+            q = q.or_(f"pattern_tagged_at.is.null,pattern_tagged_at.lt.{resume_after}")
 
         rows = _supabase_execute(q).data or []
         if not rows:
@@ -167,87 +198,139 @@ def fetch_candidates(
 
 # ── Build the Gemini prompt ───────────────────────────────────────────────────
 _PROMPT_HEADER = """\
-You are an expert analyst of Indian civil-services and state PSC MCQ questions.
+You are a senior UPSC/PSC question analyst with 15 years of experience classifying PYQ patterns.
+Your job: classify each question with surgical precision using EXACTLY the allowed values.
 
-Classify each question below using EXACTLY the allowed values.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ALLOWED VALUES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+pattern_tag (pick exactly one):
+  statement-based        → "Consider the following statements: 1. X  2. Y" — validate truth of each statement
+  statement-elimination  → statement question where options are code combinations (1 only / 1&2 / 1,2&3 / all)
+  assertion-reason       → "Assertion: X   Reason: Y" format
+  chronology             → arrange events/acts/dates in correct sequential order
+  match-the-following    → Column I ↔ Column II pair matching
+  article-provision      → asks about specific Article / Section / Schedule / Part of Constitution or law
+  committee-mapping      → links a committee, report, or recommendation to a personality/outcome
+  factual-recall         → pure memory: who/what/where/which on history, geography, science, art, culture, polity
+  concept-application    → apply a principle, rule, or definition to a given scenario/example
+  elimination            → designed so ≥2 options are clearly wrong; solve by eliminating
+  date-event-recall      → the ANSWER is a specific year or date (e.g. "In which year was X established?")
+  scheme-current-affairs → govt scheme / policy / yojana / mission / budget / index / award / sports event /
+                           diplomatic summit / bilateral deal / recent appointment / recent election result
+  map-location           → geography/location: river, state, district, mountain, national park, dam
+  grammar-error-detection → spot grammatical error / correct the sentence — ENGLISH SECTION ONLY
+  fill-in-the-blank      → complete a blank in a sentence — ENGLISH SECTION ONLY
+  para-jumble            → arrange jumbled sentences into a coherent paragraph — ENGLISH SECTION ONLY
+  vocabulary-usage       → synonym/antonym/idiom/one-word substitution/spelling — ENGLISH SECTION ONLY
+  coding-decoding        → logical coding: if APPLE=12345, what is PLEA?
+  ranking-order          → rank/seating/direction-sense/blood-relation reasoning
+  gcd-lcm-calculation    → HCF/GCD/LCM prime factorisation
+  arithmetic-calculation → percentage/profit-loss/SI-CI/ratio/time-work/speed-distance calculation
+  data-interpretation    → read a table/bar chart/pie chart then calculate
 
-ALLOWED VALUES (use null if none fits):
-  pattern_tag   : statement-based | assertion-reason | chronology | match-the-following |
-                  factual-recall | concept-application | elimination | article-provision |
-                  committee-mapping | statement-elimination | grammar-error-detection |
-                  fill-in-the-blank | para-jumble | coding-decoding | ranking-order |
-                  gcd-lcm-calculation | arithmetic-calculation | data-interpretation |
-                  map-location | date-event-recall | scheme-current-affairs |
-                  vocabulary-usage
-  trap_tag      : absolute-wording | negation | except-not | all-of-above |
-                  double-negation | partial-truth | close-dates | similar-names |
-                  formula-confusion | code-pair-confusion | tense-agreement |
-                  sequence-confusion | unit-conversion | option-pairing | null
-  skill_tag     : recall | elimination | inference | application | analysis |
-                  sequencing | calculation | language-usage | pattern-recognition | mapping
-  question_style: direct | indirect | analytical | comparative | definitional |
-                  language | quantitative | reasoning
+trap_tag (null if no trick):
+  absolute-wording   → "always / never / all / only / must / solely / entirely / completely / none"
+  negation           → "which is NOT correct" / "which is INCORRECT"
+  except-not         → "all EXCEPT" / "which is NOT among"
+  all-of-above       → "all of the above" or "none of the above" as an option trap
+  double-negation    → "which is NOT incorrect" / "which is NOT false"
+  partial-truth      → one word makes an otherwise correct option wrong
+  close-dates        → nearby years/dates as distractors (e.g. 1947 vs 1950 vs 1952)
+  similar-names      → similar-sounding names/committees/places as distractors
+  formula-confusion  → wrong formula or calculation shortcut trap
+  code-pair-confusion → matching/coding answer-code pairing trap
+  sequence-confusion → timeline/order/ranking trap
+  unit-conversion    → units must be converted before solving
+  option-pairing     → answer-code combinations (1&2 / 2&3 / only 3) are the trap
 
-CLASSIFICATION GUIDE:
-  statement-based   → "Consider the following statements: 1. ... 2. ..." pattern
-  statement-elimination → statement question with option codes like 1 only / 1 and 2 / all
-  assertion-reason  → "Assertion: ... Reason: ..." pattern
-  chronology        → asks to arrange events/acts in correct order
-  match-the-following → Column I vs Column II matching
-  grammar-error-detection → asks to spot grammatical error / correct sentence
-  fill-in-the-blank → asks to complete a sentence or blank
-  para-jumble       → asks to arrange jumbled sentences into a paragraph
-  coding-decoding   → reasoning question based on coded words/symbols
-  ranking-order     → rank/order/seating/position reasoning question
-  gcd-lcm-calculation → HCF/GCD/LCM factorisation question
-  arithmetic-calculation → percentage/profit/time-work/ratio/number-system calculation
-  data-interpretation → table/chart/data-set based calculation
-  map-location      → geography/location/river/state/map-linked recall
-  date-event-recall → asks exact year/date-event association
-  scheme-current-affairs → ONLY government scheme, policy, yojana, mission, budget, economic survey, index, award (e.g. "Vidya Mitra scheme aims to…", "PM-KISAN objective is…")
-  vocabulary-usage  → synonym/antonym/idiom/phrase/spelling/word meaning — ONLY in English/language section
-  factual-recall    → pure memory question (who/what/when/where) on history, geography, science, art, culture
-  concept-application → apply a principle to a scenario
-  elimination       → designed so 2 options are clearly wrong, choose between 2
-  article-provision → asks about specific Article / Section / Schedule
-  committee-mapping → links a committee/report/personality to an outcome
+skill_tag (pick exactly one):
+  recall            → pure memory retrieval
+  elimination       → process of elimination
+  inference         → derive unstated conclusion
+  application       → apply a known rule to a new context
+  analysis          → break down a complex question
+  sequencing        → arrange in order
+  calculation       → arithmetic/mathematical computation
+  language-usage    → grammar/vocabulary skill
+  pattern-recognition → identify code/sequence pattern
+  mapping           → link two sets of items
 
-CRITICAL NEGATIVE RULES (common mis-tags to avoid):
-  - A question with _____ (blank) is NOT fill-in-the-blank unless it is an English grammar/vocabulary exercise.
-    "The ARC was set up in the year _____" → date-event-recall, NOT fill-in-the-blank
-    "The Vidya Mitra scheme aims to _____" → scheme-current-affairs, NOT fill-in-the-blank
-  - Geography / climate / wind / river / weather questions are factual-recall or map-location, NOT scheme-current-affairs.
-    "What is the 'loo' wind?" → factual-recall, NOT scheme-current-affairs
-    "Which river flows through…?" → map-location, NOT scheme-current-affairs
-  - fill-in-the-blank and vocabulary-usage are ONLY for English language section questions.
-    If the subject is History, Geography, Polity, Science, Economy, Art, Culture — NEVER use these two tags.
-  - trap_tag tense-agreement is ONLY for English grammar questions, not factual MCQs.
+question_style (pick exactly one):
+  direct       → simple who/what/when/where question
+  indirect     → negative framing (NOT, EXCEPT, INCORRECT)
+  analytical   → multi-statement, assertion-reason, match
+  comparative  → compare/distinguish between two things
+  definitional → asks meaning/definition of a term
+  language     → grammar/vocabulary/sentence structure
+  quantitative → mathematical/numerical
+  reasoning    → logical/coded/positional
 
-  trap_tag: set when the question has a deliberate trick
-    absolute-wording → uses "always", "never", "all", "only", "must" trap
-    negation         → "which is NOT", "which is INCORRECT"
-    except-not       → "EXCEPT", "all EXCEPT"
-    all-of-above     → "all of the above" as a trap option
-    double-negation  → "which of the following is NOT incorrect"
-    partial-truth    → one option is 90% right but one word makes it wrong
-    close-dates      → near-by years/events are easy to confuse
-    similar-names    → names/committees/places look alike
-    formula-confusion → wrong formula or calculation shortcut trap
-    code-pair-confusion → matching/coding answer-code trap
-    tense-agreement  → grammar tense/article/agreement trap
-    sequence-confusion → order/rank/timeline trap
-    unit-conversion  → units must be converted before solving
-    option-pairing   → answer code pairings are the main trap
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL DISAMBIGUATION RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATE-EVENT-RECALL vs SCHEME-CURRENT-AFFAIRS vs FACTUAL-RECALL:
+  • date-event-recall → the ANSWER the student must recall IS a year/date
+      ✓ "In which year was the Right to Information Act passed?" → date-event-recall
+      ✓ "The Planning Commission was dissolved in ____?" → date-event-recall
+      ✗ "Who became the Player of the Match in the 2025 ICC Champions Trophy?" → NOT date-event-recall
+         (2025 is context; the answer is a person's name → scheme-current-affairs)
+      ✗ "Who established the East India Company in 1600?" → NOT date-event-recall
+         (1600 is context; the answer is a person/entity → factual-recall)
 
-Return ONLY a JSON array — no markdown fences, no explanation:
+  • scheme-current-affairs → recent events, policies, sports, awards, summits, appointments
+      ✓ Sports awards, trophies, medals, Olympics, World Cup, ICC events
+      ✓ Government schemes (PM-KISAN, Ayushman Bharat, Smart Cities)
+      ✓ Budgets, economic surveys, global indices (HDI, EoDB, GHI)
+      ✓ G20, SAARC, bilateral summits, defence deals, trade agreements
+      ✓ Recent elections, appointments, state government schemes
+
+  • factual-recall → timeless factual recall (history, geography, science, culture, polity)
+      ✓ "Who wrote the Arthashastra?" → factual-recall
+      ✓ "Which planet is closest to the Sun?" → factual-recall
+      ✓ "The Gandhara school of art flourished under which rulers?" → factual-recall
+
+WHO-QUESTION RULE:
+  A question starting with "Who" ALWAYS asks for a person/entity — never a date.
+  "Who won X in [year]?" → year is context only. Tag based on the subject (sports=scheme-current-affairs,
+  historical figure=factual-recall, committee head=committee-mapping)
+
+ENGLISH-ONLY TAGS:
+  fill-in-the-blank, vocabulary-usage, grammar-error-detection, para-jumble →
+  ONLY if subject is English / Verbal Ability / Language / Comprehension.
+  A History/Geography/Polity question with a _____ blank → use date-event-recall or scheme-current-affairs.
+
+BLANK (___) RULE:
+  "The ARC was set up in the year _____" → date-event-recall (answer = a year)
+  "The PM Vidya scheme aims to _____" → scheme-current-affairs (answer = objective/fact)
+  NEVER fill-in-the-blank for non-English subjects.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PATTERN_REASON & SOLVE_HINT — MUST BE SPECIFIC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• pattern_reason: ONE sentence explaining WHY the examiner asks THIS specific question frame.
+  Be specific to the content — mention the topic, event, concept. Do NOT write generic descriptions.
+  BAD:  "The examiner is testing exact date or year-event association."
+  GOOD: "The examiner is testing whether you recall the exact year the Right to Information Act was passed
+         — a frequently asked constitutional milestone."
+
+• solve_hint: ONE actionable sentence telling the student HOW to approach THIS question.
+  Be specific — mention what to anchor on, what distractor to watch.
+  BAD:  "Use known anchor years/events to eliminate close-date distractors."
+  GOOD: "Anchor on 2005 (RTI Act) vs 2009 (RTE Act) — these two years are the standard distractor pair in UPSC."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Return ONLY a raw JSON array (no markdown, no explanation, no preamble):
 [{
   "id": 1,
   "pattern_tag": "...",
   "trap_tag": null,
   "skill_tag": "...",
   "question_style": "...",
-  "pattern_reason": "one short reason why the exam asks this frame",
-  "solve_hint": "one short solving instruction for students"
+  "pattern_reason": "specific one-sentence reason for THIS question",
+  "solve_hint": "specific one-sentence solving instruction for THIS question"
 }, ...]
 
 QUESTIONS:
@@ -287,11 +370,9 @@ def _tag_batch(client, batch: list[dict]) -> list[dict]:
                 contents=prompt,
                 config=gtypes.GenerateContentConfig(
                     temperature=0.0,
-                    max_output_tokens=8192,
-                    # Disable thinking tokens — pure classification, no reasoning needed.
-                    # This prevents thinking budget from eating into output token space,
-                    # which caused JSON to be cut off mid-string on every batch.
-                    thinking_config=gtypes.ThinkingConfig(thinking_budget=0),
+                    max_output_tokens=16384,
+                    # Thinking enabled — Flash thinking gives Pro-level accuracy
+                    # for constrained classification at ~5x the speed.
                 ),
             )
             raw = (resp.text or "").strip()
@@ -377,11 +458,26 @@ def run(
     paper_id: str | None = None,
 ) -> dict:
     print(f"\n{'[DRY RUN] ' if dry_run else ''}Pattern tagger starting — limit={limit}")
-    print("Fetching candidates from Supabase...")
 
-    candidates = fetch_candidates(exam_name, exam_year, limit, force, paper_id=paper_id)
+    # Checkpoint: resume from where we left off if a previous force-run was interrupted
+    checkpoint = _load_checkpoint() if force and not dry_run else None
+    job_started_at = datetime.now(timezone.utc).isoformat()
+    if checkpoint:
+        job_started_at = checkpoint["started_at"]
+        print(f"Resuming interrupted run from {job_started_at} (checkpoint: {checkpoint['batches_done']} batches done)")
+    else:
+        if force and not dry_run:
+            _save_checkpoint(job_started_at, 0)
+
+    print("Fetching candidates from Supabase...")
+    candidates = fetch_candidates(
+        exam_name, exam_year, limit, force,
+        paper_id=paper_id,
+        resume_after=job_started_at if checkpoint else None,
+    )
     if not candidates:
         print("No untagged questions found. Use --force to re-tag existing ones.")
+        _clear_checkpoint()
         return {"tagged": 0, "rule_tagged": 0, "ai_tagged": 0, "skipped": 0, "errors": 0}
 
     print(f"Found {len(candidates)} questions to tag.")
@@ -394,44 +490,45 @@ def run(
     ai_updated = 0
     log: list[dict] = []
 
-    ai_candidates: list[dict] = []
-    for q in candidates:
-        rule_tag = classify_question_rule(q)
-        if rule_tag and int(rule_tag.get("pattern_confidence") or 0) >= 74:
-            item = {"id": 1, **rule_tag}
-            updated, skipped = _apply_tags([q], [item], dry_run, supported_cols)
-            rule_updated += updated
-            total_updated += updated
-            total_skipped += skipped
-            if updated:
-                log.append({
-                    "question_id": q["id"],
-                    "exam": f"{q.get('exam_name')} {q.get('exam_year')}",
-                    "subject": q.get("subject"),
-                    "topic": q.get("topic"),
-                    "source": "rules",
-                    "pattern_tag": item.get("pattern_tag"),
-                    "trap_tag": item.get("trap_tag"),
-                    "skill_tag": item.get("skill_tag"),
-                    "question_style": item.get("question_style"),
-                    "question_preview": (q.get("question_text") or "")[:100],
-                })
-        else:
-            ai_candidates.append(q)
-
-    print(f"Rule pass tagged {rule_updated}; AI needed for {len(ai_candidates)} ambiguous questions.")
+    ai_candidates: list[dict] = list(candidates)
+    print(f"Sending all {len(ai_candidates)} questions to Gemini 2.5 Flash thinking (rule fallback on batch failure).")
     client = _build_genai_client() if ai_candidates else None
     batches = [ai_candidates[i:i+BATCH_SIZE] for i in range(0, len(ai_candidates), BATCH_SIZE)]
+    batches_done_offset = checkpoint["batches_done"] if checkpoint else 0
 
     for b_idx, batch in enumerate(batches):
-        print(f"\nBatch {b_idx+1}/{len(batches)} ({len(batch)} questions)...")
+        absolute_batch = batches_done_offset + b_idx + 1
+        print(f"\nBatch {absolute_batch} ({b_idx+1}/{len(batches)} this run, {len(batch)} questions)...")
         t0 = time.perf_counter()
         items = _tag_batch(client, batch)
         elapsed = round(time.perf_counter() - t0, 1)
 
         if not items:
-            total_errors += len(batch)
-            print(f"  Batch failed entirely ({elapsed}s)")
+            # Gemini failed — fall back to rule-based classifier for this batch
+            print(f"  Gemini batch failed ({elapsed}s) — falling back to rule-based classifier")
+            for q in batch:
+                rule_tag = classify_question_rule(q)
+                if rule_tag:
+                    item = {"id": 1, **rule_tag}
+                    updated, skipped = _apply_tags([q], [item], dry_run, supported_cols)
+                    rule_updated += updated
+                    total_updated += updated
+                    total_skipped += skipped
+                    if updated:
+                        log.append({
+                            "question_id": q["id"],
+                            "exam": f"{q.get('exam_name')} {q.get('exam_year')}",
+                            "subject": q.get("subject"),
+                            "topic": q.get("topic"),
+                            "source": "rules-fallback",
+                            "pattern_tag": item.get("pattern_tag"),
+                            "trap_tag": item.get("trap_tag"),
+                            "skill_tag": item.get("skill_tag"),
+                            "question_style": item.get("question_style"),
+                            "question_preview": (q.get("question_text") or "")[:100],
+                        })
+                else:
+                    total_errors += 1
             continue
 
         updated, skipped = _apply_tags(batch, items, dry_run, supported_cols)
@@ -458,10 +555,15 @@ def run(
                     "question_preview": (q.get("question_text") or "")[:100],
                 })
 
+        # Save checkpoint after every successful batch so a crash can resume here
+        if force and not dry_run:
+            _save_checkpoint(job_started_at, absolute_batch)
+
         # Small pause between batches (avoid rate-limit spikes)
         if b_idx < len(batches) - 1:
             time.sleep(1)
 
+    _clear_checkpoint()
     log_path = _save_log(log) if log else None
 
     print(f"\n{'='*55}")

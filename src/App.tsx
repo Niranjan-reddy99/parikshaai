@@ -859,8 +859,8 @@ function AppContent() {
           mode: attempt.mode ?? "practice",
         }),
       });
-    } catch (error) {
-      console.error("Attempt save failed:", error);
+    } catch {
+      // Attempt save failed silently — non-critical, user can continue
     }
   };
 

@@ -115,9 +115,15 @@ _DATE_EVENT_STRONG_RE = re.compile(
 )
 _SCHEME_CURRENT_RE = re.compile(
     r"recently|economic\s+survey|budget|mou|scheme|mission|yojana|policy|index|ranking|award|"
-    r"current\s+affairs|released\s+by|launched\s+by",
+    r"current\s+affairs|released\s+by|launched\s+by|"
+    r"trophy|cup\b|tournament|championship|olympics|world\s+cup|player\s+of|man\s+of\s+the\s+match|"
+    r"won\s+the|winner\s+of|gold\s+medal|silver\s+medal|bronze\s+medal|\bicc\b|\bbcci\b|\bfifa\b|"
+    r"summit|g20\b|g7\b|saarc|asean|bilateral|defence\s+deal|trade\s+deal|accord|ceasefire",
     re.IGNORECASE,
 )
+# WHO-question guard: "who became/won/received X in [year]" — the year is context,
+# not the tested fact. Never tag these as date-event-recall.
+_WHO_QUESTION_RE = re.compile(r"^who\b", re.IGNORECASE)
 _DEMOGRAPHIC_INDICATOR_RE = re.compile(
     r"sex\s+ratio|population\s+census|census\s+recorded|demographic\s+indicator|literacy\s+rate",
     re.IGNORECASE,
@@ -243,7 +249,7 @@ def _reason_and_hint(pattern_tag: str, trap_tag: str | None, skill_tag: str) -> 
         "data-interpretation": "The examiner is testing extraction of values from a data set.",
         "map-location": "The examiner is testing location, river, state, or map-linked recall.",
         "date-event-recall": "The examiner is testing exact date or year-event association.",
-        "scheme-current-affairs": "The examiner is testing recent policy, scheme, survey, or current-affairs recall.",
+        "scheme-current-affairs": "The examiner is testing recent current-affairs recall — a policy, scheme, award, sports event, or diplomatic development.",
         "vocabulary-usage": "The examiner is testing word meaning, phrase usage, or spelling.",
         "concept-application": "The examiner is testing whether you can apply a concept to context.",
         "elimination": "The examiner is testing option elimination under close distractors.",
@@ -267,7 +273,7 @@ def _reason_and_hint(pattern_tag: str, trap_tag: str | None, skill_tag: str) -> 
         "data-interpretation": "Read the labels/units first, then calculate only what the question asks.",
         "map-location": "Anchor the location with state/river/direction clues before choosing.",
         "date-event-recall": "Use known anchor years/events to eliminate close-date distractors.",
-        "scheme-current-affairs": "Identify scheme/policy owner, year, and objective before selecting.",
+        "scheme-current-affairs": "Identify the who/what/year of the event, scheme, or award — then scan options for close-name or close-year distractors.",
         "vocabulary-usage": "Use context first; then eliminate options with the wrong tone or part of speech.",
         "concept-application": "Translate the example into the underlying rule before looking at options.",
         "elimination": "Remove clearly wrong options first; do not chase the perfect answer immediately.",
@@ -340,11 +346,14 @@ def classify_question_rule(row: dict[str, Any]) -> dict[str, Any] | None:
         pattern_tag = "statement-elimination" if _COMBO_OPTION_RE.search(full_text) else "statement-based"
         skill_tag = "elimination" if _COMBO_OPTION_RE.search(full_text) else "analysis"
         confidence = 92
-    elif _DATE_EVENT_RE.search(question):
-        # Check date-event BEFORE scheme so "set up in year X" questions aren't mis-tagged as scheme.
-        pattern_tag, skill_tag, confidence = "date-event-recall", "recall", 82
     elif _SCHEME_CURRENT_RE.search(full_text) or "current affairs" in subject_topic.lower():
+        # Sports, awards, treaties, summits, current-affairs events — checked BEFORE weak date
+        # regex so "2025 ICC Champions Trophy" isn't mis-tagged as date-event-recall.
         pattern_tag, skill_tag, confidence = "scheme-current-affairs", "recall", 80
+    elif _DATE_EVENT_RE.search(question) and not _WHO_QUESTION_RE.search(question):
+        # Only tag as date-event-recall when the question actually asks for a date.
+        # WHO-questions ("Who won X in 2025?") mention a year as context, not as the answer.
+        pattern_tag, skill_tag, confidence = "date-event-recall", "recall", 82
     elif _MAP_LOCATION_RE.search(question) or any(t in subject_topic.lower() for t in ("geography", "rivers", "map")):
         pattern_tag, skill_tag, confidence = "map-location", "mapping", 78
     elif _WITH_REFERENCE_RE.search(question):
