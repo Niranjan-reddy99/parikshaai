@@ -2682,9 +2682,10 @@ function AppContent() {
     setReportData(null);
     setChatMessages([]);
     try {
+      const idToken = await auth.currentUser?.getIdToken() ?? "";
       const res = await fetch("/api/generate-report", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
         body: JSON.stringify({
           questions: targetQs.map((q) => ({
             question: q.question,
@@ -2728,9 +2729,10 @@ function AppContent() {
       } Qs. Subjects: ${reportData.subjectDistribution
         ?.map((s: any) => `${s.subject}:${s.count}`)
         .join(", ")}. Key Insights: ${reportData.keyInsights?.join("; ")}`;
+      const chatToken = await auth.currentUser?.getIdToken() ?? "";
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${chatToken}` },
         body: JSON.stringify({
           messages: msgs.map((m) => ({
             role: m.role,

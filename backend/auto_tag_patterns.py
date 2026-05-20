@@ -53,7 +53,7 @@ from pattern_classifier import (  # noqa: E402
     classify_question_rule,
 )
 
-BATCH_SIZE = 15   # Flash thinking handles 15 questions well; fewer API roundtrips
+BATCH_SIZE = 25   # Flash thinking handles 25 questions well; fewer API roundtrips
 LOG_DIR = Path(__file__).parent / "cache" / "pattern_tags"
 CHECKPOINT_FILE = LOG_DIR / "checkpoint.json"
 
@@ -559,9 +559,7 @@ def run(
         if force and not dry_run:
             _save_checkpoint(job_started_at, absolute_batch)
 
-        # Small pause between batches (avoid rate-limit spikes)
-        if b_idx < len(batches) - 1:
-            time.sleep(1)
+        # No sleep between batches — Flash rate limits are generous enough
 
     _clear_checkpoint()
     log_path = _save_log(log) if log else None

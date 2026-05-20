@@ -366,24 +366,28 @@ def _get_publishable_paper_ids() -> set[str]:
 
 
 def _invalidate_meta_cache() -> None:
-    global _meta_cache, _meta_cache_ts, _catalog_cache, _catalog_cache_ts, _feed_cache, _feed_cache_ts, _admin_meta_cache, _admin_meta_cache_ts, _publish_gate_cache, _publish_gate_cache_ts, _topic_bucket_cache, _topic_first_page_cache, _publishable_paper_ids_cache, _publishable_paper_ids_cache_ts, _exam_qs_cache, _practice_ready_present_cache, _practice_ready_present_cache_ts
-    _meta_cache = None
-    _meta_cache_ts = 0.0
-    _catalog_cache = None
-    _catalog_cache_ts = 0.0
-    _feed_cache = None
-    _feed_cache_ts = 0.0
-    _admin_meta_cache = None
-    _admin_meta_cache_ts = 0.0
-    _publish_gate_cache = None
-    _publish_gate_cache_ts = 0.0
-    _topic_bucket_cache = {}
-    _topic_first_page_cache = {}
-    _publishable_paper_ids_cache = None
-    _publishable_paper_ids_cache_ts = 0.0
-    _exam_qs_cache = {}
-    _practice_ready_present_cache = None
-    _practice_ready_present_cache_ts = 0.0
+    global _meta_cache, _meta_cache_ts, _catalog_cache, _catalog_cache_ts, _feed_cache, _feed_cache_ts, _admin_meta_cache, _admin_meta_cache_ts, _publish_gate_cache, _publish_gate_cache_ts, _topic_bucket_cache, _topic_first_page_cache, _publishable_paper_ids_cache, _publishable_paper_ids_cache_ts, _exam_qs_cache, _practice_ready_present_cache, _practice_ready_present_cache_ts, _stats_cache, _stats_cache_ts, _leaderboard_cache
+    with _meta_snapshot_lock:
+        _meta_cache = None
+        _meta_cache_ts = 0.0
+        _catalog_cache = None
+        _catalog_cache_ts = 0.0
+        _feed_cache = None
+        _feed_cache_ts = 0.0
+        _admin_meta_cache = None
+        _admin_meta_cache_ts = 0.0
+        _publish_gate_cache = None
+        _publish_gate_cache_ts = 0.0
+        _topic_bucket_cache = {}
+        _topic_first_page_cache = {}
+        _publishable_paper_ids_cache = None
+        _publishable_paper_ids_cache_ts = 0.0
+        _exam_qs_cache = {}
+        _practice_ready_present_cache = None
+        _practice_ready_present_cache_ts = 0.0
+        _stats_cache = None
+        _stats_cache_ts = 0.0
+        _leaderboard_cache = {}
     try:
         _PUBLIC_META_CACHE_FILE.unlink(missing_ok=True)
     except Exception:
@@ -2015,11 +2019,27 @@ def _visible_public_question_ids(
     }
 
 
-def _question_has_explanation_contradiction(question_id: str, exam_name: Optional[str] = None, exam_year: Optional[int] = None) -> bool:
-    for item in _find_explanation_answer_mismatches(exam_name=exam_name, exam_year=exam_year):
-        if item.get("question_id") == question_id:
-            return True
-    return False
+def _question_has_explanation_contradiction(question_id: str, exam_name: Optional[str] = None, exam_year: Optional[int] = None) -> bool:  # noqa: ARG001
+    # Fetch only this question's explanation + answer — no full-exam scan needed.
+    try:
+        qr = supabase.table("questions").select(
+            "correct_answer"
+        ).eq("id", question_id).limit(1).execute()
+        if not qr.data:
+            return False
+        row = qr.data[0]
+        er = supabase.table("explanations").select("explanation").eq("question_id", question_id).limit(1).execute()
+        if not er.data:
+            return False
+        explanation = (er.data[0].get("explanation") or "").strip()
+        if not explanation:
+            return False
+        answer = str(row.get("correct_answer") or "").strip().upper()
+        if answer not in {"A", "B", "C", "D"}:
+            return False
+        return _explanation_contradicts_answer(explanation, answer)
+    except Exception:
+        return False
 
 
 def _repair_decision_for_exam(
@@ -2172,13 +2192,37 @@ except Exception as _e:
 
 # ── Dependencies ─────────────────────────────────────────
 
+# Firebase token cache — avoids a Google network round-trip on every request.
+# Tokens are valid for 1 hour; we cache decoded claims for 5 minutes.
+_token_cache: dict[str, tuple[float, dict]] = {}
+_TOKEN_CACHE_TTL = 300  # 5 minutes
+_token_cache_lock = threading.Lock()
+
+def _verify_firebase_token_cached(token: str) -> dict:
+    now = time.time()
+    with _token_cache_lock:
+        cached = _token_cache.get(token)
+        if cached and (now - cached[0]) < _TOKEN_CACHE_TTL:
+            return cached[1]
+    claims = verify_firebase_token(token)  # network call to Google
+    with _token_cache_lock:
+        _token_cache[token] = (now, claims)
+        # Evict stale entries if cache grows too large
+        if len(_token_cache) > 10000:
+            cutoff = now - _TOKEN_CACHE_TTL
+            stale = [k for k, v in _token_cache.items() if v[0] < cutoff]
+            for k in stale:
+                del _token_cache[k]
+    return claims
+
+
 def get_current_user(authorization: str = Header(None)) -> dict:
     """Verify Firebase ID token. Runs in threadpool (sync) to avoid blocking the event loop."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Missing Authorization header")
     token = authorization.split("Bearer ")[1]
     try:
-        return verify_firebase_token(token)
+        return _verify_firebase_token_cached(token)
     except ValueError as e:
         raise HTTPException(401, str(e))
 
@@ -2190,7 +2234,7 @@ def optional_user(authorization: str = Header(None)) -> dict:
         return {}
     token = authorization.split("Bearer ")[1]
     try:
-        return verify_firebase_token(token)
+        return _verify_firebase_token_cached(token)
     except ValueError:
         return {}
 
@@ -2775,8 +2819,13 @@ def get_explanation(question_id: str, _current_user: dict = Depends(optional_use
     to sync the frontend UI state.
     """
     try:
-        qr_select = ["exam_name", "exam_year", "paper_id", "practice_ready"]
         supported_cols = _question_supported_columns()
+        # Single query — fetch all needed columns at once instead of two separate queries
+        qr_select = [
+            "exam_name", "exam_year", "paper_id", "practice_ready",
+            "id", "question_text", "option_a", "option_b", "option_c", "option_d",
+            "correct_answer", "correct_answers", "answer_status", "needs_review", "question_number",
+        ]
         if "public_visibility" in supported_cols:
             qr_select.append("public_visibility")
         if "is_active" in supported_cols:
@@ -2795,10 +2844,7 @@ def get_explanation(question_id: str, _current_user: dict = Depends(optional_use
             ),
         ):
             raise HTTPException(404, "Question not found")
-        question_row = supabase.table("questions").select(
-            "id, question_text, option_a, option_b, option_c, option_d, "
-            "correct_answer, correct_answers, answer_status, needs_review, question_number"
-        ).eq("id", question_id).single().execute()
+        question_row = qr  # reuse the same query result — no second DB call needed
         if not question_row.data or _sanitize_public_question_row(question_row.data) is None:
             raise HTTPException(404, "Question not found")
         answer_status = str(question_row.data.get("answer_status") or "").strip().lower()
@@ -2977,7 +3023,8 @@ async def flag_question(question_id: str, body: FlagRequest, _current_user: dict
     """
     try:
         # Verify question exists and is accessible
-        qr = supabase.table("questions").select("id, flag_count, is_active").eq("id", question_id).limit(1).execute()
+        # Fetch all needed columns in one query — paper_id included to avoid a second query later
+        qr = supabase.table("questions").select("id, flag_count, is_active, paper_id").eq("id", question_id).limit(1).execute()
         if not (qr.data or []):
             raise HTTPException(404, "Question not found")
         row = qr.data[0]
@@ -3006,12 +3053,10 @@ async def flag_question(question_id: str, body: FlagRequest, _current_user: dict
                 update_payload["needs_review"] = True
             supabase.table("questions").update(update_payload).eq("id", question_id).execute()
 
-            # Refresh paper publish state if hidden
-            if not update_payload.get("is_active", True):
+            # Refresh paper publish state if hidden — reuse paper_id from first query
+            if not update_payload.get("is_active", True) and row.get("paper_id"):
                 try:
-                    paper_res = supabase.table("questions").select("paper_id").eq("id", question_id).limit(1).execute()
-                    if paper_res.data:
-                        refresh_paper_publish_state(paper_res.data[0].get("paper_id"), sb=supabase)
+                    refresh_paper_publish_state(row["paper_id"], sb=supabase)
                 except Exception:
                     pass
         except Exception:
@@ -3132,7 +3177,7 @@ def get_stats():
         while True:
             r = _apply_public_question_filter(supabase.table("questions").select(
                 "id, subject, difficulty, exam_year, exam_name, paper_id, "
-                "question_text, option_a, option_b, option_c, option_d, correct_answer, needs_review, question_number, practice_ready"
+                "needs_review, question_number, practice_ready"
             ), supported_cols).range(offset, offset + 999).execute()
             batch = r.data or []
             for row in batch:
@@ -3284,18 +3329,25 @@ def _fallback_leaderboard_name(uid: str) -> str:
 def _resolve_leaderboard_names(user_ids: list[str]) -> dict[str, str]:
     from firebase_admin import auth as firebase_auth
 
+    unique_ids = [uid for uid in user_ids if uid]
+    if not unique_ids:
+        return {}
     names: dict[str, str] = {}
-    for uid in user_ids:
-        if not uid or uid in names:
-            continue
-        try:
-            record = firebase_auth.get_user(uid)
-            names[uid] = (
+    # Batch lookup — one Firebase call for all users instead of one per user
+    try:
+        identifiers = [firebase_auth.UidIdentifier(uid) for uid in unique_ids]
+        result = firebase_auth.get_users(identifiers)
+        for record in result.users:
+            names[record.uid] = (
                 str(record.display_name or "").strip()
                 or str(record.email or "").split("@")[0].strip()
-                or _fallback_leaderboard_name(uid)
+                or _fallback_leaderboard_name(record.uid)
             )
-        except Exception:
+    except Exception:
+        pass
+    # Fill in any that failed or weren't returned
+    for uid in unique_ids:
+        if uid not in names:
             names[uid] = _fallback_leaderboard_name(uid)
     return names
 
@@ -3810,6 +3862,8 @@ def admin_grant_premium(body: _GrantPremiumBody):
         "plan_expires_at": expires_at,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }, on_conflict="firebase_uid").execute()
+    # Evict from cache so user sees premium immediately on next request
+    _subscription_cache.pop(body.firebase_uid, None)
     return {"status": "granted", "firebase_uid": body.firebase_uid, "plan": body.plan, "expires_at": expires_at}
 
 
@@ -3827,6 +3881,8 @@ def admin_revoke_premium(body: _RevokePremiumBody):
         "plan_expires_at": None,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }, on_conflict="firebase_uid").execute()
+    # Evict from cache so revocation takes effect immediately on next request
+    _subscription_cache.pop(body.firebase_uid, None)
     return {"status": "revoked", "firebase_uid": body.firebase_uid}
 
 
@@ -4739,6 +4795,7 @@ def admin_inject_answers(
         if not answer_map:
             raise HTTPException(422, "Could not extract any answers from the PDF. Check the format.")
         result = inject_answers(answer_map, exam_name.strip(), exam_year)
+        _invalidate_meta_cache()
         return {
             "status": "ok",
             "answers_parsed": len(answer_map),
@@ -4812,19 +4869,32 @@ def admin_status_page():
 @app.get("/admin/jobs", dependencies=[Depends(verify_admin)])
 def admin_list_jobs(
     limit: int = Query(50, ge=1, le=100),
-    include_quality: bool = Query(False, description="Attach the heavy exam quality report for completed jobs"),
+    include_quality: bool = Query(False, description="Attach a lightweight quality summary for completed jobs"),
 ):
     """List all upload jobs and their statuses."""
     try:
         r = supabase.table("jobs").select("*").order("created_at", desc=True).limit(limit).execute()
         jobs = r.data or []
         if include_quality:
+            # Use the already-cached publish gate (one scan for ALL exams) instead of
+            # calling _exam_quality_report() per job (which triggers 4 DB queries per exam).
+            try:
+                gate = _compute_publish_gate()
+                gate_map = {(r["exam_name"], r["exam_year"]): r for r in gate.get("reports", [])}
+            except Exception:
+                gate_map = {}
             for job in jobs:
                 if job.get("exam_name") and job.get("exam_year") and str(job.get("status")) in {"completed", "failed", "archived"}:
-                    try:
-                        job["quality_report"] = _exam_quality_report(job["exam_name"], int(job["exam_year"]))
-                    except Exception:
-                        job["quality_report"] = None
+                    key = (str(job["exam_name"]), int(job["exam_year"]))
+                    report = gate_map.get(key, {})
+                    job["quality_report"] = {
+                        "exam_name": job["exam_name"],
+                        "exam_year": int(job["exam_year"]),
+                        "publishable": bool(report.get("publishable")),
+                        "question_count": report.get("question_count", 0),
+                        "reasons": report.get("reasons", []),
+                        "samples": report.get("samples", []),
+                    }
         return {"jobs": jobs}
     except Exception as e:
         print(f"[ERROR] Database error: {e}")
@@ -6155,6 +6225,7 @@ def admin_ai_detect_answers(
 
             _time.sleep(1)  # rate limit buffer between batches
 
+        _invalidate_meta_cache()
         return {
             "updated": updated,
             "errors": errors,
@@ -6202,6 +6273,7 @@ def admin_delete_explanations(
                 supabase.table("questions").update({"explanation_status": "missing"}).in_("id", chunk).execute()
             deleted += len(chunk)
 
+        _invalidate_meta_cache()
         return {"deleted": deleted, "message": f"Cleared all explanations for '{exam_name}'. They regenerate on next user access."}
     except Exception as e:
         print(f"[ERROR] Error: {e}")

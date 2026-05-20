@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import multer from "multer";
@@ -6,11 +6,33 @@ import { createWorker } from "tesseract.js";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { createRequire } from "module";
+import admin from "firebase-admin";
 
 const require = createRequire(import.meta.url);
 const pdf = require("pdf-parse");
 
 dotenv.config();
+
+// --- Firebase Admin ---
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  });
+}
+
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!token) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  try {
+    await admin.auth().verifyIdToken(token);
+    next();
+  } catch {
+    res.status(401).json({ error: "Invalid or expired token" });
+  }
+}
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -125,7 +147,7 @@ async function startServer() {
   });
 
   // --- POST-EXAM INTELLIGENCE REPORT ---
-  app.post("/api/generate-report", async (req, res) => {
+  app.post("/api/generate-report", requireAuth, async (req, res) => {
     try {
       const { questions, examName, year } = req.body as ReportRequest;
 
@@ -252,7 +274,7 @@ Based on this complete data, provide your expert analysis.`
   });
 
   // --- CHAT ENDPOINT ---
-  app.post("/api/chat", async (req, res) => {
+  app.post("/api/chat", requireAuth, async (req, res) => {
     try {
       const { messages, reportContext } = req.body as {
         messages: { role: 'user' | 'model'; parts: { text: string }[] }[];
