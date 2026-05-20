@@ -73,22 +73,24 @@ export function PracticeFocusBar({
       </div>
 
       {/* Row 2: counter + progress bar + filters */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: C.textTert, flexShrink: 0, minWidth: 42 }}>
-          {practiceIndex + 1}/{practiceQueueLength}
-        </span>
-        <div style={{ flex: 1, minWidth: 140, height: 5, background: 'var(--bg-canvas)', borderRadius: 4, overflow: 'hidden' }}>
-          <motion.div
-            style={{ height: '100%', background: '#2563eb', borderRadius: 4 }}
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.3 }}
-          />
+      <div className="focus-bar-row2" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div className="focus-bar-progress-row" style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 140 }}>
+          <span style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: C.textTert, flexShrink: 0, minWidth: 42 }}>
+            {practiceIndex + 1}/{practiceQueueLength}
+          </span>
+          <div style={{ flex: 1, height: 5, background: 'var(--bg-canvas)', borderRadius: 4, overflow: 'hidden' }}>
+            <motion.div
+              style={{ height: '100%', background: '#2563eb', borderRadius: 4 }}
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+          {practiceInitLoading && (
+            <Loader2 style={{ width: 12, height: 12, animation: 'spin 1s linear infinite', color: C.blue, flexShrink: 0 }} />
+          )}
         </div>
-        {practiceInitLoading && (
-          <Loader2 style={{ width: 12, height: 12, animation: 'spin 1s linear infinite', color: C.blue, flexShrink: 0 }} />
-        )}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
+        <div className="focus-bar-selects" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
           {[
             { value: practiceSubject, placeholder: 'All Subjects', options: ['All', ...availableSubjects], onChange: (v: string) => startPractice(selectedExamName, selectedYear, v, 'All') },
             { value: practiceTopic, placeholder: 'All Topics', options: ['All', ...availableTopics], onChange: (v: string) => startPractice(selectedExamName, selectedYear, practiceSubject, v) },

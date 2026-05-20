@@ -39,7 +39,7 @@ export function ExamDetailHeader({
           <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: C.textTert, textTransform: 'uppercase', letterSpacing: '0.10em', marginBottom: 8 }}>
             Exam Workspace
           </div>
-          <h1 style={{ fontSize: 28, fontFamily: "'Fraunces', Georgia, serif", color: C.text, letterSpacing: '-0.5px', marginBottom: 4 }}>
+          <h1 className="exam-detail-h1" style={{ fontFamily: "'Fraunces', Georgia, serif", color: C.text, letterSpacing: '-0.5px', marginBottom: 4 }}>
             {selectedCommission} <span style={{ opacity: 0.35 }}>—</span> {selectedExamType}
           </h1>
           <p style={{ fontSize: 13, color: C.textSec, fontFamily: "'DM Mono', monospace" }}>

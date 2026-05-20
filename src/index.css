@@ -1941,6 +1941,40 @@ body {
   gap: 12px;
 }
 
+/* MockTopBar base layout (CSS owns the layout so media queries can override) */
+.mock-topbar {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.mock-topbar-stats {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.mock-topbar-submit {
+  margin-left: auto;
+}
+
+/* PracticeFocusBar progress row base */
+.focus-bar-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ExamDetailHeader title — sized via class so media query can scale it */
+.exam-detail-h1 {
+  font-size: 28px;
+  margin: 0 0 4px;
+}
+
 @media (max-width: 1100px) {
   .landing-product-hero {
     grid-template-columns: 1fr;
@@ -2325,6 +2359,92 @@ body {
 
   .feed-toolbar > div:last-child > button {
     flex: 1 1 0;
+  }
+
+  /* ── MockTopBar: stack timer/stats + submit vertically ── */
+  .mock-topbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 14px 16px !important;
+  }
+  .mock-topbar-stats {
+    gap: 10px !important;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .mock-topbar-divider {
+    display: none !important;
+  }
+  .mock-topbar-submit {
+    margin-left: 0 !important;
+    text-align: center;
+    padding: 12px 18px !important;
+    border-radius: 10px !important;
+  }
+
+  /* ── PracticeFocusBar: stack progress row + selects ── */
+  .focus-bar-row2 {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .focus-bar-progress-row {
+    flex: none !important;
+    min-width: 0 !important;
+    width: 100%;
+  }
+  .focus-bar-selects {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+  .focus-bar-selects select {
+    flex: 1;
+    max-width: none !important;
+    min-width: 0;
+  }
+
+  /* ── Practice/Mock nav: full-width buttons when stacked ── */
+  .practice-nav-row > button,
+  .mock-nav-row > button {
+    justify-content: center;
+  }
+  .practice-nav-row > div {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    width: 100%;
+  }
+  .practice-nav-row > div > button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* ── Profile page mobile fixes ── */
+  .profile-identity-inner {
+    flex-wrap: wrap !important;
+  }
+  .profile-edit-btn {
+    flex: 1 1 100% !important;
+    justify-content: center !important;
+    margin-top: 4px;
+  }
+  .profile-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .profile-subject-row {
+    grid-template-columns: minmax(0, 1fr) 72px 38px 32px !important;
+    font-size: 12px !important;
+  }
+
+  /* ── ExamDetailHeader: smaller title on mobile ── */
+  .exam-detail-h1 {
+    font-size: 20px !important;
+  }
+
+  /* ── Results: 3-column score grid on small screens ── */
+  .results-score-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
   }
 }
 

@@ -197,7 +197,7 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
         background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 14,
         padding: '24px', marginBottom: 24,
       }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20 }}>
+        <div className="profile-identity-inner" style={{ display: 'flex', alignItems: 'flex-start', gap: 20 }}>
           {/* Avatar with camera overlay */}
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <div style={{
@@ -261,7 +261,7 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
           </div>
 
           {/* Edit Profile button */}
-          <button style={{
+          <button className="profile-edit-btn" style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 14px', background: 'var(--bg)',
             border: '1.5px solid var(--border)', borderRadius: 8,
@@ -278,7 +278,7 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
       </div>
 
       {/* ── Stats mini-row ───────────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
+      <div className="profile-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
         {[
           { label: 'Questions Solved', value: stats.totalAnswered.toLocaleString(), color: '#2563eb', bg: '#eff6ff' },
           { label: 'Accuracy',         value: `${overallAccuracy}%`,                color: overallAccuracy >= 70 ? '#15803d' : overallAccuracy >= 50 ? '#b45309' : '#b91c1c', bg: '#f9fafb' },
@@ -451,7 +451,7 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
                 const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
                 const barColor = pct >= 75 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
                 return (
-                  <div key={subject} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 52px 56px', gap: 10, alignItems: 'center', fontSize: 13 }}>
+                  <div key={subject} className="profile-subject-row" style={{ display: 'grid', gridTemplateColumns: '160px 1fr 52px 56px', gap: 10, alignItems: 'center', fontSize: 13 }}>
                     <span style={{ color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={subject}>
                       {subject}
                     </span>
