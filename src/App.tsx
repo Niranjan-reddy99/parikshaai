@@ -1632,18 +1632,12 @@ function AppContent() {
         {showOnboarding && user && (
           <OnboardingModal
             userName={user.displayName ?? "Aspirant"}
-            onComplete={({ commissions, dailyGoal }) => {
-              localStorage.setItem(`pyq_onboarded_${user.uid}`, "1");
-              if (commissions.length > 0)
-                localStorage.setItem(
-                  `pyq_commissions_${user.uid}`,
-                  JSON.stringify(commissions)
-                );
-              if (dailyGoal)
-                localStorage.setItem(
-                  `pyq_dailygoal_${user.uid}`,
-                  String(dailyGoal)
-                );
+            onComplete={() => {
+              try {
+                if (user?.uid) {
+                  localStorage.setItem(`pyq_onboarded_${user.uid}`, "1");
+                }
+              } catch { /* ignore quota errors */ }
               setShowOnboarding(false);
             }}
           />

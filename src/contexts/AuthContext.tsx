@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import {
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   signOut,
@@ -72,6 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Process redirect result from Google sign-in (fires after the redirect back)
+    void getRedirectResult(auth).then((result) => {
+      if (result) setShowAuthModal(false);
+    }).catch(() => {});
+
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setAuthLoading(false);
@@ -88,8 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleLogin = () => setShowAuthModal(true);
 
   const handleGoogleSignIn = async () => {
-    await signInWithPopup(auth, new GoogleAuthProvider());
-    setShowAuthModal(false);
+    // Use redirect (not popup) — popup is blocked by COOP headers in production.
+    // onAuthStateChanged fires automatically after the redirect completes.
+    await signInWithRedirect(auth, new GoogleAuthProvider());
   };
 
   const handleEmailSignIn = async (email: string, password: string) => {
