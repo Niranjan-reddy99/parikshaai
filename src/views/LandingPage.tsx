@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { motion, useInView, AnimatePresence } from 'motion/react';
 import {
   ArrowRight, BarChart3, BookOpenCheck, Brain, CheckCircle2,
@@ -22,65 +22,23 @@ const COMMISSIONS = [
 ];
 
 const FEATURES = [
-  {
-    icon: <ShieldCheck size={20} />,
-    color: '#3b82f6',
-    title: 'Official papers only',
-    desc: 'Every single question sourced directly from published official exam papers. Zero generated content, zero filler — ever.',
-  },
-  {
-    icon: <Brain size={20} />,
-    color: '#8b5cf6',
-    title: 'Pattern Intelligence',
-    desc: 'Each question is tagged with its frame (statement-based, assertion-reason), trap (negation, absolute wording), and skill needed — so you know HOW to solve it, not just the answer.',
-  },
-  {
-    icon: <Sparkles size={20} />,
-    color: '#14b8a6',
-    title: 'AI explanations on every question',
-    desc: 'Detailed AI reasoning for why each option is right or wrong, with a specific solve hint tailored to the question type.',
-  },
-  {
-    icon: <BarChart3 size={20} />,
-    color: '#f59e0b',
-    title: 'Weakness tracking by topic',
-    desc: 'Automatic analysis of where you\'re losing marks — down to subtopic level — so your next study session targets the right gaps.',
-  },
-  {
-    icon: <Clock size={20} />,
-    color: '#ef4444',
-    title: 'Timed mock test mode',
-    desc: 'Full-length timed simulations with the actual question mix from any past paper. Builds exam temperament, not just knowledge.',
-  },
-  {
-    icon: <TrendingUp size={20} />,
-    color: '#10b981',
-    title: 'Year-by-year trend analysis',
-    desc: 'See which topics your exam has repeated across years, which are new additions, and exactly where the examiner\'s focus is shifting.',
-  },
+  { icon: <ShieldCheck size={22} />, color: '#3b82f6', title: 'Official papers only', desc: 'Every question sourced directly from published official exam papers. Zero generated content, zero filler — ever.' },
+  { icon: <Brain size={22} />, color: '#8b5cf6', title: 'Pattern Intelligence', desc: 'Each question tagged with its frame, trap, and skill needed — so you know HOW to solve it, not just the answer.' },
+  { icon: <Sparkles size={22} />, color: '#14b8a6', title: 'AI explanations on demand', desc: 'Detailed AI reasoning for why each option is right or wrong, with a specific solve hint tailored to the question type.' },
+  { icon: <BarChart3 size={22} />, color: '#f59e0b', title: 'Weakness tracking by topic', desc: 'Auto analysis of where you\'re losing marks — down to subtopic level — so every session targets the right gaps.' },
+  { icon: <Clock size={22} />, color: '#ef4444', title: 'Timed mock test mode', desc: 'Full-length timed simulations with the actual question mix from any past paper. Builds exam temperament, not just knowledge.' },
+  { icon: <TrendingUp size={22} />, color: '#10b981', title: 'Year-by-year trend analysis', desc: 'See which topics your exam has repeated across years, which are new, and exactly where the examiner\'s focus is shifting.' },
 ];
 
 const STEPS = [
-  {
-    num: '01',
-    title: 'Pick your exam',
-    desc: 'Choose from UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB or any listed exam. New papers are added regularly — your question bank grows automatically.',
-  },
-  {
-    num: '02',
-    title: 'Practice real PYQs by topic',
-    desc: 'Work through actual past questions organised by subject and topic. Each question shows the exact year and paper it appeared in.',
-  },
-  {
-    num: '03',
-    title: 'Track patterns, fix weak areas',
-    desc: 'Your dashboard shows which patterns you\'re struggling with and which topics need attention — updated after every session.',
-  },
+  { num: '01', icon: '🎯', title: 'Pick your exam', desc: 'Choose from UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB and more. New papers added regularly — your bank grows automatically.' },
+  { num: '02', icon: '📚', title: 'Practice real PYQs', desc: 'Work through actual past questions organised by subject and topic. Each shows the exact year and paper it appeared in.' },
+  { num: '03', icon: '📊', title: 'Fix weak areas', desc: 'Your dashboard shows which patterns you struggle with and which topics need attention — updated after every session.' },
 ];
 
 const PROBLEMS = [
   'Practise random MCQs that never appeared in actual official papers',
-  'Have no idea which topics are high-priority vs rarely tested in their specific exam',
+  'Have no idea which topics are high-priority vs rarely tested',
   'Get "correct answer" without understanding why they got it wrong',
   'Can\'t tell if they\'re improving or just getting lucky on familiar questions',
 ];
@@ -89,7 +47,7 @@ const SOLUTIONS = [
   'Practice only questions from actual official papers — every year, every commission',
   'See exactly which topics your exam tests most, with year-by-year frequency data',
   'Get AI explanations + trap alerts that explain the examiner\'s exact trick',
-  'Track accuracy by topic, by pattern type, and across time — no guesswork',
+  'Track accuracy by topic, pattern type, and across time — no guesswork',
 ];
 
 const PRICING_FEATURES = [
@@ -110,7 +68,18 @@ const MARQUEE_ITEMS = [
   'APPSC EO Grade 3', 'UPSC NDA GS', 'AP High Court',
 ];
 
-// ── SVGs ─────────────────────────────────────────────────────────────────────
+const FAQ_ITEMS = [
+  { q: 'Is this only for UPSC aspirants?', a: 'Not at all. Pariksha covers UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB and more. We add new commissions and papers as they\'re released — your subscription includes everything, current and future.' },
+  { q: 'Which exams are currently available?', a: 'UPSC (Prelims GS, CAPF, CDS, NDA), APPSC (Group I, II, AEE, Forest SO, EO, Agriculture Officer), TSPSC (Group I, II, III, AEE, DAO, TPBO), SSC (CGL), APSLPRB (SI Mains), TSLPRB (SI Mains, Prelims), AP High Court and several more. The list keeps growing.' },
+  { q: 'Are these real official questions or AI-generated?', a: 'Every question is sourced directly from published official exam papers. We never generate or simulate questions. AI is only used for explanations and pattern tagging — the questions themselves are 100% official.' },
+  { q: 'What is "Pattern Intelligence" and why does it matter?', a: 'Each question is tagged with three layers: the question frame (e.g. statement-based, assertion-reason), the examiner\'s trap (e.g. absolute wording, negation), and the cognitive skill you need to solve it. This tells you HOW to approach a question type — not just whether your answer was right or wrong.' },
+  { q: 'How is Pariksha different from other PYQ apps?', a: 'Most PYQ apps show questions and answers. Pariksha adds AI explanations for every question, pattern tags that decode examiner tricks, topic-level accuracy tracking, timed mock tests with the actual paper\'s question mix, and coverage across multiple state commissions — not just UPSC.' },
+  { q: 'Will new papers be added during my subscription?', a: 'Yes. Every new official paper we add is immediately available to all subscribers at no extra charge. There are no per-exam fees ever.' },
+  { q: 'Is there a free trial?', a: 'Yes — you can explore the app without entering any payment details. Questions you answer during the trial are saved and carry over when you subscribe.' },
+  { q: 'Can I install this as an app on my phone or desktop?', a: 'Yes. Pariksha is a Progressive Web App (PWA). After logging in you\'ll see an "Install App" option. Once installed it opens like a native app, loads faster, and works with poor connectivity. No app store needed.' },
+];
+
+// ── SVG Components ──────────────────────────────────────────────────────────
 
 function LogoMark() {
   return (
@@ -118,16 +87,6 @@ function LogoMark() {
       <rect width="28" height="28" rx="7" fill="rgba(20,184,166,0.18)" />
       <path d="M8 8 L14 13.5 L20 8 L20 20 L14 14.5 L8 20 Z" fill="#14b8a6" />
     </svg>
-  );
-}
-
-function SectionDivider({ flip = false }: { flip?: boolean }) {
-  return (
-    <div style={{ lineHeight: 0, transform: flip ? 'scaleX(-1)' : undefined }}>
-      <svg viewBox="0 0 1440 32" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', width: '100%' }}>
-        <path d="M0,20 C360,40 1080,0 1440,20 L1440,32 L0,32 Z" fill="rgba(255,255,255,0.03)" />
-      </svg>
-    </div>
   );
 }
 
@@ -140,7 +99,7 @@ function HeroBg() {
       <svg className="lp2-grid-pattern" aria-hidden width="100%" height="100%">
         <defs>
           <pattern id="lp2-dot" width="32" height="32" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.04)" />
+            <circle cx="1" cy="1" r="1" fill="var(--lp-dot-fill)" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#lp2-dot)" />
@@ -149,125 +108,145 @@ function HeroBg() {
   );
 }
 
-// ── Mock product preview ──────────────────────────────────────────────────────
+// ── Animated count-up ───────────────────────────────────────────────────────
 
-function ProductMockup({ totalQuestions }: { totalQuestions: number }) {
+function CountUp({ to, suffix = '' }: { to: number; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true });
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!inView) return;
+    const duration = 1600;
+    const start = performance.now();
+    const frame = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(eased * to));
+      if (progress < 1) requestAnimationFrame(frame);
+      else setCount(to);
+    };
+    requestAnimationFrame(frame);
+  }, [inView, to]);
+  return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
+}
+
+// ── Interactive hero demo question ─────────────────────────────────────────
+
+function HeroDemoCard({ onLogin }: { onLogin: () => void }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const correct = 'C';
+  const revealed = selected !== null;
+
+  const opts = [
+    { key: 'A', text: '1 only' },
+    { key: 'B', text: '2 only' },
+    { key: 'C', text: 'Both 1 and 2' },
+    { key: 'D', text: 'Neither 1 nor 2' },
+  ];
+
   return (
-    <div className="lp2-mockup-shell">
-      {/* Chrome bar */}
-      <div className="lp2-mockup-chrome">
-        <div className="lp2-mockup-dots">
-          <span /><span /><span />
-        </div>
-        <div className="lp2-mockup-url">pariksha.ai · UPSC Prelims 2023</div>
+    <div className="lp2-demo-card">
+      {/* Header */}
+      <div className="lp2-demo-header">
+        <span className="lp2-demo-badge lp2-demo-badge-blue">UPSC Prelims 2023</span>
+        <span className="lp2-demo-badge lp2-demo-badge-purple">History · Q.14</span>
+        {!revealed && <span className="lp2-demo-live-pill"><span className="lp2-live-dot" />Try it</span>}
       </div>
 
-      {/* Question card */}
-      <div className="lp2-mockup-body">
-        <div className="lp2-mock-q-meta">
-          <span className="lp2-mock-tag lp2-mock-tag-blue">UPSC Prelims 2023</span>
-          <span className="lp2-mock-tag lp2-mock-tag-purple">History · Q. 14</span>
-        </div>
-        <p className="lp2-mock-q-text">
-          Consider the following statements regarding the Regulating Act of 1773:
-          <br /><br />
-          1. It was the first step taken by British Parliament to control the East India Company.
-          <br />
-          2. It established a Supreme Court at Calcutta.
-        </p>
-        <p className="lp2-mock-q-sub">Which of the above statements is/are correct?</p>
-        <div className="lp2-mock-options">
-          <div className="lp2-mock-option lp2-mock-option-correct">
-            <span className="lp2-mock-opt-label">C</span>
-            Both 1 and 2
-            <CheckCircle2 size={14} className="lp2-mock-tick" />
-          </div>
-          {['1 only', '2 only', 'Neither 1 nor 2'].map((o, i) => (
-            <div key={i} className="lp2-mock-option">
-              <span className="lp2-mock-opt-label">{['A','B','D'][i]}</span>
-              {o}
-            </div>
-          ))}
-        </div>
+      {/* Question */}
+      <p className="lp2-demo-q">
+        Consider the following statements regarding the Regulating Act of 1773:
+      </p>
+      <div className="lp2-demo-stmts">
+        <div className="lp2-demo-stmt"><span>1.</span> It was the first step taken by British Parliament to control the East India Company.</div>
+        <div className="lp2-demo-stmt"><span>2.</span> It established a Supreme Court at Calcutta.</div>
+      </div>
+      <p className="lp2-demo-stem">Which of the statements given above is/are correct?</p>
 
-        {/* Pattern tags */}
-        <div className="lp2-mock-tags-row">
+      {/* Options */}
+      <div className="lp2-demo-opts">
+        {opts.map(o => {
+          const isCorrect = o.key === correct;
+          const isSelected = selected === o.key;
+          let cls = 'lp2-demo-opt';
+          if (revealed) cls += isCorrect ? ' lp2-demo-opt-correct' : isSelected ? ' lp2-demo-opt-wrong' : ' lp2-demo-opt-dim';
+          return (
+            <button key={o.key} className={cls} onClick={() => !revealed && setSelected(o.key)}>
+              <span className="lp2-demo-key">{o.key}</span>
+              <span className="lp2-demo-opt-text">{o.text}</span>
+              {revealed && isCorrect && <CheckCircle2 size={14} className="lp2-demo-result-icon" />}
+              {revealed && isSelected && !isCorrect && <XCircle size={14} className="lp2-demo-result-icon lp2-demo-result-wrong" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Explanation reveal */}
+      <AnimatePresence>
+        {revealed && (
+          <motion.div
+            key="exp"
+            initial={{ opacity: 0, y: 8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            className="lp2-demo-exp"
+          >
+            <Sparkles size={13} className="lp2-demo-exp-icon" />
+            <span>Both are correct. The Regulating Act 1773 was the first parliamentary intervention into Company affairs and established India's first Supreme Court at Calcutta.</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Pattern tags */}
+      {revealed && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="lp2-demo-tags">
           <span className="lp2-mock-ptag lp2-mock-ptag-teal">statement-based</span>
-          <span className="lp2-mock-ptag lp2-mock-ptag-amber">negation</span>
-          <span className="lp2-mock-ptag lp2-mock-ptag-blue">elimination</span>
-        </div>
+          <span className="lp2-mock-ptag lp2-mock-ptag-amber">elimination</span>
+          <span className="lp2-mock-ptag lp2-mock-ptag-blue">is/are trap</span>
+        </motion.div>
+      )}
 
-        {/* AI hint */}
-        <div className="lp2-mock-hint">
-          <Sparkles size={12} />
-          Evaluate each statement independently first, then eliminate option codes. Watch the "is/are" — it's asking you to pick BOTH if both are true.
-        </div>
-
-        {/* Stats footer */}
-        <div className="lp2-mock-footer">
-          <span><BookOpenCheck size={11} /> {totalQuestions.toLocaleString()}+ questions</span>
-          <span><BarChart3 size={11} /> 6 commissions</span>
-          <span><TrendingUp size={11} /> 15+ years</span>
-        </div>
+      {/* Footer */}
+      <div className="lp2-demo-footer">
+        {!revealed
+          ? <span className="lp2-demo-hint-text">← Select an option to see the answer & explanation</span>
+          : (
+            <motion.button
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="lp2-demo-unlock-btn"
+              onClick={onLogin}
+            >
+              Practice 9,700+ questions like this <ArrowRight size={14} />
+            </motion.button>
+          )
+        }
       </div>
     </div>
   );
 }
 
-// ── FAQ ───────────────────────────────────────────────────────────────────────
-
-const FAQ_ITEMS = [
-  {
-    q: 'Is this only for UPSC aspirants?',
-    a: 'Not at all. Pariksha covers UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB and more. We add new commissions and papers as they\'re released — your subscription includes everything, current and future.',
-  },
-  {
-    q: 'Which exams are currently available?',
-    a: 'UPSC (Prelims GS, CAPF, CDS, NDA), APPSC (Group I, II, AEE, Forest SO, EO, Agriculture Officer), TSPSC (Group I, II, III, AEE, DAO, TPBO), SSC (CGL), APSLPRB (SI Mains), TSLPRB (SI Mains, Prelims), AP High Court and several more. The list keeps growing.',
-  },
-  {
-    q: 'Are these real official questions or AI-generated?',
-    a: 'Every question is sourced directly from published official exam papers. We never generate or simulate questions. AI is only used for explanations and pattern tagging — the questions themselves are 100% official.',
-  },
-  {
-    q: 'What is "Pattern Intelligence" and why does it matter?',
-    a: 'Each question is tagged with three layers: the question frame (e.g. statement-based, assertion-reason), the examiner\'s trap (e.g. absolute wording, negation), and the cognitive skill you need to solve it. This tells you HOW to approach a question type — not just whether your answer was right or wrong.',
-  },
-  {
-    q: 'How is Pariksha different from other PYQ apps?',
-    a: 'Most PYQ apps show questions and answers. Pariksha adds AI explanations for every question, pattern tags that decode examiner tricks, topic-level accuracy tracking, timed mock tests with the actual paper\'s question mix, and coverage across multiple state commissions — not just UPSC.',
-  },
-  {
-    q: 'Will new papers be added during my subscription?',
-    a: 'Yes. Every new official paper we add is immediately available to all subscribers at no extra charge. There are no per-exam fees ever.',
-  },
-  {
-    q: 'Is there a free trial?',
-    a: 'Yes — you can explore the app without entering any payment details. Questions you answer during the trial are saved and carry over when you subscribe.',
-  },
-  {
-    q: 'Can I install this as an app on my phone or desktop?',
-    a: 'Yes. Pariksha is a Progressive Web App (PWA). After logging in you\'ll see an "Install App" option. Once installed it opens like a native app, loads faster, and works with poor connectivity. No app store needed.',
-  },
-];
+// ── FAQ ─────────────────────────────────────────────────────────────────────
 
 function FaqList() {
   const [open, setOpen] = useState<number | null>(null);
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
       {FAQ_ITEMS.map((item, i) => (
         <motion.div
           key={i}
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-30px' }}
-          transition={{ duration: 0.4, delay: i * 0.04 }}
+          transition={{ duration: 0.35, delay: i * 0.04 }}
           style={{
-            borderRadius: 14,
-            border: `1px solid ${open === i ? 'rgba(20,184,166,0.35)' : 'rgba(255,255,255,0.07)'}`,
-            background: open === i ? 'rgba(20,184,166,0.05)' : 'rgba(255,255,255,0.025)',
+            borderRadius: 12,
+            border: `1px solid ${open === i ? 'rgba(20,184,166,0.4)' : 'var(--lp-border-card)'}`,
+            background: open === i ? 'var(--lp-faq-bg-open)' : 'var(--lp-card-bg)',
             overflow: 'hidden',
             transition: 'border-color 0.2s, background 0.2s',
+            boxShadow: open === i ? '0 0 0 3px rgba(20,184,166,0.06)' : 'none',
           }}
         >
           <button
@@ -278,20 +257,18 @@ function FaqList() {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
             }}
           >
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--lp2-text, #f1f5f9)', lineHeight: 1.4 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text-1)', lineHeight: 1.45 }}>
               {item.q}
             </span>
             <span style={{
-              flexShrink: 0, width: 22, height: 22, borderRadius: '50%',
-              background: open === i ? 'rgba(20,184,166,0.2)' : 'rgba(255,255,255,0.06)',
+              flexShrink: 0, width: 24, height: 24, borderRadius: '50%',
+              background: open === i ? 'rgba(20,184,166,0.15)' : 'var(--lp-faq-icon-bg)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: open === i ? '#14b8a6' : 'rgba(255,255,255,0.4)',
-              fontSize: 16, fontWeight: 400, lineHeight: 1,
-              transition: 'all 0.2s',
+              color: open === i ? '#14b8a6' : 'var(--lp-text-4)',
+              fontSize: 18, fontWeight: 300, lineHeight: 1,
+              transition: 'all 0.22s',
               transform: open === i ? 'rotate(45deg)' : 'none',
-            }}>
-              +
-            </span>
+            }}>+</span>
           </button>
           <AnimatePresence initial={false}>
             {open === i && (
@@ -300,10 +277,10 @@ function FaqList() {
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                transition={{ duration: 0.22, ease: 'easeInOut' }}
                 style={{ overflow: 'hidden' }}
               >
-                <div style={{ padding: '0 20px 18px', fontSize: 13.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7 }}>
+                <div style={{ padding: '0 20px 18px', fontSize: 13.5, color: 'var(--lp-text-3)', lineHeight: 1.75 }}>
                   {item.a}
                 </div>
               </motion.div>
@@ -315,7 +292,7 @@ function FaqList() {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main component ──────────────────────────────────────────────────────────
 
 export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
   const totalQuestions = catalogSummary?.total_questions ?? 9736;
@@ -364,6 +341,8 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
       <section className="lp2-hero">
         <HeroBg />
         <div className="lp2-hero-inner">
+
+          {/* Left: text */}
           <motion.div
             className="lp2-hero-text"
             initial={{ opacity: 0, y: 32 }}
@@ -382,7 +361,7 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
             </h1>
 
             <p className="lp2-hero-p">
-              {totalQuestions.toLocaleString()}+ real questions from official exam papers. Not generated content.
+              {totalQuestions.toLocaleString()}+ real questions from official exam papers.
               AI explanations on every question. Covers UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB
               — with more exams added as they're released.
             </p>
@@ -396,40 +375,46 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
               >
                 Start free trial <ArrowRight size={16} />
               </motion.button>
-              <a href="#pricing" className="lp2-btn-ghost">
-                View pricing
-              </a>
+              <a href="#pricing" className="lp2-btn-ghost">View pricing</a>
             </div>
 
             <div className="lp2-trust-row">
-              <div className="lp2-trust-item">
-                <CheckCircle2 size={13} color="#14b8a6" />
-                No credit card required
+              {['No credit card required', 'Official papers only', 'Cancel anytime'].map(t => (
+                <div key={t} className="lp2-trust-item">
+                  <CheckCircle2 size={12} color="#14b8a6" />
+                  {t}
+                </div>
+              ))}
+            </div>
+
+            {/* Mini stat row under trust badges */}
+            <div className="lp2-hero-stats-mini">
+              <div className="lp2-hero-stat-mini">
+                <span className="lp2-hero-stat-mini-num">{Math.floor(totalQuestions / 1000)}k+</span>
+                <span className="lp2-hero-stat-mini-label">Official PYQs</span>
               </div>
-              <div className="lp2-trust-item">
-                <CheckCircle2 size={13} color="#14b8a6" />
-                Official papers only
+              <div className="lp2-hero-stat-sep" />
+              <div className="lp2-hero-stat-mini">
+                <span className="lp2-hero-stat-mini-num">6+</span>
+                <span className="lp2-hero-stat-mini-label">Commissions</span>
               </div>
-              <div className="lp2-trust-item">
-                <CheckCircle2 size={13} color="#14b8a6" />
-                Cancel anytime
+              <div className="lp2-hero-stat-sep" />
+              <div className="lp2-hero-stat-mini">
+                <span className="lp2-hero-stat-mini-num">15+</span>
+                <span className="lp2-hero-stat-mini-label">Years of papers</span>
               </div>
             </div>
           </motion.div>
 
+          {/* Right: interactive demo */}
           <motion.div
             className="lp2-hero-visual"
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
+            transition={{ duration: 0.8, delay: 0.25, ease: [0.22, 0.61, 0.36, 1] }}
           >
             <div className="lp2-hero-glow" />
-            <motion.div
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <ProductMockup totalQuestions={totalQuestions} />
-            </motion.div>
+            <HeroDemoCard onLogin={onLogin} />
           </motion.div>
         </div>
       </section>
@@ -437,13 +422,13 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
       {/* ── Stats bar ── */}
       <div className="lp2-stats-bar">
         {[
-          { num: `${Math.floor(totalQuestions / 100) * 100}+`, label: 'Official PYQs' },
-          { num: '6+',           label: 'Commissions & growing' },
-          { num: '15+',          label: 'Years of papers' },
-          { num: '22',           label: 'Pattern types tagged' },
+          { to: Math.floor(totalQuestions / 100) * 100, suffix: '+', label: 'Official PYQs' },
+          { to: 6, suffix: '+',  label: 'Commissions & growing' },
+          { to: 15, suffix: '+', label: 'Years of papers' },
+          { to: 22, suffix: '',  label: 'Pattern types tagged' },
         ].map((s, i) => (
           <div key={i} className="lp2-stat">
-            <div className="lp2-stat-num">{s.num}</div>
+            <div className="lp2-stat-num"><CountUp to={s.to} suffix={s.suffix} /></div>
             <div className="lp2-stat-label">{s.label}</div>
           </div>
         ))}
@@ -476,33 +461,43 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
           </div>
 
           <div className="lp2-comparison-grid">
-            {/* Wrong way */}
-            <div className="lp2-comparison-col lp2-comparison-bad">
+            <motion.div
+              className="lp2-comparison-col lp2-comparison-bad"
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.5 }}
+            >
               <div className="lp2-comparison-header">
                 <XCircle size={16} color="#ef4444" />
                 <span>What most aspirants do</span>
               </div>
               {PROBLEMS.map((p, i) => (
                 <div key={i} className="lp2-comparison-item lp2-comparison-item-bad">
-                  <XCircle size={14} color="#ef4444" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <XCircle size={13} color="#ef4444" style={{ flexShrink: 0, marginTop: 2 }} />
                   {p}
                 </div>
               ))}
-            </div>
+            </motion.div>
 
-            {/* Right way */}
-            <div className="lp2-comparison-col lp2-comparison-good">
+            <motion.div
+              className="lp2-comparison-col lp2-comparison-good"
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+            >
               <div className="lp2-comparison-header">
                 <CheckCircle2 size={16} color="#14b8a6" />
                 <span>What Pariksha enables</span>
               </div>
               {SOLUTIONS.map((s, i) => (
                 <div key={i} className="lp2-comparison-item lp2-comparison-item-good">
-                  <CheckCircle2 size={14} color="#14b8a6" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <CheckCircle2 size={13} color="#14b8a6" style={{ flexShrink: 0, marginTop: 2 }} />
                   {s}
                 </div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -522,13 +517,11 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
               <div className="lp2-pattern-tag-explain">
                 {[
                   { label: 'Pattern tag', ex: 'statement-based', color: '#14b8a6', desc: 'How the question is framed' },
-                  { label: 'Trap tag',    ex: 'negation',         color: '#f59e0b', desc: 'The examiner\'s trick to watch for' },
+                  { label: 'Trap tag',    ex: 'negation',         color: '#f59e0b', desc: "The examiner's trick to watch for" },
                   { label: 'Skill tag',   ex: 'elimination',      color: '#3b82f6', desc: 'The cognitive skill required' },
                 ].map((t, i) => (
                   <div key={i} className="lp2-pattern-tag-row">
-                    <span className="lp2-pattern-badge" style={{ background: t.color + '20', color: t.color }}>
-                      {t.ex}
-                    </span>
+                    <span className="lp2-pattern-badge" style={{ background: t.color + '20', color: t.color }}>{t.ex}</span>
                     <div>
                       <div className="lp2-pattern-tag-label">{t.label}</div>
                       <div className="lp2-pattern-tag-desc">{t.desc}</div>
@@ -538,7 +531,6 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
               </div>
             </div>
 
-            {/* Pattern demo card */}
             <motion.div
               className="lp2-pattern-demo"
               initial={{ opacity: 0, y: 20 }}
@@ -546,12 +538,8 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
               viewport={{ once: true, margin: '-60px' }}
               transition={{ duration: 0.6 }}
             >
-              <div className="lp2-pd-meta">
-                <span className="lp2-pd-exam">UPSC Prelims 2022 · Economy · Q.7</span>
-              </div>
-              <p className="lp2-pd-q">
-                With reference to the Indian economy, consider the following statements:
-              </p>
+              <div className="lp2-pd-meta"><span className="lp2-pd-exam">UPSC Prelims 2022 · Economy · Q.7</span></div>
+              <p className="lp2-pd-q">With reference to the Indian economy, consider the following statements:</p>
               <p className="lp2-pd-statements">
                 1. An increase in Nominal Effective Exchange Rate always indicates currency appreciation.<br />
                 2. A decrease in Real Effective Exchange Rate indicates that the country's exports are becoming more expensive.
@@ -595,14 +583,15 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-40px' }}
-                transition={{ duration: 0.5, delay: (i % 3) * 0.08 }}
-                whileHover={{ y: -4 }}
+                transition={{ duration: 0.45, delay: (i % 3) * 0.08 }}
+                whileHover={{ y: -5, transition: { duration: 0.2 } }}
               >
-                <div className="lp2-feature-icon" style={{ background: f.color + '18', color: f.color }}>
-                  {f.icon}
+                <div className="lp2-feature-icon-wrap" style={{ background: f.color + '15', borderColor: f.color + '30' }}>
+                  <div style={{ color: f.color }}>{f.icon}</div>
                 </div>
                 <h3 className="lp2-feature-title">{f.title}</h3>
                 <p className="lp2-feature-desc">{f.desc}</p>
+                <div className="lp2-feature-accent-line" style={{ background: f.color }} />
               </motion.div>
             ))}
           </div>
@@ -615,48 +604,42 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
           <div className="lp2-section-head">
             <div className="lp2-eyebrow">Coverage</div>
             <h2 className="lp2-h2">One subscription. Every commission. Keeps growing.</h2>
-            <p className="lp2-section-p">No per-exam fees. No subject restrictions. Access every paper we have, and every new exam added in the future — all on one flat price.</p>
+            <p className="lp2-section-p">No per-exam fees. No subject restrictions. Access every paper we have, and every new exam added in the future.</p>
           </div>
           <div className="lp2-commission-grid">
             {COMMISSIONS.map((c, i) => {
-              const rawCount = Object.entries(commissionMap)
-                .find(([k]) => k.toUpperCase().startsWith(c.key))?.[1];
+              const rawCount = Object.entries(commissionMap).find(([k]) => k.toUpperCase().startsWith(c.key))?.[1];
               const count = typeof rawCount === 'number' ? rawCount : 0;
               return (
                 <motion.div
                   key={c.key}
                   className="lp2-commission-card"
-                  initial={{ opacity: 0, scale: 0.95 }}
+                  initial={{ opacity: 0, scale: 0.94 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true, margin: '-40px' }}
                   transition={{ duration: 0.4, delay: i * 0.06 }}
-                  whileHover={{ y: -3 }}
+                  whileHover={{ y: -4, transition: { duration: 0.18 } }}
                   style={{ '--c-color': c.color } as React.CSSProperties}
                 >
                   <div className="lp2-commission-accent" style={{ background: c.color }} />
                   <div className="lp2-commission-badge" style={{ background: c.bg, color: c.color }}>{c.label}</div>
                   <div className="lp2-commission-full">{c.full}</div>
-                  {count > 0 && (
-                    <div className="lp2-commission-count" style={{ color: c.color }}>
-                      {count.toLocaleString()} questions
-                    </div>
-                  )}
+                  {count > 0 && <div className="lp2-commission-count" style={{ color: c.color }}>{count.toLocaleString()} questions</div>}
                 </motion.div>
               );
             })}
-            {/* "More coming" card */}
             <motion.div
               className="lp2-commission-card"
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.94 }}
               whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true, margin: '-40px' }}
+              viewport={{ once: true }}
               transition={{ duration: 0.4, delay: COMMISSIONS.length * 0.06 }}
-              style={{ '--c-color': 'rgba(255,255,255,0.2)', opacity: 0.55 } as React.CSSProperties}
+              style={{ '--c-color': 'rgba(255,255,255,0.2)', opacity: 0.5 } as React.CSSProperties}
             >
-              <div className="lp2-commission-accent" style={{ background: 'rgba(255,255,255,0.15)' }} />
-              <div className="lp2-commission-badge" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>More</div>
-              <div className="lp2-commission-full" style={{ color: 'rgba(255,255,255,0.35)' }}>More commissions and exams being added</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 8 }}>All included in your subscription</div>
+              <div className="lp2-commission-accent" style={{ background: 'rgba(128,128,128,0.3)' }} />
+              <div className="lp2-commission-badge" style={{ background: 'rgba(128,128,128,0.08)', color: 'var(--lp-text-4)' }}>More</div>
+              <div className="lp2-commission-full" style={{ color: 'var(--lp-text-4)' }}>More commissions and exams being added</div>
+              <div style={{ fontSize: 11, color: 'var(--lp-text-4)', marginTop: 8 }}>All included in your subscription</div>
             </motion.div>
           </div>
         </div>
@@ -676,8 +659,20 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
                 className="lp2-step"
                 initial={{ opacity: 0, y: 24 }}
                 animate={stepsInView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.5, delay: i * 0.14 }}
+                transition={{ duration: 0.5, delay: i * 0.15 }}
               >
+                {/* Connector line */}
+                {i < STEPS.length - 1 && (
+                  <div className="lp2-step-connector">
+                    <svg width="100%" height="2" viewBox="0 0 100 2" preserveAspectRatio="none">
+                      <line x1="0" y1="1" x2="100" y2="1" stroke="var(--lp-step-line)" strokeWidth="1.5" strokeDasharray="4 3" />
+                    </svg>
+                    <ArrowRight size={14} className="lp2-step-arrow" />
+                  </div>
+                )}
+                <div className="lp2-step-icon-wrap">
+                  <span className="lp2-step-emoji">{s.icon}</span>
+                </div>
                 <div className="lp2-step-num">{s.num}</div>
                 <h3 className="lp2-step-title">{s.title}</h3>
                 <p className="lp2-step-desc">{s.desc}</p>
@@ -697,40 +692,29 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
           </div>
 
           <div className="lp2-pricing-grid">
-            {/* 6-month plan */}
-            <motion.div
-              className="lp2-pricing-card"
-              initial={{ opacity: 0, y: 28 }}
-              animate={pricingInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5, delay: 0.1 }}
-            >
+            <motion.div className="lp2-pricing-card"
+              initial={{ opacity: 0, y: 28 }} animate={pricingInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.5, delay: 0.1 }}>
               <div className="lp2-plan-label">6 Months</div>
               <div className="lp2-plan-price">
                 <span className="lp2-plan-currency">₹</span>
                 <span className="lp2-plan-amount">499</span>
               </div>
               <div className="lp2-plan-per">₹83 / month · billed once</div>
-              <button className="lp2-plan-cta lp2-plan-cta-ghost" onClick={onLogin}>
-                Get started
-              </button>
+              <button className="lp2-plan-cta lp2-plan-cta-ghost" onClick={onLogin}>Get started</button>
               <div className="lp2-plan-divider" />
               <ul className="lp2-plan-features">
                 {PRICING_FEATURES.map((f, i) => (
                   <li key={i} className="lp2-plan-feature">
-                    <CheckCircle2 size={14} color="#14b8a6" style={{ flexShrink: 0 }} />
-                    {f}
+                    <CheckCircle2 size={13} color="#14b8a6" style={{ flexShrink: 0 }} />{f}
                   </li>
                 ))}
               </ul>
             </motion.div>
 
-            {/* Annual plan */}
-            <motion.div
-              className="lp2-pricing-card lp2-pricing-card-featured"
-              initial={{ opacity: 0, y: 28 }}
-              animate={pricingInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5, delay: 0.22 }}
-            >
+            <motion.div className="lp2-pricing-card lp2-pricing-card-featured"
+              initial={{ opacity: 0, y: 28 }} animate={pricingInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.5, delay: 0.2 }}>
               <div className="lp2-plan-best-badge">Best Value · Save ₹99</div>
               <div className="lp2-plan-label lp2-plan-label-white">Annual</div>
               <div className="lp2-plan-price">
@@ -745,12 +729,11 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
               <ul className="lp2-plan-features">
                 {PRICING_FEATURES.map((f, i) => (
                   <li key={i} className="lp2-plan-feature lp2-plan-feature-white">
-                    <CheckCircle2 size={14} color="#2dd4bf" style={{ flexShrink: 0 }} />
-                    {f}
+                    <CheckCircle2 size={13} color="#2dd4bf" style={{ flexShrink: 0 }} />{f}
                   </li>
                 ))}
                 <li className="lp2-plan-feature lp2-plan-feature-white">
-                  <CheckCircle2 size={14} color="#2dd4bf" style={{ flexShrink: 0 }} />
+                  <CheckCircle2 size={13} color="#2dd4bf" style={{ flexShrink: 0 }} />
                   <strong>Save ₹99 vs 6-month plan</strong>
                 </li>
               </ul>
@@ -762,8 +745,6 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
           </p>
         </div>
       </section>
-
-      <SectionDivider />
 
       {/* ── FAQ ── */}
       <section className="lp2-section lp2-section-alt" id="faq">
@@ -777,17 +758,24 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
         </div>
       </section>
 
-      <SectionDivider flip />
-
       {/* ── Final CTA ── */}
       <section className="lp2-cta-section">
+        {/* Decorative SVG arc */}
+        <svg className="lp2-cta-arc" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden>
+          <path d="M0,60 C360,110 1080,10 1440,60 L1440,0 L0,0 Z" fill="var(--lp-bg-alt)" />
+        </svg>
         <div className="lp2-cta-inner">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
+            style={{ textAlign: 'center' }}
           >
+            {/* Shield icon */}
+            <div className="lp2-cta-icon">
+              <BookOpenCheck size={32} color="#14b8a6" />
+            </div>
             <h2 className="lp2-cta-h2">
               Stop practising blind.<br />
               <span className="lp2-h1-accent">Start practising what actually appeared.</span>
@@ -804,6 +792,9 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
             >
               Start your free trial <ArrowRight size={18} />
             </motion.button>
+            <div style={{ marginTop: 16, fontSize: 12, color: 'var(--lp-text-4)' }}>
+              No credit card · Cancel anytime · Free questions saved automatically
+            </div>
           </motion.div>
         </div>
       </section>
