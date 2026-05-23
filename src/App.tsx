@@ -8,6 +8,8 @@ import {
 } from "./lib/questionAnswers";
 import { motion, AnimatePresence } from "motion/react";
 import { AuthModal } from "./components/AuthModal";
+import { EditQuestionModal } from "./components/admin/EditQuestionModal";
+import { hasAdminAuth, adminHeaders, API_BASE as ADMIN_API_BASE } from "./lib/adminApi";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CatalogProvider, useCatalog } from "./contexts/CatalogContext";
 import { ExamProvider, useExam } from "./contexts/ExamContext";
@@ -291,6 +293,31 @@ function AppContent() {
     loadMoreMockQuestions,
     loadMoreResultQuestions,
   } = useMock();
+
+  // ── Admin ────────────────────────────────────────────────────────────────────
+  const isAdmin = hasAdminAuth();
+  const [editQuestion, setEditQuestion] = useState<Question | null>(null);
+
+  const doAddBlankQuestion = async (examName: string, year: number, questionNumber?: number) => {
+    try {
+      await fetch(`${ADMIN_API_BASE}/admin/add-blank-question`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...adminHeaders() },
+        body: JSON.stringify({ exam_name: examName, exam_year: year, question_number: questionNumber ?? 1 }),
+      });
+      await fetchData();
+    } catch { /* ignore */ }
+  };
+
+  const doDeleteQuestion = async (id: string) => {
+    try {
+      await fetch(`${ADMIN_API_BASE}/admin/questions/${id}`, {
+        method: "DELETE",
+        headers: adminHeaders(),
+      });
+      await fetchData();
+    } catch { /* ignore */ }
+  };
 
   // ── Onboarding ───────────────────────────────────────────────────────────────
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -1639,6 +1666,15 @@ function AppContent() {
   return (
     <ToastProvider>
       <div className="app-shell" style={{ display: "flex", flexDirection: "column", height: "100vh", minHeight: "100vh", overflow: "hidden", color: "var(--text)" }}>
+        {editQuestion && (
+          <EditQuestionModal
+            question={editQuestion}
+            onClose={() => setEditQuestion(null)}
+            onSaved={async () => { setEditQuestion(null); await fetchData(); }}
+            onDeleted={() => { setEditQuestion(null); void fetchData(); }}
+          />
+        )}
+
         {showOnboarding && user && (
           <OnboardingModal
             userName={user.displayName ?? "Aspirant"}
@@ -1952,6 +1988,10 @@ function AppContent() {
                       setView={setView}
                       isLocked={isLocked}
                       onLockedClick={() => setShowPremiumModal(true)}
+                      isAdmin={isAdmin}
+                      doAddBlankQuestion={doAddBlankQuestion}
+                      setEditQuestion={setEditQuestion}
+                      doDeleteQuestion={doDeleteQuestion}
                     />
                   </Suspense>
                 )}

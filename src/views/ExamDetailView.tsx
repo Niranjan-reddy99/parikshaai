@@ -5,6 +5,7 @@ import { ExamDetailControls } from './exam-detail/ExamDetailControls';
 import { ExamDetailHeader } from './exam-detail/ExamDetailHeader';
 import { ExamDetailModeCards } from './exam-detail/ExamDetailModeCards';
 import { ExamDetailSubjectBreakdown } from './exam-detail/ExamDetailSubjectBreakdown';
+import { ExamDetailAuditSection } from './exam-detail/ExamDetailAuditSection';
 import {
   getAvailablePapers,
   getAvailableYears,
@@ -36,6 +37,10 @@ interface ExamDetailViewProps {
   setView: (v: View) => void;
   isLocked: (examName: string, year: number, commission?: string) => boolean;
   onLockedClick: () => void;
+  isAdmin?: boolean;
+  doAddBlankQuestion?: (examName: string, year: number, questionNumber?: number) => void;
+  setEditQuestion?: (q: Question | null) => void;
+  doDeleteQuestion?: (id: string) => void;
 }
 
 export function ExamDetailView({
@@ -44,11 +49,13 @@ export function ExamDetailView({
   selectedPaperId, selectedShiftLabel, setSelectedPaperId, setSelectedShiftLabel, weightage, examQuestionCount,
   startPractice, startMockExam, browseWithFilters, setView,
   isLocked, onLockedClick,
+  isAdmin, doAddBlankQuestion, setEditQuestion, doDeleteQuestion,
 }: ExamDetailViewProps) {
   // =========================
   // SECTION: State Management
   // =========================
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
+  const [showAudit, setShowAudit] = useState(false);
   const examInfo = getExamInfo(commissionMap, selectedCommission, selectedExamType);
   const availableYears = getAvailableYears(selectedYear, examInfo?.years);
   const examDuration = getExamDurationLabel(examQuestionCount);
@@ -116,6 +123,19 @@ export function ExamDetailView({
         setExpandedSubjects={setExpandedSubjects}
         browseWithFilters={browseWithFilters}
         startPractice={startPractice}
+      />
+
+      <ExamDetailAuditSection
+        isAdmin={!!isAdmin}
+        showAudit={showAudit}
+        setShowAudit={setShowAudit}
+        questions={examYearQs}
+        selectedExamName={selectedExamName}
+        selectedYear={selectedYear}
+        selectedCommission={selectedCommission}
+        doAddBlankQuestion={doAddBlankQuestion}
+        setEditQuestion={setEditQuestion}
+        doDeleteQuestion={doDeleteQuestion}
       />
     </div>
   );
