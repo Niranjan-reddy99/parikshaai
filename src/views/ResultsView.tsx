@@ -218,13 +218,25 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
   };
 
   // ── Shared table cell style ──────────────────────────────────────────────────
-  const numCell = (val: number | string, color: string): React.CSSProperties => ({
+  const numCell = (_val: number | string, color: string): React.CSSProperties => ({
     fontSize: 12, fontWeight: 700, color, textAlign: 'center',
     fontFamily: "'DM Mono', monospace",
   });
 
   return (
     <div className="results-shell" style={{ maxWidth: 900, margin: '0 auto', paddingBottom: 60 }}>
+
+      {/* ── Time's up banner ────────────────────────────────────────────────── */}
+      {examTimer === 0 && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderRadius: 10, marginBottom: 12,
+            background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Time's up — exam auto-submitted</span>
+        </motion.div>
+      )}
 
       {/* ── Score Hero ──────────────────────────────────────────────────────── */}
       <motion.div className="results-hero" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}

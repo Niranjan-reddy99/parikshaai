@@ -135,6 +135,11 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     practiceQueueRef.current = practiceQueue;
   }, [practiceQueue]);
 
+  const practiceIndexRef = useRef(0);
+  useEffect(() => {
+    practiceIndexRef.current = practiceIndex;
+  }, [practiceIndex]);
+
   // Clamp practiceIndex to queue bounds
   useEffect(() => {
     if (!practiceQueue.length) {
@@ -186,7 +191,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
   ): Promise<{ answer: string; answers: string[]; answerStatus?: string } | null> => {
     const token = await getApiToken();
     try {
-      const res = await fetch(`${API_BASE}/question/${questionId}/answer`, {
+      const res = await fetch(`${API_BASE}/questions/${questionId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: AbortSignal.timeout(10000),
       });
@@ -491,9 +496,15 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
       setPracticeAnswered(true);
       setPracticeSelectedOption(ans.selected);
       const nextQuestion = practiceQueue[i];
-      setPracticeExplanationLoading(
-        Boolean(nextQuestion && !isRenderableExplanation(nextQuestion.explanation))
-      );
+      const hasExplanation = Boolean(nextQuestion?.explanation);
+      setPracticeExplanationLoading(!hasExplanation);
+      if (nextQuestion?.id && !hasExplanation) {
+        void fetchExplanationForQuestion(nextQuestion.id).finally(() => {
+          if (practiceIndexRef.current === i) {
+            setPracticeExplanationLoading(false);
+          }
+        });
+      }
     } else {
       setPracticeAnswered(false);
       setPracticeSelectedOption(null);

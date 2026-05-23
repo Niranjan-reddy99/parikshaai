@@ -3827,7 +3827,10 @@ def _require_exam_access(user: dict, exam_name: str | None, exam_year: int | Non
     Free users may only access one paper per commission (first exam type, latest year).
     Anonymous users (no uid) can only access free papers."""
     if not exam_name or not exam_year:
-        return  # No paper filter — topic/random browse, not gated
+        return
+    # Dev bypass: localhost with no real auth infrastructure can skip gating
+    if os.getenv("DISABLE_EXAM_GATING", "").lower() in ("1", "true", "yes"):
+        return
     uid = user.get("uid")
     if uid:
         sub = _get_subscription_cached(uid)

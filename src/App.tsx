@@ -566,19 +566,17 @@ function AppContent() {
 
   useEffect(() => {
     if (!examSession || examSession.isFinished || examTimer <= 0) return;
-    const iv = setInterval(
-      () =>
-        setExamTimer((p) => {
-          if (p <= 1) {
-            finishExam();
-            return 0;
-          }
-          return p - 1;
-        }),
-      1000
-    );
+    const iv = setInterval(() => setExamTimer((p) => (p > 0 ? p - 1 : 0)), 1000);
     return () => clearInterval(iv);
   }, [examSession, examTimer]);
+
+  // Auto-submit when the timer reaches zero
+  useEffect(() => {
+    if (examTimer === 0 && examSession && !examSession.isFinished) {
+      void finishExam();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examTimer]);
 
   const saveAttempt = async (attempt: {
     questionId: string;
@@ -705,6 +703,7 @@ function AppContent() {
       pageInfo: { hasMore: boolean; nextCursor: string | null; totalCount: number },
       outlineTotal?: number | null
     ) => {
+      setPracticeInitLoading(false);
       let q = rows;
       if (subject !== "All") q = q.filter((x) => x.subject === subject);
       if (topic !== "All") q = q.filter((x) => x.topic === topic);
@@ -792,21 +791,35 @@ function AppContent() {
       return;
     }
 
-    const firstPage = await requestExamPage(examName, year, {
-      pageSize: 20,
-      ...filters,
-      ...selector,
-    });
-    const outline = await outlinePromise;
-    primePracticeSession(
-      firstPage.rows,
-      {
-        hasMore: firstPage.hasMore,
-        nextCursor: firstPage.nextCursor,
-        totalCount: firstPage.totalCount,
-      },
-      outline?.total_count || null
-    );
+    // No cache — show loading state immediately then fetch
+    const backViewSnapshot = getSafePracticeBackView(view);
+    setPracticeQueue([]);
+    setPracticeInitLoading(true);
+    setPracticeInitMessage("Loading questions...");
+    setPracticeBackView(backViewSnapshot);
+    setView("practice");
+
+    try {
+      const firstPage = await requestExamPage(examName, year, {
+        pageSize: 20,
+        ...filters,
+        ...selector,
+      });
+      const outline = await outlinePromise;
+      primePracticeSession(
+        firstPage.rows,
+        {
+          hasMore: firstPage.hasMore,
+          nextCursor: firstPage.nextCursor,
+          totalCount: firstPage.totalCount,
+        },
+        outline?.total_count || null
+      );
+    } catch (e: any) {
+      setPracticeInitLoading(false);
+      setGlobalError(e?.message || "Failed to load questions");
+      setView(backViewSnapshot);
+    }
   };
 
   const startTopicPractice = async (subject: string, topic: string) => {

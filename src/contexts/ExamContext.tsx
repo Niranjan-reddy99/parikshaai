@@ -189,7 +189,7 @@ export function ExamProvider({ children }: { children: ReactNode }) {
   // loops in loadAllExamQuestions to read the latest value without stale closures.
   const examPageStateRef = useRef<Record<string, ExamPageEntry>>({});
   const topicPrefetchInFlightRef = useRef<
-    Record<string, Promise<{ rows: Question[]; totalCount: number; hasMore: boolean; nextOffset: number | null } | void>>
+    Record<string, Promise<{ rows: Question[]; totalCount: number; hasMore: boolean; nextOffset: number | null } | void> | undefined>
   >({});
 
   const updateExamPageState = (
@@ -551,7 +551,16 @@ export function ExamProvider({ children }: { children: ReactNode }) {
       params.set('limit', String(pageSize));
       if (nextCursor) params.set('cursor', nextCursor);
 
-      const res = await fetch(`${API_BASE}/questions?${params}`);
+      let token = await getApiToken();
+      let res = await fetch(`${API_BASE}/questions?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.status === 401) {
+        try { token = await auth.currentUser?.getIdToken(true) ?? null; } catch { token = null; }
+        res = await fetch(`${API_BASE}/questions?${params}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+      }
       if (!res.ok) throw new Error(`Failed to load questions (${res.status})`);
       const data: any = await res.json();
       const batch = (data.questions || []).map(mapQuestion);
