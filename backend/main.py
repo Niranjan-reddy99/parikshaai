@@ -174,18 +174,8 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def _pre_warm_firebase_keys():
-    """Fetch Firebase public keys at startup so first real request doesn't block."""
-    import threading
-    import urllib.request
-    def _fetch():
-        try:
-            urllib.request.urlopen(
-                "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
-                timeout=10,
-            )
-        except Exception:
-            pass
-    threading.Thread(target=_fetch, daemon=True).start()
+    """Firebase key warm-up is handled at import time in config.py."""
+    pass
 
 _cors_origins = (
     os.getenv(

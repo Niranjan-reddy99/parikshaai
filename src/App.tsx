@@ -340,7 +340,17 @@ function AppContent() {
     const localStats = getStats(user.uid);
     setUserStats(localStats);
     const key = `pyq_onboarded_${user.uid}`;
-    if (!localStorage.getItem(key)) setShowOnboarding(true);
+    if (!localStorage.getItem(key)) {
+      // Auto-dismiss for existing users who have prior activity (old users who
+      // never saw the working onboarding modal due to the button being broken)
+      const hasActivity = localStats.totalAnswered > 0 ||
+        !!localStorage.getItem(`pyq_bookmarks_${user.uid}`);
+      if (hasActivity) {
+        localStorage.setItem(key, "1");
+      } else {
+        setShowOnboarding(true);
+      }
+    }
 
     let cancelled = false;
     (async () => {
