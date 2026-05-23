@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { motion, useInView } from 'motion/react';
+import { motion, useInView, AnimatePresence } from 'motion/react';
 import {
   ArrowRight, BarChart3, BookOpenCheck, Brain, CheckCircle2,
   Clock, Moon, ShieldCheck, Sparkles, Sun, TrendingUp, XCircle, Zap,
@@ -26,7 +26,7 @@ const FEATURES = [
     icon: <ShieldCheck size={20} />,
     color: '#3b82f6',
     title: 'Official papers only',
-    desc: 'Every single question sourced directly from published official exam papers. Zero generated content, zero filler.',
+    desc: 'Every single question sourced directly from published official exam papers. Zero generated content, zero filler — ever.',
   },
   {
     icon: <Brain size={20} />,
@@ -56,15 +56,15 @@ const FEATURES = [
     icon: <TrendingUp size={20} />,
     color: '#10b981',
     title: 'Year-by-year trend analysis',
-    desc: 'See which topics UPSC has repeated across years, which are new additions, and exactly where the examiner\'s focus is shifting.',
+    desc: 'See which topics your exam has repeated across years, which are new additions, and exactly where the examiner\'s focus is shifting.',
   },
 ];
 
 const STEPS = [
   {
     num: '01',
-    title: 'Choose your exam & commission',
-    desc: 'Pick from UPSC Prelims, APPSC Group I, TSPSC, SSC, or any state police board. Your question bank is filtered instantly.',
+    title: 'Pick your exam',
+    desc: 'Choose from UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB or any listed exam. New papers are added regularly — your question bank grows automatically.',
   },
   {
     num: '02',
@@ -79,34 +79,35 @@ const STEPS = [
 ];
 
 const PROBLEMS = [
-  'Practise random MCQs that never appeared in actual UPSC papers',
-  'Have no idea which topics are high-priority vs rarely tested',
+  'Practise random MCQs that never appeared in actual official papers',
+  'Have no idea which topics are high-priority vs rarely tested in their specific exam',
   'Get "correct answer" without understanding why they got it wrong',
   'Can\'t tell if they\'re improving or just getting lucky on familiar questions',
 ];
 
 const SOLUTIONS = [
   'Practice only questions from actual official papers — every year, every commission',
-  'See exactly which topics UPSC tests most, with year-by-year frequency data',
+  'See exactly which topics your exam tests most, with year-by-year frequency data',
   'Get AI explanations + trap alerts that explain the examiner\'s exact trick',
   'Track accuracy by topic, by pattern type, and across time — no guesswork',
 ];
 
 const PRICING_FEATURES = [
-  '9,700+ questions from official papers',
-  'All 6 commissions (UPSC, APPSC, TSPSC, SSC + police boards)',
+  '9,700+ questions from official papers (growing)',
+  'All current commissions — UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB',
   'AI explanation on every question',
   'Pattern intelligence tags (pattern, trap, skill)',
   'Topic-wise accuracy tracking',
   'Timed mock test mode',
-  'New papers added as they\'re released',
+  'New exams and papers added as they\'re released',
 ];
 
 const MARQUEE_ITEMS = [
-  'UPSC Prelims GS', 'UPSC Mains GS I', 'APPSC Group I',
+  'UPSC Prelims GS', 'UPSC CAPF', 'UPSC CDS', 'APPSC Group I',
   'APPSC Group II', 'TSPSC Group I', 'TSPSC Group II',
-  'AP Police SI', 'TS Police SI', 'SSC CGL', 'SSC CHSL',
-  'APPSC Forest SO', 'AP Panchayat Secretary',
+  'AP Police SI Mains', 'TS Police SI Mains', 'SSC CGL',
+  'APPSC Forest SO', 'APPSC AEE', 'TSPSC AEE', 'TSPSC DAO',
+  'APPSC EO Grade 3', 'UPSC NDA GS', 'AP High Court',
 ];
 
 // ── SVGs ─────────────────────────────────────────────────────────────────────
@@ -213,6 +214,107 @@ function ProductMockup({ totalQuestions }: { totalQuestions: number }) {
   );
 }
 
+// ── FAQ ───────────────────────────────────────────────────────────────────────
+
+const FAQ_ITEMS = [
+  {
+    q: 'Is this only for UPSC aspirants?',
+    a: 'Not at all. Pariksha covers UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB and more. We add new commissions and papers as they\'re released — your subscription includes everything, current and future.',
+  },
+  {
+    q: 'Which exams are currently available?',
+    a: 'UPSC (Prelims GS, CAPF, CDS, NDA), APPSC (Group I, II, AEE, Forest SO, EO, Agriculture Officer), TSPSC (Group I, II, III, AEE, DAO, TPBO), SSC (CGL), APSLPRB (SI Mains), TSLPRB (SI Mains, Prelims), AP High Court and several more. The list keeps growing.',
+  },
+  {
+    q: 'Are these real official questions or AI-generated?',
+    a: 'Every question is sourced directly from published official exam papers. We never generate or simulate questions. AI is only used for explanations and pattern tagging — the questions themselves are 100% official.',
+  },
+  {
+    q: 'What is "Pattern Intelligence" and why does it matter?',
+    a: 'Each question is tagged with three layers: the question frame (e.g. statement-based, assertion-reason), the examiner\'s trap (e.g. absolute wording, negation), and the cognitive skill you need to solve it. This tells you HOW to approach a question type — not just whether your answer was right or wrong.',
+  },
+  {
+    q: 'How is Pariksha different from other PYQ apps?',
+    a: 'Most PYQ apps show questions and answers. Pariksha adds AI explanations for every question, pattern tags that decode examiner tricks, topic-level accuracy tracking, timed mock tests with the actual paper\'s question mix, and coverage across multiple state commissions — not just UPSC.',
+  },
+  {
+    q: 'Will new papers be added during my subscription?',
+    a: 'Yes. Every new official paper we add is immediately available to all subscribers at no extra charge. There are no per-exam fees ever.',
+  },
+  {
+    q: 'Is there a free trial?',
+    a: 'Yes — you can explore the app without entering any payment details. Questions you answer during the trial are saved and carry over when you subscribe.',
+  },
+  {
+    q: 'Can I install this as an app on my phone or desktop?',
+    a: 'Yes. Pariksha is a Progressive Web App (PWA). After logging in you\'ll see an "Install App" option. Once installed it opens like a native app, loads faster, and works with poor connectivity. No app store needed.',
+  },
+];
+
+function FaqList() {
+  const [open, setOpen] = useState<number | null>(null);
+  return (
+    <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {FAQ_ITEMS.map((item, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-30px' }}
+          transition={{ duration: 0.4, delay: i * 0.04 }}
+          style={{
+            borderRadius: 14,
+            border: `1px solid ${open === i ? 'rgba(20,184,166,0.35)' : 'rgba(255,255,255,0.07)'}`,
+            background: open === i ? 'rgba(20,184,166,0.05)' : 'rgba(255,255,255,0.025)',
+            overflow: 'hidden',
+            transition: 'border-color 0.2s, background 0.2s',
+          }}
+        >
+          <button
+            onClick={() => setOpen(open === i ? null : i)}
+            style={{
+              width: '100%', textAlign: 'left', background: 'none', border: 'none',
+              padding: '16px 20px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            }}
+          >
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--lp2-text, #f1f5f9)', lineHeight: 1.4 }}>
+              {item.q}
+            </span>
+            <span style={{
+              flexShrink: 0, width: 22, height: 22, borderRadius: '50%',
+              background: open === i ? 'rgba(20,184,166,0.2)' : 'rgba(255,255,255,0.06)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: open === i ? '#14b8a6' : 'rgba(255,255,255,0.4)',
+              fontSize: 16, fontWeight: 400, lineHeight: 1,
+              transition: 'all 0.2s',
+              transform: open === i ? 'rotate(45deg)' : 'none',
+            }}>
+              +
+            </span>
+          </button>
+          <AnimatePresence initial={false}>
+            {open === i && (
+              <motion.div
+                key="body"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div style={{ padding: '0 20px 18px', fontSize: 13.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7 }}>
+                  {item.a}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
@@ -270,19 +372,19 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
           >
             <div className="lp2-eyebrow">
               <span className="lp2-eyebrow-dot" />
-              India's only PYQ intelligence platform
+              India's only multi-commission PYQ intelligence platform
             </div>
 
             <h1 className="lp2-h1">
-              Every official PYQ from{' '}
-              <span className="lp2-h1-accent">6 major commissions</span>
-              {' '}— analysed, explained and tracked.
+              Every official PYQ —{' '}
+              <span className="lp2-h1-accent">analysed, explained</span>
+              {' '}and tracked.
             </h1>
 
             <p className="lp2-hero-p">
               {totalQuestions.toLocaleString()}+ real questions from official exam papers. Not generated content.
-              AI explanations on every question. Pattern intelligence that reveals exactly how
-              examiners think — across UPSC, APPSC, TSPSC, SSC and more.
+              AI explanations on every question. Covers UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB
+              — with more exams added as they're released.
             </p>
 
             <div className="lp2-hero-actions">
@@ -336,7 +438,7 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
       <div className="lp2-stats-bar">
         {[
           { num: `${Math.floor(totalQuestions / 100) * 100}+`, label: 'Official PYQs' },
-          { num: '6',            label: 'Commissions' },
+          { num: '6+',           label: 'Commissions & growing' },
           { num: '15+',          label: 'Years of papers' },
           { num: '22',           label: 'Pattern types tagged' },
         ].map((s, i) => (
@@ -368,8 +470,8 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
             <div className="lp2-eyebrow lp2-eyebrow-amber">The problem</div>
             <h2 className="lp2-h2">Random MCQ practice is why most aspirants fail</h2>
             <p className="lp2-section-p">
-              Most aspirants spend hundreds of hours practising questions that UPSC never asked,
-              from topics the examiner hasn't touched in a decade.
+              Most aspirants spend hundreds of hours on questions the examiner never asked,
+              from topics that haven't appeared in a decade — for the wrong exam entirely.
             </p>
           </div>
 
@@ -482,8 +584,8 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
         <div className="lp2-section-inner">
           <div className="lp2-section-head">
             <div className="lp2-eyebrow">What you get</div>
-            <h2 className="lp2-h2">Built for serious UPSC aspirants</h2>
-            <p className="lp2-section-p">Not a generic quiz app. Every feature is designed around how UPSC actually tests candidates.</p>
+            <h2 className="lp2-h2">Built for serious government exam aspirants</h2>
+            <p className="lp2-section-p">Not a generic quiz app. Every feature is designed around how official examiners actually test — across every commission we cover.</p>
           </div>
           <div className="lp2-features-grid">
             {FEATURES.map((f, i) => (
@@ -512,8 +614,8 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
         <div className="lp2-section-inner">
           <div className="lp2-section-head">
             <div className="lp2-eyebrow">Coverage</div>
-            <h2 className="lp2-h2">One subscription. Every commission.</h2>
-            <p className="lp2-section-p">No per-exam fees. No subject restrictions. All 6 commissions, every paper, one flat price.</p>
+            <h2 className="lp2-h2">One subscription. Every commission. Keeps growing.</h2>
+            <p className="lp2-section-p">No per-exam fees. No subject restrictions. Access every paper we have, and every new exam added in the future — all on one flat price.</p>
           </div>
           <div className="lp2-commission-grid">
             {COMMISSIONS.map((c, i) => {
@@ -542,6 +644,20 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
                 </motion.div>
               );
             })}
+            {/* "More coming" card */}
+            <motion.div
+              className="lp2-commission-card"
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.4, delay: COMMISSIONS.length * 0.06 }}
+              style={{ '--c-color': 'rgba(255,255,255,0.2)', opacity: 0.55 } as React.CSSProperties}
+            >
+              <div className="lp2-commission-accent" style={{ background: 'rgba(255,255,255,0.15)' }} />
+              <div className="lp2-commission-badge" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>More</div>
+              <div className="lp2-commission-full" style={{ color: 'rgba(255,255,255,0.35)' }}>More commissions and exams being added</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 8 }}>All included in your subscription</div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -551,7 +667,7 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
         <div className="lp2-section-inner">
           <div className="lp2-section-head">
             <div className="lp2-eyebrow">How it works</div>
-            <h2 className="lp2-h2">Up and running in 2 minutes</h2>
+            <h2 className="lp2-h2">Pick your exam. Start practising. See results.</h2>
           </div>
           <div className="lp2-steps-grid" ref={stepsRef}>
             {STEPS.map((s, i) => (
@@ -649,6 +765,20 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
 
       <SectionDivider />
 
+      {/* ── FAQ ── */}
+      <section className="lp2-section lp2-section-alt" id="faq">
+        <div className="lp2-section-inner">
+          <div className="lp2-section-head">
+            <div className="lp2-eyebrow">FAQ</div>
+            <h2 className="lp2-h2">Frequently Asked Questions</h2>
+            <p className="lp2-section-p">Everything you need to know before you start.</p>
+          </div>
+          <FaqList />
+        </div>
+      </section>
+
+      <SectionDivider flip />
+
       {/* ── Final CTA ── */}
       <section className="lp2-cta-section">
         <div className="lp2-cta-inner">
@@ -660,11 +790,11 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
           >
             <h2 className="lp2-cta-h2">
               Stop practising blind.<br />
-              <span className="lp2-h1-accent">Start mastering the actual exam.</span>
+              <span className="lp2-h1-accent">Start practising what actually appeared.</span>
             </h2>
             <p className="lp2-cta-p">
-              Every minute spent on questions UPSC never asked is a minute wasted.
-              Start with what actually appeared.
+              Every minute spent on questions your exam never asked is a minute wasted.
+              Real papers. Real patterns. Every commission.
             </p>
             <motion.button
               className="lp2-btn-primary lp2-btn-primary-lg"
@@ -686,7 +816,7 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
             <span className="lp2-brand-name" style={{ fontSize: 14 }}>Pariksha.ai</span>
           </div>
           <p className="lp2-footer-p">
-            © {new Date().getFullYear()} Pariksha. Real PYQs, AI intelligence — built for serious aspirants.
+            © {new Date().getFullYear()} Pariksha. Real PYQs, AI intelligence — UPSC, APPSC, TSPSC, SSC and growing.
           </p>
           <div className="lp2-footer-links">
             <a href="#" className="lp2-footer-link">Privacy</a>

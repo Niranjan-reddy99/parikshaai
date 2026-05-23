@@ -314,3 +314,14 @@ CREATE INDEX IF NOT EXISTS idx_jobs_paper ON jobs(paper_id);
 
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admin access jobs" ON jobs FOR ALL USING (auth.role() = 'service_role');
+
+CREATE TABLE IF NOT EXISTS feedback (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    message     TEXT NOT NULL,
+    user_email  VARCHAR(320) DEFAULT NULL,
+    user_uid    VARCHAR(128) DEFAULT NULL,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admin access feedback" ON feedback FOR ALL USING (auth.role() = 'service_role');

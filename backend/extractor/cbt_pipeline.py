@@ -1444,6 +1444,15 @@ def extract_tcsion_vision(
             n = q["question_number"]
             if n not in seen:
                 seen[n] = q
+            else:
+                # Prefer the more complete version: replace if new has all 4 options
+                # and the stored one doesn't. TCSiON PDFs show each question twice;
+                # the first occurrence (preview page) often has partial options.
+                existing = seen[n]
+                existing_opts = sum(1 for k in ("option_a","option_b","option_c","option_d") if existing.get(k))
+                new_opts = sum(1 for k in ("option_a","option_b","option_c","option_d") if q.get(k))
+                if new_opts > existing_opts:
+                    seen[n] = q
         if progress_callback:
             progress_callback(i + 1, total_pages)
 

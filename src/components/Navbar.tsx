@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { LogOut } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Download, LogOut, MessageSquare, X } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { type View, type CommissionMap } from '../types/index';
 import { xpToLevel } from '../lib/stats';
+import { API_BASE, adminHeaders } from '../lib/adminApi';
 
 interface NavbarProps {
   user: User;
@@ -137,6 +138,56 @@ export function Navbar({
   onNavigate,
 }: NavbarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+
+  // ── PWA install prompt ────────────────────────────────────────────────────
+  const installPromptRef = useRef<any>(null);
+  const [canInstall, setCanInstall] = useState(false);
+  const [installed, setInstalled] = useState(false);
+
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      installPromptRef.current = e;
+      setCanInstall(true);
+    };
+    const onInstalled = () => { setInstalled(true); setCanInstall(false); };
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPromptRef.current) return;
+    installPromptRef.current.prompt();
+    const { outcome } = await installPromptRef.current.userChoice;
+    if (outcome === 'accepted') { setInstalled(true); setCanInstall(false); }
+    installPromptRef.current = null;
+  };
+
+  // ── Feedback modal ────────────────────────────────────────────────────────
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackStatus, setFeedbackStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  const submitFeedback = async () => {
+    if (!feedbackText.trim()) return;
+    setFeedbackStatus('sending');
+    try {
+      await fetch(`${API_BASE}/feedback`, {
+        method: 'POST',
+        headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: feedbackText.trim(), user_email: user.email, user_uid: user.uid }),
+      });
+      setFeedbackStatus('sent');
+      setFeedbackText('');
+      setTimeout(() => { setShowFeedback(false); setFeedbackStatus('idle'); }, 1800);
+    } catch {
+      setFeedbackStatus('error');
+    }
+  };
   const { level, levelName, xpNext } = xpToLevel(xp);
   const xpProgress = Math.min(100, Math.round((xp / xpNext) * 100));
   const isDrawer = mode === 'drawer';
@@ -314,6 +365,54 @@ export function Navbar({
           </div>
         </div>
 
+        {/* Install App + Feedback row */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          {canInstall && !installed && (
+            <button
+              type="button"
+              onClick={handleInstall}
+              style={{
+                flex: 1, minHeight: 34, padding: '0 10px', borderRadius: 9,
+                border: '1px solid rgba(37,99,235,0.3)',
+                background: 'rgba(37,99,235,0.08)',
+                color: '#2563eb', fontSize: 12, fontWeight: 700,
+                fontFamily: 'inherit', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                transition: 'background 0.15s',
+              }}
+            >
+              <Download style={{ width: 12, height: 12 }} /> Install App
+            </button>
+          )}
+          {installed && (
+            <div style={{
+              flex: 1, minHeight: 34, padding: '0 10px', borderRadius: 9,
+              border: '1px solid rgba(34,197,94,0.25)',
+              background: 'rgba(34,197,94,0.07)',
+              color: '#16a34a', fontSize: 12, fontWeight: 700,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+              ✓ Installed
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowFeedback(true)}
+            style={{
+              flex: canInstall && !installed ? 0 : 1,
+              minHeight: 34, padding: '0 10px', borderRadius: 9,
+              border: '1px solid var(--border)',
+              background: 'var(--bg-alt)',
+              color: 'var(--text-sec)', fontSize: 12, fontWeight: 700,
+              fontFamily: 'inherit', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <MessageSquare style={{ width: 12, height: 12 }} />
+            {canInstall && !installed ? '' : 'Feedback'}
+          </button>
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
           <button
             type="button"
@@ -322,50 +421,104 @@ export function Navbar({
               onNavigate?.();
             }}
             style={{
-              minHeight: 38,
-              padding: '0 12px',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--bg-alt)',
-              color: 'var(--text)',
-              fontSize: 12.5,
-              fontWeight: 700,
-              fontFamily: 'inherit',
-              cursor: 'pointer',
+              minHeight: 38, padding: '0 12px', borderRadius: 10,
+              border: '1px solid var(--border)', background: 'var(--bg-alt)',
+              color: 'var(--text)', fontSize: 12.5, fontWeight: 700,
+              fontFamily: 'inherit', cursor: 'pointer',
             }}
           >
             Profile
           </button>
           <button
             type="button"
-            onClick={() => {
-              handleLogout();
-              onNavigate?.();
-            }}
+            onClick={() => { handleLogout(); onNavigate?.(); }}
             onMouseEnter={() => setHoveredItem('logout')}
             onMouseLeave={() => setHoveredItem(null)}
             style={{
-              minHeight: 38,
-              padding: '0 12px',
-              borderRadius: 10,
+              minHeight: 38, padding: '0 12px', borderRadius: 10,
               border: `1px solid ${hoveredItem === 'logout' ? 'rgba(220,38,38,0.28)' : 'var(--border)'}`,
               background: hoveredItem === 'logout' ? 'rgba(254,226,226,0.7)' : 'rgba(255,255,255,0.88)',
               color: hoveredItem === 'logout' ? '#dc2626' : 'var(--text-tert)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 7,
-              fontSize: 12.5,
-              fontWeight: 700,
-              fontFamily: 'inherit',
-              cursor: 'pointer',
-              transition: 'all 0.12s ease',
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
+              cursor: 'pointer', transition: 'all 0.12s ease',
             }}
           >
-            <LogOut style={{ width: 12, height: 12 }} />
-            Sign out
+            <LogOut style={{ width: 12, height: 12 }} /> Sign out
           </button>
         </div>
       </div>
+
+      {/* Feedback modal */}
+      {showFeedback && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          padding: 16, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+        }}
+          onClick={() => { setShowFeedback(false); setFeedbackStatus('idle'); }}
+        >
+          <div
+            style={{
+              width: '100%', maxWidth: 440,
+              background: 'var(--surface, #1e293b)',
+              border: '1px solid var(--border)',
+              borderRadius: 18, padding: 20,
+              boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Send Feedback</div>
+              <button
+                onClick={() => { setShowFeedback(false); setFeedbackStatus('idle'); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tert)', padding: 4 }}
+              >
+                <X style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+            {feedbackStatus === 'sent' ? (
+              <div style={{ textAlign: 'center', padding: '16px 0', color: '#22c55e', fontWeight: 700, fontSize: 14 }}>
+                ✓ Thanks — feedback received!
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={feedbackText}
+                  onChange={e => setFeedbackText(e.target.value)}
+                  placeholder="What's working, what's broken, what you'd love to see..."
+                  rows={4}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    background: 'var(--bg, #0f172a)', border: '1px solid var(--border)',
+                    borderRadius: 10, color: 'var(--text)', fontSize: 13,
+                    padding: '10px 12px', resize: 'vertical', fontFamily: 'inherit',
+                    outline: 'none', marginBottom: 10,
+                  }}
+                />
+                {feedbackStatus === 'error' && (
+                  <div style={{ fontSize: 12, color: '#f87171', marginBottom: 8 }}>
+                    Something went wrong — try again.
+                  </div>
+                )}
+                <button
+                  onClick={submitFeedback}
+                  disabled={!feedbackText.trim() || feedbackStatus === 'sending'}
+                  style={{
+                    width: '100%', padding: '10px', borderRadius: 10, border: 'none',
+                    background: feedbackText.trim() ? '#2563eb' : 'var(--border)',
+                    color: feedbackText.trim() ? '#fff' : 'var(--text-tert)',
+                    fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+                    cursor: feedbackText.trim() ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {feedbackStatus === 'sending' ? 'Sending…' : 'Send Feedback'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

@@ -10,20 +10,20 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
-  const enablePwa = env.VITE_ENABLE_PWA === 'true';
+  const disablePwa = env.VITE_DISABLE_PWA === 'true';
   return {
     plugins: [
       react(),
       tailwindcss(),
-      ...(enablePwa
+      ...(!disablePwa
         ? [
             VitePWA({
               registerType: 'autoUpdate',
               includeAssets: ['icon.svg', 'apple-touch-icon.png'],
               manifest: {
-                name: 'Pariksha — UPSC Preparation',
+                name: 'Pariksha — PYQ Intelligence',
                 short_name: 'Pariksha',
-                description: 'Practice PYQs from UPSC, APPSC, TSPSC with AI-powered explanations and timed mock tests.',
+                description: 'Practice official PYQs from UPSC, APPSC, TSPSC, SSC and more with AI explanations and pattern intelligence.',
                 theme_color: '#0d1f1e',
                 background_color: '#0d1f1e',
                 display: 'standalone',

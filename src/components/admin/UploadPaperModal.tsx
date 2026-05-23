@@ -7,6 +7,13 @@ import { API_BASE, adminHeaders } from '../../lib/adminApi';
 interface UploadPaperModalProps {
   onClose: () => void;
   onComplete: () => void;
+  prefill?: {
+    examName?: string;
+    year?: number;
+    /** repair = re-upload same paper, only fix broken questions (repair_missing_only=true)
+     *  replace = full fresh extraction, wipe existing data (force_replace=true + clear_cache=true) */
+    intent?: 'repair' | 'replace';
+  };
 }
 
 
@@ -33,11 +40,11 @@ const MODES: { id: Mode; label: string; desc: string; icon: string }[] = [
 
 const ACTIVE_JOB_KEY = 'upsc_active_upload_job';
 
-export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps) {
+export function UploadPaperModal({ onClose, onComplete, prefill }: UploadPaperModalProps) {
   const [file, setFile]             = useState<File | null>(null);
   const [akFile, setAkFile]         = useState<File | null>(null);
-  const [examName, setExamName]     = useState('');
-  const [year, setYear]             = useState(new Date().getFullYear().toString());
+  const [examName, setExamName]     = useState(prefill?.examName ?? '');
+  const [year, setYear]             = useState(prefill?.year?.toString() ?? new Date().getFullYear().toString());
   const [series, setSeries]         = useState('');
   const [shiftLabel, setShiftLabel] = useState('');
   const [mode, setMode]             = useState<Mode>('auto');
@@ -337,8 +344,11 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
     const countVal = !expectedCount ? 0 : parseInt(expectedCount.toString());
     form.append('expected_count', (countVal || 0).toString());
 
-    if (isForced) form.append('force_replace', 'true');
-    if (replaceExisting) form.append('clear_cache', 'true');
+    const effectiveForce = isForced || prefill?.intent === 'replace';
+    const effectiveReplace = replaceExisting || prefill?.intent === 'replace';
+    if (effectiveForce) form.append('force_replace', 'true');
+    if (effectiveReplace) form.append('clear_cache', 'true');
+    if (prefill?.intent === 'repair') form.append('repair_missing_only', 'true');
 
     try {
       const res = await fetch(`${API_BASE}/admin/upload-pdf`, {
@@ -443,13 +453,37 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
         {/* Header */}
         <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <p style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Upload Exam Paper</p>
-            <p style={{ fontSize: 11, color: C.textTert, marginTop: 2 }}>PDF → Auto-extract → Tag → Supabase</p>
+            <p style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
+              {prefill?.intent === 'repair' ? 'Repair Broken Questions' : prefill?.intent === 'replace' ? 'Replace Paper' : 'Upload Exam Paper'}
+            </p>
+            <p style={{ fontSize: 11, color: C.textTert, marginTop: 2 }}>
+              {prefill?.intent === 'repair'
+                ? `Re-upload to fix broken/missing questions — existing good questions untouched`
+                : prefill?.intent === 'replace'
+                ? `Full re-extraction — all existing questions replaced`
+                : 'PDF → Auto-extract → Tag → Supabase'}
+            </p>
           </div>
           <button onClick={onClose} style={{ padding: 8, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', color: C.textSec, display: 'flex' }}>
             <X style={{ width: 16, height: 16 }} />
           </button>
         </div>
+
+        {/* Intent banner */}
+        {prefill?.intent && (
+          <div style={{
+            padding: '10px 20px',
+            background: prefill.intent === 'repair' ? 'rgba(34,197,94,0.08)' : 'rgba(251,191,36,0.08)',
+            borderBottom: `1px solid ${prefill.intent === 'repair' ? 'rgba(34,197,94,0.2)' : 'rgba(251,191,36,0.2)'}`,
+            fontSize: 12,
+            color: prefill.intent === 'repair' ? '#22c55e' : '#FBBF24',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            {prefill.intent === 'repair'
+              ? `Exam name and year are locked. Upload the same PDF — only broken/missing questions will be re-extracted.`
+              : `Exam name and year are locked. Upload the replacement PDF — full fresh extraction, cache cleared.`}
+          </div>
+        )}
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '75vh', overflowY: 'auto' }}>
 
@@ -542,13 +576,15 @@ export function UploadPaperModal({ onClose, onComplete }: UploadPaperModalProps)
               <label style={labelStyle}>Exam Name</label>
               <input type="text" value={examName} onChange={e => setExamName(e.target.value)}
                 placeholder='e.g. "APPSC Group II Mains Paper I"'
-                style={inputStyle} disabled={phase !== 'idle'} />
+                style={{ ...inputStyle, ...(prefill?.examName ? { opacity: 0.7, cursor: 'not-allowed' } : {}) }}
+                disabled={phase !== 'idle' || !!prefill?.examName} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label style={labelStyle}>Year</label>
                 <input type="number" value={year} onChange={e => setYear(e.target.value)}
-                  style={inputStyle} disabled={phase !== 'idle'} min={2000} max={2035} />
+                  style={{ ...inputStyle, ...(prefill?.year ? { opacity: 0.7, cursor: 'not-allowed' } : {}) }}
+                  disabled={phase !== 'idle' || !!prefill?.year} min={2000} max={2035} />
               </div>
               {mode === 'cbt' && (
                 <div>

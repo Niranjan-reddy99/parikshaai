@@ -1914,16 +1914,23 @@ def _recover_inline_match_payload(question_text: str) -> tuple[str, list[str], l
 # ══════════════════════════════════════════════════════════════════════════════
 
 TAXONOMY_SUBJECTS = (
+    # ── General Studies (GS) ──────────────────────────────────────────────────
     "History | Geography | Polity | Economy | Environment & Ecology | "
     "Science & Technology | Current Affairs | "
     "Mathematics | Quantitative Aptitude | Logical Reasoning | "
     "English Language | Computer Knowledge | "
-    "General Knowledge | Social Issues"
+    "General Knowledge | Social Issues | "
+    # ── Technical / Core Subjects ─────────────────────────────────────────────
+    "Electrical Engineering | Mechanical Engineering | Civil Engineering | "
+    "Electronics & Communication Engineering | Computer Science & Engineering | "
+    "Chemical Engineering | Agriculture | Forestry | "
+    "Commerce & Accountancy | Law | Public Administration"
 )
 
 # Canonical topic buckets per subject — AI must pick from these or the closest match.
 # This prevents fragmentation (e.g. "Space Missions" / "Space Science" / "ISRO" all becoming separate topics).
 TAXONOMY_TOPICS: dict[str, list[str]] = {
+    # ── General Studies ───────────────────────────────────────────────────────
     "History": [
         "Ancient History", "Medieval History", "Modern History",
         "Indian National Movement", "Art & Culture", "World History",
@@ -1994,6 +2001,82 @@ TAXONOMY_TOPICS: dict[str, list[str]] = {
         "Awards & Records", "Famous Personalities", "Indian Heritage",
         "Sports Trivia", "Miscellaneous",
     ],
+    # ── Technical / Core Subjects ─────────────────────────────────────────────
+    "Electrical Engineering": [
+        "Circuit Theory & Network Analysis", "Electrical Machines",
+        "Power Systems", "Control Systems", "Power Electronics",
+        "Measurements & Instrumentation", "Analog Electronics",
+        "Digital Electronics", "Electromagnetic Theory",
+        "Electrical Materials & Wiring", "High Voltage Engineering",
+    ],
+    "Mechanical Engineering": [
+        "Thermodynamics & Heat Transfer", "Fluid Mechanics & Hydraulics",
+        "Strength of Materials", "Theory of Machines & Machine Design",
+        "Manufacturing Technology", "Engineering Materials",
+        "Industrial Engineering & Management", "Refrigeration & Air Conditioning",
+        "Engineering Mechanics", "Metrology & Quality Control",
+    ],
+    "Civil Engineering": [
+        "Structural Engineering", "Geotechnical Engineering",
+        "Fluid Mechanics & Hydraulics", "Surveying & Mapping",
+        "Construction Materials & Technology", "Environmental Engineering",
+        "Transportation Engineering", "Irrigation & Water Resources",
+        "Concrete Technology", "Estimating & Costing",
+    ],
+    "Electronics & Communication Engineering": [
+        "Electronic Devices & Circuits", "Analog Electronics",
+        "Digital Electronics & Logic Design", "Communication Systems",
+        "Signals & Systems", "Microprocessors & Microcontrollers",
+        "Electromagnetic Fields & Waves", "Control Systems",
+        "VLSI Design", "Antenna & Wave Propagation",
+    ],
+    "Computer Science & Engineering": [
+        "Data Structures & Algorithms", "Operating Systems",
+        "Database Management Systems", "Computer Networks",
+        "Software Engineering", "Programming Languages",
+        "Theory of Computation", "Computer Architecture & Organization",
+        "Compiler Design", "Artificial Intelligence & Machine Learning",
+    ],
+    "Chemical Engineering": [
+        "Fluid Mechanics & Momentum Transfer", "Heat Transfer",
+        "Mass Transfer & Separation Processes", "Chemical Reaction Engineering",
+        "Process Control & Instrumentation", "Thermodynamics",
+        "Plant Design & Economics", "Safety & Environment",
+    ],
+    "Agriculture": [
+        "Soil Science & Agronomy", "Horticulture & Floriculture",
+        "Plant Pathology & Entomology", "Agricultural Economics & Marketing",
+        "Irrigation & Water Management", "Seed Technology & Genetics",
+        "Animal Husbandry & Veterinary Science", "Farm Machinery & Engineering",
+        "Agricultural Extension", "Post-Harvest Technology",
+    ],
+    "Forestry": [
+        "Forest Management & Policy", "Silviculture",
+        "Forest Botany & Ecology", "Wildlife Management & Conservation",
+        "Agroforestry & Social Forestry", "Wood Science & Technology",
+        "Forest Survey & Mapping", "Forest Laws & Administration",
+    ],
+    "Commerce & Accountancy": [
+        "Financial Accounting", "Cost & Management Accounting",
+        "Business Law & Company Law", "Financial Management",
+        "Auditing & Assurance", "Taxation (Direct & Indirect)",
+        "Business Economics & Statistics", "Management Principles & Practices",
+        "Banking & Insurance", "Capital Markets & Securities",
+    ],
+    "Law": [
+        "Constitutional Law", "Criminal Law & Procedure",
+        "Civil Law & Procedure", "Contract & Tort Law",
+        "Property & Transfer Law", "Family Law & Personal Law",
+        "Administrative Law", "International Law",
+        "Labour & Industrial Law", "Evidence Law",
+    ],
+    "Public Administration": [
+        "Administrative Theory & Thought", "Organisational Behaviour",
+        "Public Policy & Analysis", "Budgeting & Financial Administration",
+        "Human Resource Management", "E-Governance & Digital Services",
+        "Rural & Urban Administration", "Development Administration",
+        "Comparative Public Administration", "Accountability & Ethics",
+    ],
 }
 
 _TOPIC_LINES = "\n".join(
@@ -2001,7 +2084,7 @@ _TOPIC_LINES = "\n".join(
     for subj, topics in TAXONOMY_TOPICS.items()
 )
 
-TAG_PROMPT_TEMPLATE = """You are a subject-matter expert for Indian competitive exams (UPSC, SSC, CISF, State PSC, High Court, etc.).
+TAG_PROMPT_TEMPLATE = """You are a subject-matter expert for Indian competitive exams (UPSC, SSC, CISF, State PSC, High Court, etc.) covering both General Studies and technical/professional subjects.
 
 Classify each question below. Return ONLY a valid JSON array — no markdown, no explanation, just raw JSON.
 
@@ -2018,14 +2101,28 @@ Classification rules:
 - subject: EXACTLY one from the subject list above
 - topic: EXACTLY one from the canonical bucket for that subject (verbatim, no paraphrasing)
 - subtopic: a reusable PYQ classification label — NOT a person name, place name, or one-off keyword from the question
-- difficulty: Easy (factual recall) | Medium (applied / inferential) | Hard (multi-step or obscure)
-- "Science & Technology" replaces both "General Science" and "Science & Technology" — use it for ALL science questions
-- "Environment & Ecology" replaces "Environment" — use it for biodiversity, pollution, climate, wildlife
+- difficulty: Easy (factual recall / direct formula) | Medium (applied / multi-concept) | Hard (derivation / multi-step / obscure)
+
+Technical exam rules (apply when exam name contains keywords like Electrical, Mechanical, Civil, EEE, ECE, CSE, AEE, AE, JE, Engineer, Agriculture, Forestry, Commerce, Law):
+- Questions on circuits, machines, power systems, control → "Electrical Engineering"
+- Questions on thermodynamics, fluids, manufacturing, machine design → "Mechanical Engineering"
+- Questions on structures, geotechnical, concrete, surveying, highways → "Civil Engineering"
+- Questions on electronics, communication, signals, microprocessors → "Electronics & Communication Engineering"
+- Questions on algorithms, OS, networks, databases, programming → "Computer Science & Engineering"
+- Questions on soil, crops, irrigation, plant pathology, agronomy → "Agriculture"
+- Questions on silviculture, forest management, wildlife → "Forestry"
+- Questions on accounting, auditing, taxation, company law, finance → "Commerce & Accountancy"
+- Questions on IPC, CrPC, Contract Act, tort, constitutional law → "Law"
+- NEVER force technical questions into "Science & Technology" — that subject is for GS science only
+
+GS exam rules:
+- "Science & Technology" is for GS-level science (discoveries, space missions, biotechnology news) — NOT engineering theory
+- "Environment & Ecology" for biodiversity, pollution, climate, wildlife
 - NEVER use "General Knowledge" when a better subject exists
 - For calculation questions → "Quantitative Aptitude" or "Mathematics"
 - For puzzles, series, analogies, coding → "Logical Reasoning"
-- Questions about Bharatiya Nyaya Sanhita, Bharatiya Nagarik Suraksha Sanhita, Bharatiya Sakshya Adhiniyam, criminal law, evidence law, or legal definitions belong under "Polity" → "Legal System & Criminal Laws"
-- Questions about Acts, Government Orders (G.O.s), reorganisation laws, Union/State/Concurrent Lists, ordinances, landmark judgments, social legislation, rights-based laws, or committees/commissions must NOT go under "Science & Technology" or "Mechanics"; classify them under "Polity" or "Current Affairs" as appropriate
+- Questions about Bharatiya Nyaya Sanhita, criminal law, evidence law → "Polity" → "Legal System & Criminal Laws"
+- Questions about Acts, G.O.s, reorganisation laws, landmark judgments → "Polity" or "Current Affairs"
 - Do NOT use vague labels: "General", "Basics", "Mixed", "Miscellaneous" (unless unavoidable under General Knowledge)
 - If subtopic cannot be a stable, reusable bucket → return null for subtopic and make topic strong
 

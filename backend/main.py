@@ -1607,9 +1607,9 @@ _IMAGE_RE = re.compile(
     r"dice|venn\s+diagram)\b",
     re.IGNORECASE,
 )
-_INLINE_OPTION_RE = re.compile(r'(?:^|\s)(?:A[\).]|B[\).]|C[\).]|D[\).])\s+', re.IGNORECASE)
+_INLINE_OPTION_RE = re.compile(r'(?:^|\n)(?:A[\).]|B[\).]|C[\).]|D[\).])\s+', re.IGNORECASE)
 _STATEMENT_STYLE_STEM_RE = re.compile(
-    r'(?:which\s+of\s+the\s+following\s+statements|read\s+the\s+statements|arrange\s+the\s+following|'
+    r'(?:which\s+(?:\w+\s+)?of\s+the\s+following\s+statements|read\s+the\s+statements|arrange\s+the\s+following|'
     r'which\s+of\s+the\s+above|select\s+the\s+correct\s+option|select\s+the\s+correct\s+pair|'
     r'chronological\s+order|jumbled\s+order|meaningful\s+sentences|synonyms?|antonyms?|statements?\s+\d)',
     re.IGNORECASE,
@@ -1769,7 +1769,7 @@ def _row_base_reasons(row: dict) -> list[str]:
     if is_match_like:
         if "__MATCH__:" in text:
             try:
-                payload = json.loads(text.split("\n\n__MATCH__:", 1)[1])
+                payload = json.loads(re.split(r'\n*__MATCH__:', text, 1)[1])
                 col1 = payload.get("col1") or []
                 col2 = payload.get("col2") or []
                 if not col1 or not col2:
@@ -6643,6 +6643,30 @@ async def admin_questions_by_topic(
     except Exception as e:
         print(f"[ERROR] Database error: {e}")
         raise HTTPException(500, "Database error")
+
+
+# ── Feedback ──────────────────────────────────────────────────────────────────
+
+class _FeedbackBody(BaseModel):
+    message: str
+    user_email: str = ""
+    user_uid: str = ""
+
+
+@app.post("/feedback")
+async def submit_feedback(body: _FeedbackBody):
+    if not body.message.strip():
+        raise HTTPException(400, "message is required")
+    try:
+        supabase.table("feedback").insert({
+            "message": body.message.strip(),
+            "user_email": body.user_email or None,
+            "user_uid": body.user_uid or None,
+        }).execute()
+    except Exception as e:
+        # Table may not exist yet — log and return ok so the UI doesn't break
+        print(f"[FEEDBACK] insert failed (table missing?): {e}")
+    return {"status": "ok"}
 
 
 # ── Role-based route filtering ────────────────────────────────────────────────

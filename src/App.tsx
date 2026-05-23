@@ -7,13 +7,12 @@ import {
   isDeletedQuestion,
 } from "./lib/questionAnswers";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  signInWithPopup,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  signOut,
-  User,
-} from "firebase/auth";
+import { AuthModal } from "./components/AuthModal";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { CatalogProvider, useCatalog } from "./contexts/CatalogContext";
+import { ExamProvider, useExam } from "./contexts/ExamContext";
+import { PracticeProvider, usePractice } from "./contexts/PracticeContext";
+import { MockProvider, useMock } from "./contexts/MockContext";
 import {
   LogIn,
   AlertCircle,
@@ -71,7 +70,6 @@ const ReferralView = lazy(() =>
   import("./views/ReferralView").then((m) => ({ default: m.ReferralView }))
 );
 
-import { normalizeSubject } from "./lib/utils";
 import { loadBookmarkMap, toggleBookmark, removeBookmark, clearBookmarks } from "./lib/bookmarks";
 import { parseExamName } from "./lib/examUtils";
 import {
@@ -105,8 +103,6 @@ import {
   setCachedExamOutline,
 } from "./lib/questionCache";
 import {
-  type CatalogSummary,
-  type FeedSummary,
   type ExamOutline,
   type ExamPaperManifest,
   type Question,
@@ -117,29 +113,21 @@ import {
   type ReportData,
 } from "./types/index";
 
-const CATALOG_CACHE_KEY = "catalog_summary_v15_public";
-const FEED_CACHE_KEY = "feed_summary_v15_public";
-const META_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
-
-function readFreshMetaCache<T>(key: string): T | null {
-  try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return null;
-    const parsed = JSON.parse(cached);
-    if (!parsed?.ts || Date.now() - Number(parsed.ts) > META_CACHE_MAX_AGE_MS) {
-      localStorage.removeItem(key);
-      return null;
-    }
-    return parsed.data as T;
-  } catch {
-    return null;
-  }
-}
 
 export default function App() {
   return (
     <ErrorBoundary>
-      <AppContent />
+      <AuthProvider>
+        <CatalogProvider>
+          <ExamProvider>
+            <PracticeProvider>
+              <MockProvider>
+                <AppContent />
+              </MockProvider>
+            </PracticeProvider>
+          </ExamProvider>
+        </CatalogProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }
@@ -237,41 +225,72 @@ function AppContent() {
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  // ── Premium / paywall ───────────────────────────────────────────────────────
-  const [isPremium, setIsPremium] = useState(false);
-  const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  // ── Auth (from context) ──────────────────────────────────────────────────────
+  const {
+    user, authLoading, isPremium, subscriptionLoaded,
+    showPremiumModal, setShowPremiumModal,
+    showAuthModal, setShowAuthModal,
+    handleLogin, handleGoogleSignIn, handleEmailSignIn,
+    handleEmailSignUp, handleForgotPassword, handleLogout,
+    getApiToken,
+  } = useAuth();
 
-  // ── Auth & Data ─────────────────────────────────────────────────────────────
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [catalogSummary, setCatalogSummary] = useState<CatalogSummary | null>(() => {
-    return readFreshMetaCache<CatalogSummary>(CATALOG_CACHE_KEY);
-  });
-  const [feedSummary, setFeedSummary] = useState<FeedSummary | null>(() => {
-    return readFreshMetaCache<FeedSummary>(FEED_CACHE_KEY);
-  });
-  // Full question data per exam, loaded lazily when an exam is opened.
-  // Key: "examName::year". Re-used on revisit — no redundant fetches.
-  const [examCache, setExamCache] = useState<Record<string, Question[]>>({});
-  const [examOutlineCache, setExamOutlineCache] = useState<
-    Record<string, ExamOutline>
-  >({});
-  const [examPageState, setExamPageState] = useState<
-    Record<
-      string,
-      {
-        totalCount: number;
-        hasMore: boolean;
-        nextCursor: string | null;
-        loading: boolean;
-        error: string | null;
-      }
-    >
-  >({});
-  const [examLoading, setExamLoading] = useState(false);
-  const [dataLoading, setDataLoading] = useState(false);
-  const [globalError, setGlobalError] = useState<string | null>(null);
+  // ── Catalog (from context) ────────────────────────────────────────────────────
+  const { catalogSummary, feedSummary, dataLoading, globalError, setGlobalError, fetchData } = useCatalog();
+
+  // ── Exam (from context) ───────────────────────────────────────────────────────
+  const {
+    selectedExamName, setSelectedExamName,
+    selectedYear, setSelectedYear,
+    selectedPaperId, setSelectedPaperId,
+    selectedShiftLabel, setSelectedShiftLabel,
+    examCache, examOutlineCache, examPageState, examPaperManifestCache,
+    examLoading, examPaperLoading,
+    buildQuestionSetKey, mapQuestion, getExamPageEntry,
+    loadExamPapers, resolvePaperSelector, loadExamOutline,
+    fetchExamChunk, loadExamQuestions, loadMoreExamQuestions, loadAllExamQuestions,
+    requestExamPage, requestTopicPracticePage, prefetchTopicPractice,
+  } = useExam();
+
+  // ── Practice (from context) ───────────────────────────────────────────────────
+  const {
+    practiceQueue, setPracticeQueue,
+    practiceIndex, setPracticeIndex,
+    practiceAnswered, setPracticeAnswered,
+    practiceSelectedOption, setPracticeSelectedOption,
+    practiceAnswerLoading, setPracticeAnswerLoading,
+    practiceExplanationLoading, setPracticeExplanationLoading,
+    practiceSubject, setPracticeSubject,
+    practiceTopic, setPracticeTopic,
+    practicePaperId, setPracticePaperId,
+    practiceShiftLabel, setPracticeShiftLabel,
+    practiceHasMore, setPracticeHasMore,
+    practiceNextCursor, setPracticeNextCursor,
+    practiceLoadMoreError, setPracticeLoadMoreError,
+    practiceBatchLoading, setPracticeBatchLoading,
+    practiceSessionAnswers, setPracticeSessionAnswers,
+    practiceBackView, setPracticeBackView,
+    practiceInitLoading, setPracticeInitLoading,
+    practiceInitMessage, setPracticeInitMessage,
+    practiceLoadProgress, setPracticeLoadProgress,
+    practiceStartRef, prefetchSessionRef, mockPrefetchSessionRef,
+    practiceQueueRef, explanationCacheRef,
+    isRenderableExplanation, getSafePracticeBackView, currentPracticeQ,
+    updatePracticeQuestion, fetchBatchExplanations, warmQuestionExplanations,
+    prefetchExplanations, fetchExplanationForQuestion, fetchFreshExplanationAfterAnswer,
+    nextPracticeQuestion, prevPracticeQuestion, jumpToPracticeQuestion,
+    loadMorePracticeQuestions, fetchQuestionAnswerMeta,
+  } = usePractice();
+
+  // ── Mock Exam (from context) ──────────────────────────────────────────────────
+  const {
+    examSession, setExamSession,
+    examTimer, setExamTimer,
+    mockBatchLoading,
+    updateExamSessionQuestion,
+    loadMoreMockQuestions,
+    loadMoreResultQuestions,
+  } = useMock();
 
   // ── Onboarding ───────────────────────────────────────────────────────────────
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -303,14 +322,20 @@ function AppContent() {
   const [userStats, setUserStats] = useState<UserStats>(() =>
     getStats("")
   );
-  const practiceStartRef = useRef<number>(Date.now());
 
-  // Reload stats when user changes; show onboarding for new users
+  // Reload stats + bookmarks when user changes; show onboarding for new users
   useEffect(() => {
     if (!user) {
       setUserStats(getStats(""));
+      setBookmarkMap({});
+      bookmarkIdsRef.current = new Set();
       return;
     }
+
+    // Load bookmarks (was previously in onAuthStateChanged)
+    const map = loadBookmarkMap(user.uid);
+    setBookmarkMap(map);
+    bookmarkIdsRef.current = new Set(Object.keys(map));
 
     const localStats = getStats(user.uid);
     setUserStats(localStats);
@@ -359,13 +384,6 @@ function AppContent() {
   const [feedInitialSubject, setFeedInitialSubject] = useState('All');
   const [selectedCommission, setSelectedCommission] = useState("");
   const [selectedExamType, setSelectedExamType] = useState("");
-  const [selectedExamName, setSelectedExamName] = useState("");
-  const [selectedYear, setSelectedYear] = useState(0);
-  const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
-  const [selectedShiftLabel, setSelectedShiftLabel] = useState<string | null>(
-    null
-  );
-
   useEffect(() => {
     setMobileNavOpen(false);
   }, [view]);
@@ -461,11 +479,6 @@ function AppContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [examPaperManifestCache, setExamPaperManifestCache] = useState<
-    Record<string, ExamPaperManifest>
-  >({});
-  const [examPaperLoading, setExamPaperLoading] = useState(false);
-
   // ── Navbar Dropdown ─────────────────────────────────────────────────────────
   const [examDropdownOpen, setExamDropdownOpen] = useState(false);
   const [dropdownHoveredCommission, setDropdownHoveredCommission] =
@@ -483,94 +496,8 @@ function AppContent() {
   );
 
   // ── Practice ────────────────────────────────────────────────────────────────
-  const [practiceQueue, setPracticeQueue] = useState<Question[]>([]);
-  const [practiceIndex, setPracticeIndex] = useState(0);
-  const [practiceAnswered, setPracticeAnswered] = useState(false);
-  const [practiceSelectedOption, setPracticeSelectedOption] = useState<
-    string | null
-  >(null);
-  const [practiceAnswerLoading, setPracticeAnswerLoading] = useState(false);
-  const [practiceExplanationLoading, setPracticeExplanationLoading] =
-    useState(false);
-  const [practiceSubject, setPracticeSubject] = useState("All");
-  const [practiceTopic, setPracticeTopic] = useState("All");
-  const [practicePaperId, setPracticePaperId] = useState<string | null>(null);
-  const [practiceShiftLabel, setPracticeShiftLabel] = useState<string | null>(
-    null
-  );
-  const [practiceHasMore, setPracticeHasMore] = useState(false);
-  const [practiceNextCursor, setPracticeNextCursor] = useState<string | null>(
-    null
-  );
-  const [practiceLoadMoreError, setPracticeLoadMoreError] = useState<
-    string | null
-  >(null);
-  const [practiceBatchLoading, setPracticeBatchLoading] = useState(false);
-  const [practiceSessionAnswers, setPracticeSessionAnswers] = useState<
-    (null | { selected: string; correct: boolean; ignored?: boolean })[]
-  >([]);
-  const [practiceBackView, setPracticeBackView] = useState<View>("dashboard");
-  const [practiceInitLoading, setPracticeInitLoading] = useState(false);
-  const [practiceInitMessage, setPracticeInitMessage] = useState("");
-  const [practiceLoadProgress, setPracticeLoadProgress] = useState<{
-    loaded: number;
-    total: number | null;
-  }>({ loaded: 0, total: null });
   const topicPracticeRequestRef = useRef(0);
-  const topicPrefetchInFlightRef = useRef<
-    Record<
-      string,
-      Promise<{
-        rows: Question[];
-        totalCount: number;
-        hasMore: boolean;
-        nextOffset: number | null;
-      } | void>
-    >
-  >({});
   const feedTopicPrefetchedRef = useRef<Set<string>>(new Set());
-  const examPageStateRef = useRef<
-    Record<
-      string,
-      {
-        totalCount: number;
-        hasMore: boolean;
-        nextCursor: string | null;
-        loading: boolean;
-        error: string | null;
-      }
-    >
-  >({});
-  const explanationCacheRef = useRef<Record<string, string>>({});
-  const explanationInFlightRef = useRef<Record<string, Promise<string | null>>>(
-    {}
-  );
-  const practiceQueueRef = useRef<Question[]>([]);
-  const isRenderableExplanation = (text?: string | null) => {
-    const value = (text || "").trim();
-    return (
-      value.length > 5 &&
-      value !== BLOCKED_EXPLANATION &&
-      value !== UNAVAILABLE_EXPLANATION &&
-      value !== DELETED_QUESTION_NOTE &&
-      value !== MULTIPLE_ANSWERS_NOTE &&
-      !value.includes("[FLAG: verify answer]")
-    );
-  };
-  const getSafePracticeBackView = (candidate: View): View => {
-    if (candidate !== "practice" && candidate !== "mock") return candidate;
-    if (practiceBackView !== "practice" && practiceBackView !== "mock") {
-      return practiceBackView;
-    }
-    return "home";
-  };
-  const prefetchSessionRef = useRef(0); // incremented on each new practice session to cancel stale prefetch loops
-  const mockPrefetchSessionRef = useRef(0);
-
-  // ── Mock Exam ───────────────────────────────────────────────────────────────
-  const [examSession, setExamSession] = useState<ExamSession | null>(null);
-  const [examTimer, setExamTimer] = useState(0);
-  const [mockBatchLoading, setMockBatchLoading] = useState(false);
 
   const [flagQuestion, setFlagQuestion] = useState<Question | null>(null);
 
@@ -584,84 +511,7 @@ function AppContent() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
 
-  const buildQuestionSetKey = (
-    examName: string,
-    year: number,
-    filters?: {
-      subject?: string;
-      topic?: string;
-      subtopic?: string;
-      paperId?: string | null;
-      shiftLabel?: string | null;
-    }
-  ) => {
-    const subject =
-      filters?.subject && filters.subject !== "All" ? filters.subject : "All";
-    const topic =
-      filters?.topic && filters.topic !== "All" ? filters.topic : "All";
-    const subtopic =
-      filters?.subtopic && filters.subtopic !== "All"
-        ? filters.subtopic
-        : "All";
-    const paperId = filters?.paperId?.trim() || "ALL_PAPERS";
-    const shiftLabel = filters?.shiftLabel?.trim() || "ALL_SHIFTS";
-    return `${examName}::${year}::${paperId}::${shiftLabel}::${subject}::${topic}::${subtopic}`;
-  };
-
   // ── Effects ─────────────────────────────────────────────────────────────────
-
-  const fetchSubscription = async (firebaseUser: { uid: string; getIdToken: (forceRefresh?: boolean) => Promise<string> }) => {
-    const controller = new AbortController();
-    const fetchTimeout = setTimeout(() => controller.abort(), 8000);
-    try {
-      // Force-refresh the token: onAuthStateChanged fires before Firebase completes
-      // its background token refresh, so the cached token may be stale/expired.
-      const token = await Promise.race([
-        firebaseUser.getIdToken(true),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("token timeout")), 8000)
-        ),
-      ]);
-      const res = await fetch(`${API_BASE}/user/subscription`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: controller.signal,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setIsPremium(data.is_premium === true);
-      } else {
-        setIsPremium(false);
-      }
-    } catch {
-      setIsPremium(false);
-    } finally {
-      clearTimeout(fetchTimeout);
-      setSubscriptionLoaded(true);
-    }
-  };
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAuthLoading(false);
-      if (u) {
-        const map = loadBookmarkMap(u.uid);
-        setBookmarkMap(map);
-        bookmarkIdsRef.current = new Set(Object.keys(map));
-        void fetchSubscription(u);
-      } else {
-        setBookmarkMap({});
-        bookmarkIdsRef.current = new Set();
-        setIsPremium(false);
-        setSubscriptionLoaded(true);
-      }
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    examPageStateRef.current = examPageState;
-  }, [examPageState]);
 
   useEffect(() => {
     if (!practiceQueue.length) {
@@ -729,99 +579,6 @@ function AppContent() {
     );
     return () => clearInterval(iv);
   }, [examSession, examTimer]);
-
-  // ── Handlers ────────────────────────────────────────────────────────────────
-
-  const handleLogin = async () => {
-    try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-    } catch {
-      // Sign-in failed or was cancelled — user stays on landing page.
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch {}
-    setUser(null);
-    setIsPremium(false);
-    setSubscriptionLoaded(false);
-  };
-
-  const mapQuestion = (q: any): Question => {
-    const rawAnswers = Array.isArray(q.correct_answers)
-      ? q.correct_answers
-      : Array.isArray(q.answers)
-      ? q.answers
-      : [];
-    const answers: string[] = Array.from(
-      new Set(
-        rawAnswers
-          .map((item: unknown) => String(item || "").trim().toUpperCase())
-          .filter((item: string) => ["A", "B", "C", "D"].includes(item))
-      )
-    );
-    const singleAnswer = String(q.correct_answer ?? q.answer ?? "")
-      .trim()
-      .toUpperCase();
-    const primaryAnswer =
-      answers[0] ||
-      (["A", "B", "C", "D"].includes(singleAnswer) ? singleAnswer : "");
-    const examName = q.exam_name ?? q.exam ?? "";
-    const examYear = q.exam_year ?? q.year ?? 0;
-    const shiftLabel = q.shift_label ?? q.shift ?? "";
-    const fallbackSource = examName
-      ? `${examName}${examYear ? ` · ${examYear}` : ""}${shiftLabel ? ` · ${shiftLabel}` : ""}`
-      : undefined;
-
-    return {
-      id: q.id,
-      question: q.question_text ?? q.question ?? "",
-      question_number: q.question_number,
-      options: q.options ?? {
-        A: q.option_a ?? "",
-        B: q.option_b ?? "",
-        C: q.option_c ?? "",
-        D: q.option_d ?? "",
-      },
-      answer: primaryAnswer,
-      answers: answers.length ? answers : primaryAnswer ? [primaryAnswer] : [],
-      answerStatus: q.answer_status ?? q.answerStatus ?? undefined,
-      explanation: q.explanation ?? "",
-      source: q.source ?? fallbackSource,
-      flag_count: q.flag_count ?? undefined,
-      subject: normalizeSubject(q.subject ?? ""),
-      topic: q.topic ?? "",
-      subtopic: q.subtopic ?? "",
-      difficulty: q.difficulty ?? "Medium",
-      concept: q.concept ?? "",
-      type: q.question_type ?? q.type ?? "",
-      year: examYear,
-      exam: examName,
-      passage: q.passage ?? "",
-      shift: shiftLabel,
-      has_image: q.has_image ?? false,
-      image_url: q.image_url ?? undefined,
-      pattern_tag: q.pattern_tag ?? undefined,
-      trap_tag: q.trap_tag ?? undefined,
-      skill_tag: q.skill_tag ?? undefined,
-      question_style: q.question_style ?? undefined,
-      pattern_confidence: q.pattern_confidence ?? undefined,
-      pattern_reason: q.pattern_reason ?? undefined,
-      solve_hint: q.solve_hint ?? undefined,
-    };
-  };
-
-  // Returns the current user's Firebase ID token, or null if not signed in.
-  // Use this before every authenticated API call.
-  const getApiToken = async (): Promise<string | null> => {
-    try {
-      return (await auth.currentUser?.getIdToken()) ?? null;
-    } catch {
-      return null;
-    }
-  };
 
   const saveAttempt = async (attempt: {
     questionId: string;
@@ -892,661 +649,6 @@ function AppContent() {
     );
   };
 
-  const fetchData = async (options?: { background?: boolean }) => {
-    if (!user) return;
-    const background = options?.background === true;
-    const hasVisibleCatalog = Boolean(catalogSummary);
-    const hasVisibleFeed = Boolean(feedSummary);
-
-    const fetchWithTimeout = (url: string, ms = 18000): Promise<Response> => {
-      const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort(), ms);
-      return fetch(url, { signal: ac.signal }).finally(() => clearTimeout(timer));
-    };
-
-    const fetchCatalog = async () => {
-      try {
-        const res = await fetchWithTimeout(`${API_BASE}/meta/catalog`);
-        if (!res.ok) {
-          return { ok: false as const, kind: "http" as const };
-        }
-        const data = await res.json();
-        setCatalogSummary(data);
-        try {
-          localStorage.setItem(
-            CATALOG_CACHE_KEY,
-            JSON.stringify({ data, ts: Date.now() })
-          );
-        } catch {}
-        return { ok: true as const };
-      } catch {
-        return { ok: false as const, kind: "network" as const };
-      }
-    };
-
-    const fetchFeed = async () => {
-      try {
-        const res = await fetchWithTimeout(`${API_BASE}/meta/feed`);
-        if (!res.ok) {
-          return { ok: false as const, kind: "http" as const };
-        }
-        const data = await res.json();
-        setFeedSummary(data);
-        try {
-          localStorage.setItem(
-            FEED_CACHE_KEY,
-            JSON.stringify({ data, ts: Date.now() })
-          );
-        } catch {}
-        return { ok: true as const };
-      } catch {
-        return { ok: false as const, kind: "network" as const };
-      }
-    };
-
-    if (!background && !hasVisibleCatalog) {
-      setDataLoading(true);
-    }
-
-    const feedPromise = fetchFeed();
-    const catalogResult = await fetchCatalog();
-
-    if (!background && !hasVisibleCatalog) {
-      setDataLoading(false);
-    }
-
-    if (catalogResult.ok) {
-      setGlobalError(null);
-    } else if (!background || !hasVisibleCatalog) {
-      setGlobalError(
-        catalogResult.kind === "network"
-          ? `Cannot reach backend at ${API_BASE}.`
-          : `Backend returned an error from ${API_BASE}.`
-      );
-    }
-
-    const feedResult = await feedPromise;
-    if (feedResult.ok) {
-      setGlobalError((current) =>
-        current === `Backend returned an error from ${API_BASE}.` ||
-        current === `Cannot reach backend at ${API_BASE}.`
-          ? null
-          : current
-      );
-      return;
-    }
-
-    if (!hasVisibleFeed && (!background || !hasVisibleCatalog)) {
-      setGlobalError(
-        feedResult.kind === "network"
-          ? `Cannot reach backend at ${API_BASE}.`
-          : `Backend returned an error from ${API_BASE}.`
-      );
-    }
-
-    if (!background && hasVisibleCatalog) {
-      setDataLoading(false);
-    }
-  };
-
-  const loadExamPapers = async (
-    examName: string,
-    year: number,
-    forceReload = false
-  ): Promise<ExamPaperManifest | null> => {
-    const key = `${examName}::${year}`;
-    if (!forceReload && examPaperManifestCache[key]) {
-      return examPaperManifestCache[key];
-    }
-    if (!forceReload) {
-      const cached = getCachedExamManifest(examName, year);
-      if (cached) {
-        setExamPaperManifestCache((prev) => ({ ...prev, [key]: cached }));
-        void (async () => {
-          try {
-            const params = new URLSearchParams({
-              exam_name: examName,
-              exam_year: String(year),
-            });
-            const res = await fetch(`${API_BASE}/meta/exam-papers?${params}`);
-            if (!res.ok) return;
-            const fresh: ExamPaperManifest = await res.json();
-            setExamPaperManifestCache((prev) => ({ ...prev, [key]: fresh }));
-            setCachedExamManifest(examName, year, fresh);
-          } catch {
-            /* keep cached manifest */
-          }
-        })();
-        return cached;
-      }
-    }
-    setExamPaperLoading(true);
-    try {
-      const params = new URLSearchParams({
-        exam_name: examName,
-        exam_year: String(year),
-      });
-      const res = await fetch(`${API_BASE}/meta/exam-papers?${params}`);
-      if (res.status === 404) {
-        const fallback: ExamPaperManifest = {
-          exam_name: examName,
-          exam_year: year,
-          total_count: 0,
-          papers: [
-            {
-              paper_id: null,
-              shift_label: null,
-              question_count: 0,
-              first_question_number: null,
-              last_question_number: null,
-            },
-          ],
-        };
-        setExamPaperManifestCache((prev) => ({ ...prev, [key]: fallback }));
-        return fallback;
-      }
-      if (!res.ok) {
-        throw new Error(`Failed to load exam papers (${res.status})`);
-      }
-      const data: ExamPaperManifest = await res.json();
-      setExamPaperManifestCache((prev) => ({ ...prev, [key]: data }));
-      setCachedExamManifest(examName, year, data);
-      return data;
-    } catch {
-      return null;
-    } finally {
-      setExamPaperLoading(false);
-    }
-  };
-
-  const resolvePaperSelector = async (
-    examName: string,
-    year: number,
-    preferred?: { paperId?: string | null; shiftLabel?: string | null }
-  ): Promise<{ paperId: string | null; shiftLabel: string | null }> => {
-    let paperId =
-      preferred?.paperId !== undefined
-        ? preferred.paperId
-        : examName === selectedExamName && year === selectedYear
-        ? selectedPaperId
-        : null;
-    let shiftLabel =
-      preferred?.shiftLabel !== undefined
-        ? preferred.shiftLabel
-        : examName === selectedExamName && year === selectedYear
-        ? selectedShiftLabel
-        : null;
-
-    const hasExplicitSelector = paperId !== null || shiftLabel !== null;
-    if (!hasExplicitSelector) {
-      const manifest = await loadExamPapers(examName, year);
-      const firstPaper = manifest?.papers?.[0] || null;
-      if (firstPaper) {
-        paperId = firstPaper.paper_id || null;
-        shiftLabel = firstPaper.shift_label || null;
-      }
-    }
-
-    if (examName === selectedExamName && year === selectedYear) {
-      if (selectedPaperId !== paperId) setSelectedPaperId(paperId);
-      if (selectedShiftLabel !== shiftLabel) setSelectedShiftLabel(shiftLabel);
-    }
-
-    return { paperId, shiftLabel };
-  };
-
-  const loadExamOutline = async (
-    examName: string,
-    year: number,
-    forceReload = false,
-    selector?: { paperId?: string | null; shiftLabel?: string | null }
-  ): Promise<ExamOutline | null> => {
-    const key = buildQuestionSetKey(examName, year, {
-      paperId: selector?.paperId,
-      shiftLabel: selector?.shiftLabel,
-    });
-    if (!forceReload && examOutlineCache[key]) return examOutlineCache[key];
-    if (!forceReload) {
-      const cached = getCachedExamOutline(key);
-      if (cached) {
-        setExamOutlineCache((prev) => ({ ...prev, [key]: cached }));
-        void (async () => {
-          try {
-            const params = new URLSearchParams({
-              exam_name: examName,
-              exam_year: String(year),
-            });
-            if (selector?.paperId) params.set("paper_id", selector.paperId);
-            if (selector?.shiftLabel) params.set("shift_label", selector.shiftLabel);
-            const res = await fetch(`${API_BASE}/meta/exam-outline?${params}`);
-            if (!res.ok) return;
-            const fresh: ExamOutline = await res.json();
-            setExamOutlineCache((prev) => ({ ...prev, [key]: fresh }));
-            setCachedExamOutline(key, fresh);
-          } catch {
-            /* keep cached outline */
-          }
-        })();
-        return cached;
-      }
-    }
-    try {
-      const params = new URLSearchParams({
-        exam_name: examName,
-        exam_year: String(year),
-      });
-      if (selector?.paperId) params.set("paper_id", selector.paperId);
-      if (selector?.shiftLabel) params.set("shift_label", selector.shiftLabel);
-      const res = await fetch(`${API_BASE}/meta/exam-outline?${params}`);
-      if (!res.ok)
-        throw new Error(`Failed to load exam outline (${res.status})`);
-      const data: ExamOutline = await res.json();
-      setExamOutlineCache((prev) => ({ ...prev, [key]: data }));
-      setCachedExamOutline(key, data);
-      return data;
-    } catch {
-      return null;
-    }
-  };
-
-  const mergeExamQuestions = (
-    examKey: string,
-    batch: Question[],
-    replace = false
-  ): Question[] => {
-    const current = replace ? [] : examCache[examKey] || [];
-    const seen = new Set(current.map((q) => q.id));
-    const merged = replace
-      ? batch
-      : [...current, ...batch.filter((q) => !seen.has(q.id))];
-    return merged.sort(
-      (a, b) => (a.question_number ?? 9999) - (b.question_number ?? 9999)
-    );
-  };
-
-  const fetchExamChunk = async (
-    examName: string,
-    year: number,
-    opts?: {
-      forceReload?: boolean;
-      pageSize?: number;
-      reset?: boolean;
-      subject?: string;
-      topic?: string;
-      subtopic?: string;
-      paperId?: string | null;
-      shiftLabel?: string | null;
-    }
-  ): Promise<Question[]> => {
-    const resolvedPaperId =
-      opts?.paperId !== undefined
-        ? opts.paperId
-        : examName === selectedExamName && year === selectedYear
-        ? selectedPaperId
-        : null;
-    const resolvedShiftLabel =
-      opts?.shiftLabel !== undefined
-        ? opts.shiftLabel
-        : examName === selectedExamName && year === selectedYear
-        ? selectedShiftLabel
-        : null;
-    const key = buildQuestionSetKey(examName, year, {
-      ...opts,
-      paperId: resolvedPaperId,
-      shiftLabel: resolvedShiftLabel,
-    });
-    const pageSize = opts?.pageSize ?? 50;
-    const reset = opts?.reset ?? false;
-    const currentPageState = examPageState[key];
-    const nextCursor = reset ? null : currentPageState?.nextCursor || null;
-    if (!reset && currentPageState?.loading) return examCache[key] || [];
-    if (!reset && currentPageState && !currentPageState.hasMore)
-      return examCache[key] || [];
-
-    // SWR: on first load, immediately show cached data while fetching fresh
-    if (reset && !opts?.forceReload) {
-      const cached = getCachedFirstPage(key);
-      if (cached) {
-        setExamCache((prev) => ({ ...prev, [key]: cached.questions }));
-        setExamPageState((prev) => ({
-          ...prev,
-          [key]: {
-            totalCount: cached.totalCount,
-            hasMore: cached.hasMore,
-            nextCursor: cached.nextCursor,
-            loading: true, // still refreshing in background
-            error: null,
-          },
-        }));
-      }
-    }
-
-    setExamPageState((prev) => ({
-      ...prev,
-      [key]: {
-        totalCount: prev[key]?.totalCount || 0,
-        hasMore: prev[key]?.hasMore ?? true,
-        nextCursor,
-        loading: true,
-        error: null,
-      },
-    }));
-
-    try {
-      const params = new URLSearchParams({
-        exam_name: examName,
-        exam_year: String(year),
-      });
-      if (opts?.subject && opts.subject !== "All")
-        params.set("subject", opts.subject);
-      if (opts?.topic && opts.topic !== "All") params.set("topic", opts.topic);
-      if (opts?.subtopic && opts.subtopic !== "All")
-        params.set("subtopic", opts.subtopic);
-      if (resolvedPaperId) params.set("paper_id", resolvedPaperId);
-      if (resolvedShiftLabel) params.set("shift_label", resolvedShiftLabel);
-      params.set("limit", String(pageSize));
-      if (nextCursor) params.set("cursor", nextCursor);
-
-      const res = await fetch(`${API_BASE}/questions?${params}`);
-      if (!res.ok) throw new Error(`Failed to load questions (${res.status})`);
-      const data: any = await res.json();
-      const batch = (data.questions || []).map(mapQuestion);
-      const merged = mergeExamQuestions(key, batch, reset);
-      setExamCache((prev) => ({ ...prev, [key]: merged }));
-      setExamPageState((prev) => ({
-        ...prev,
-        [key]: {
-          totalCount: data.total_count ?? data.total ?? merged.length,
-          hasMore: Boolean(data.has_more),
-          nextCursor: data.next_cursor ?? null,
-          loading: false,
-          error: null,
-        },
-      }));
-      // Persist first page to localStorage for instant load on next visit
-      if (reset) {
-        setCachedFirstPage(key, {
-          questions: batch,
-          totalCount: data.total_count ?? data.total ?? batch.length,
-          hasMore: Boolean(data.has_more),
-          nextCursor: data.next_cursor ?? null,
-        });
-      }
-      setGlobalError(null);
-      return merged;
-    } catch (e: any) {
-      setExamPageState((prev) => ({
-        ...prev,
-        [key]: {
-          totalCount: prev[key]?.totalCount || 0,
-          hasMore: prev[key]?.hasMore ?? true,
-          nextCursor: prev[key]?.nextCursor ?? null,
-          loading: false,
-          error: e?.message || "unknown error",
-        },
-      }));
-      setGlobalError(
-        `Could not load "${examName}" ${year}: ${e?.message || "unknown error"}`
-      );
-      return examCache[key] || [];
-    }
-  };
-
-  const requestExamPage = async (
-    examName: string,
-    year: number,
-    opts?: {
-      pageSize?: number;
-      cursor?: string | null;
-      subject?: string;
-      topic?: string;
-      subtopic?: string;
-      paperId?: string | null;
-      shiftLabel?: string | null;
-    }
-  ): Promise<{
-    rows: Question[];
-    totalCount: number;
-    hasMore: boolean;
-    nextCursor: string | null;
-  }> => {
-    const params = new URLSearchParams({
-      exam_name: examName,
-      exam_year: String(year),
-      limit: String(opts?.pageSize ?? 20),
-    });
-    if (opts?.subject && opts.subject !== "All") params.set("subject", opts.subject);
-    if (opts?.topic && opts.topic !== "All") params.set("topic", opts.topic);
-    if (opts?.subtopic && opts.subtopic !== "All") params.set("subtopic", opts.subtopic);
-    if (opts?.paperId) params.set("paper_id", opts.paperId);
-    if (opts?.shiftLabel) params.set("shift_label", opts.shiftLabel);
-    if (opts?.cursor) params.set("cursor", opts.cursor);
-
-    let token = await getApiToken();
-    let res = await fetch(`${API_BASE}/questions?${params}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (res.status === 401) {
-      // Cached token was stale — force-refresh once and retry
-      try { token = await auth.currentUser?.getIdToken(true) ?? null; } catch { token = null; }
-      res = await fetch(`${API_BASE}/questions?${params}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-    }
-    if (!res.ok) throw new Error(`Failed to load questions (${res.status})`);
-    const data: any = await res.json();
-    return {
-      rows: (data.questions || []).map(mapQuestion),
-      totalCount: data.total_count ?? data.total ?? 0,
-      hasMore: Boolean(data.has_more),
-      nextCursor: data.next_cursor ?? null,
-    };
-  };
-
-  const requestTopicPracticePage = async (
-    subject: string,
-    topic: string,
-    opts?: {
-      pageSize?: number;
-      offset?: number;
-    }
-  ): Promise<{
-    rows: Question[];
-    totalCount: number;
-    hasMore: boolean;
-    nextOffset: number | null;
-  }> => {
-    const pageSize = opts?.pageSize ?? 20;
-    const pageOffset = opts?.offset ?? 0;
-    const params = new URLSearchParams({
-      subject,
-      topic,
-      limit: String(pageSize),
-      offset: String(pageOffset),
-    });
-    let token = await getApiToken();
-    const ac = new AbortController();
-    const abortTimer = setTimeout(() => ac.abort(), 15000);
-    let res: Response;
-    try {
-      res = await fetch(`${API_BASE}/topic-questions?${params}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        signal: ac.signal,
-      });
-    } finally {
-      clearTimeout(abortTimer);
-    }
-    if (res.status === 401) {
-      // Cached token was stale — force-refresh once and retry
-      try { token = await auth.currentUser?.getIdToken(true) ?? null; } catch { token = null; }
-      res = await fetch(`${API_BASE}/topic-questions?${params}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-    }
-    if (!res.ok) {
-      throw new Error(`Failed to load topic questions (${res.status})`);
-    }
-    const data: any = await res.json();
-    return {
-      rows: (data.questions || []).map(mapQuestion),
-      totalCount: data.total ?? 0,
-      hasMore: Boolean(data.has_more),
-      nextOffset: data.has_more ? pageOffset + pageSize : null,
-    };
-  };
-
-  const prefetchTopicPractice = (subject: string, topic: string) => {
-    const cacheKey = `${subject}::${topic}`;
-    if (getCachedTopicPage(subject, topic)) {
-      return;
-    }
-    if (topicPrefetchInFlightRef.current[cacheKey]) {
-      return;
-    }
-    const promise = requestTopicPracticePage(subject, topic, {
-      pageSize: 20,
-      offset: 0,
-    })
-      .then((page) => {
-        setCachedTopicPage(subject, topic, {
-          questions: page.rows,
-          total: page.totalCount,
-          hasMore: page.hasMore,
-          nextOffset: page.nextOffset,
-        });
-        return page;
-      })
-      .catch(() => {
-        // Silent prefetch miss — click path will still do the real request.
-      })
-      .finally(() => {
-        delete topicPrefetchInFlightRef.current[cacheKey];
-      });
-    topicPrefetchInFlightRef.current[cacheKey] = promise;
-  };
-
-  const loadExamQuestions = async (
-    examName: string,
-    year: number,
-    forceReload = false,
-    selector?: { paperId?: string | null; shiftLabel?: string | null }
-  ): Promise<Question[]> => {
-    const resolvedPaperId =
-      selector?.paperId !== undefined
-        ? selector.paperId
-        : examName === selectedExamName && year === selectedYear
-        ? selectedPaperId
-        : null;
-    const resolvedShiftLabel =
-      selector?.shiftLabel !== undefined
-        ? selector.shiftLabel
-        : examName === selectedExamName && year === selectedYear
-        ? selectedShiftLabel
-        : null;
-    const key = buildQuestionSetKey(examName, year, {
-      paperId: resolvedPaperId,
-      shiftLabel: resolvedShiftLabel,
-    });
-    if (forceReload) {
-      invalidateCachedExam(examName, year);
-      setExamCache((prev) => ({ ...prev, [key]: [] }));
-      setExamPageState((prev) => ({
-        ...prev,
-        [key]: {
-          totalCount: 0,
-          hasMore: true,
-          nextCursor: null,
-          loading: false,
-          error: null,
-        },
-      }));
-    }
-    setExamLoading(true);
-    try {
-      void loadExamOutline(examName, year, forceReload, {
-        paperId: resolvedPaperId,
-        shiftLabel: resolvedShiftLabel,
-      });
-      return await fetchExamChunk(examName, year, {
-        forceReload,
-        pageSize: 20,
-        reset: true,
-        paperId: resolvedPaperId,
-        shiftLabel: resolvedShiftLabel,
-      });
-    } finally {
-      setExamLoading(false);
-    }
-  };
-
-  const loadMoreExamQuestions = async (
-    examName: string,
-    year: number,
-    pageSize = 20,
-    filters?: {
-      subject?: string;
-      topic?: string;
-      subtopic?: string;
-      paperId?: string | null;
-      shiftLabel?: string | null;
-    }
-  ): Promise<Question[]> => {
-    return fetchExamChunk(examName, year, {
-      pageSize,
-      reset: false,
-      ...filters,
-    });
-  };
-
-  const loadAllExamQuestions = async (
-    examName: string,
-    year: number,
-    filters?: {
-      subject?: string;
-      topic?: string;
-      subtopic?: string;
-      paperId?: string | null;
-      shiftLabel?: string | null;
-    }
-  ): Promise<Question[]> => {
-    let current =
-      filters?.subject || filters?.topic || filters?.subtopic
-        ? await fetchExamChunk(examName, year, {
-            pageSize: 20,
-            reset: true,
-            ...filters,
-          })
-        : await loadExamQuestions(examName, year, false, filters);
-    const key = buildQuestionSetKey(examName, year, {
-      ...filters,
-      paperId:
-        filters?.paperId !== undefined
-          ? filters.paperId
-          : examName === selectedExamName && year === selectedYear
-          ? selectedPaperId
-          : null,
-      shiftLabel:
-        filters?.shiftLabel !== undefined
-          ? filters.shiftLabel
-          : examName === selectedExamName && year === selectedYear
-          ? selectedShiftLabel
-          : null,
-    });
-    const targetCount =
-      examOutlineCache[key]?.total_count ||
-      examPageStateRef.current[key]?.totalCount ||
-      current.length;
-    let guard = 0;
-    while (
-      current.length < targetCount &&
-      examPageStateRef.current[key]?.hasMore &&
-      guard < 100
-    ) {
-      current = await loadMoreExamQuestions(examName, year, 25, filters);
-      guard += 1;
-    }
-    return current;
-  };
 
   const refreshPracticeQueueFromExam = (
     rows: Question[],
@@ -1566,158 +668,18 @@ function AppContent() {
     setPracticeLoadProgress({
       loaded: sorted.length,
       total:
-        examPageStateRef.current[
+        getExamPageEntry(
           buildQuestionSetKey(selectedExamName, selectedYear, {
             subject,
             topic,
             paperId: practicePaperId,
             shiftLabel: practiceShiftLabel,
           })
-        ]?.totalCount || sorted.length,
+        )?.totalCount || sorted.length,
     });
   };
 
-  const updateExamSessionQuestion = (
-    questionId: string,
-    patch: Partial<Question>
-  ) => {
-    setExamSession((prev) =>
-      prev
-        ? {
-            ...prev,
-            questions: prev.questions.map((item) =>
-              item.id === questionId ? { ...item, ...patch } : item
-            ),
-          }
-        : prev
-    );
-  };
 
-  const fetchBatchExplanations = async (
-    questionIds: string[]
-  ): Promise<Record<string, string>> => {
-    const url = `${API_BASE}/explanations/batch`;
-    const token = await getApiToken();
-    const merged: Record<string, string> = {};
-    for (let i = 0; i < questionIds.length; i += 50) {
-      const chunk = questionIds.slice(i, i + 50);
-      if (!chunk.length) continue;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ question_ids: chunk }),
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) continue;
-      const batch: Record<string, string> = await res.json();
-      Object.assign(merged, batch || {});
-    }
-    return merged;
-  };
-
-  const warmQuestionExplanations = (
-    queue: Question[],
-    opts?: {
-      sessionId?: number;
-      onHydrate?: (questionId: string, explanation: string) => void;
-    }
-  ) => {
-    const singleUrl = (id: string) =>
-      `${API_BASE}/explanation/${id}`;
-    const isActiveSession = () =>
-      opts?.sessionId === undefined ||
-      mockPrefetchSessionRef.current === opts.sessionId ||
-      prefetchSessionRef.current === opts.sessionId;
-
-    const work = queue
-      .filter(
-        (q) =>
-          q.id &&
-          !isRenderableExplanation(q.explanation) &&
-          !isRenderableExplanation(explanationCacheRef.current[q.id])
-      )
-      .map((q) => q.id!);
-
-    if (!work.length) return;
-
-    const hydrate = (id: string, explanation: string) => {
-      if (!isRenderableExplanation(explanation)) return;
-      explanationCacheRef.current[id] = explanation;
-      opts?.onHydrate?.(id, explanation);
-    };
-
-    const fetchSingle = async (id: string, token: string | null): Promise<string | null> => {
-      if (!isActiveSession()) return null;
-      if (
-        isRenderableExplanation(explanationCacheRef.current[id]) ||
-        id in explanationInFlightRef.current
-      ) {
-        return explanationCacheRef.current[id] || null;
-      }
-      const promise: Promise<string | null> = (async () => {
-        try {
-          const res = await fetch(singleUrl(id), {
-            signal: AbortSignal.timeout(12000),
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          });
-          if (!res.ok) return null;
-          const data = await res.json();
-          const explanation = (
-            typeof data.explanation === "string" ? data.explanation : ""
-          ).trim();
-          hydrate(id, explanation);
-          return isRenderableExplanation(explanation) ? explanation : null;
-        } catch {
-          return null;
-        } finally {
-          delete explanationInFlightRef.current[id];
-        }
-      })();
-      explanationInFlightRef.current[id] = promise;
-      return promise;
-    };
-
-    void (async () => {
-      const token = await getApiToken();
-      try {
-        const batch = await fetchBatchExplanations(work);
-        if (!isActiveSession()) return;
-        Object.entries(batch).forEach(([id, explanation]) =>
-          hydrate(id, explanation)
-        );
-      } catch {
-        /* continue with single-generation pass */
-      }
-
-      if (!isActiveSession()) return;
-      const stillMissing = work.filter(
-        (id) => !isRenderableExplanation(explanationCacheRef.current[id])
-      );
-      for (let i = 0; i < stillMissing.length; i += 8) {
-        if (!isActiveSession()) return;
-        const group = stillMissing.slice(i, i + 8);
-        await Promise.allSettled(group.map(id => fetchSingle(id, token)));
-        if (i + 8 < stillMissing.length) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      }
-    })();
-  };
-
-  // Prefetch strategy: batch-first.
-  // Phase 1 — one request fetches ALL already-generated explanations for the queue.
-  // Phase 2 — any gaps (not yet generated) are filled with parallel individual fetches in groups of 8.
-  // Cancelled automatically when a new session starts (sessionId check).
-  const prefetchExplanations = (queue: Question[], sessionId: number) => {
-    warmQuestionExplanations(queue, {
-      sessionId,
-      onHydrate: (id, explanation) =>
-        updatePracticeQuestion(id, { explanation }),
-    });
-  };
 
   const startPractice = async (
     examName: string,
@@ -1928,7 +890,6 @@ function AppContent() {
 
       const fetchWithTimeout = Promise.race([
         (async () =>
-          (await topicPrefetchInFlightRef.current[prefetchKey]?.catch(() => null)) ||
           (await requestTopicPracticePage(subject, topic, {
             pageSize: initialPageSize,
             offset: 0,
@@ -1986,7 +947,6 @@ function AppContent() {
     }
   };
 
-  const currentPracticeQ = practiceQueue[practiceIndex] ?? null;
 
   // ── Bookmark actions ────────────────────────────────────────────────────────
   const uid = () => user?.uid ?? "";
@@ -2039,198 +999,9 @@ function AppContent() {
     setView("practice");
   };
 
-  const updatePracticeQuestion = (
-    questionId: string,
-    patch: Partial<Question>
-  ) => {
-    setPracticeQueue((prev) =>
-      prev.map((item) =>
-        item.id === questionId ? { ...item, ...patch } : item
-      )
-    );
-  };
-
   useEffect(() => {
     practiceQueueRef.current = practiceQueue;
   }, [practiceQueue]);
-
-  const fetchQuestionAnswerMeta = async (
-    questionId: string
-  ): Promise<Partial<Question> | null> => {
-    let token = await getApiToken();
-    let res = await fetch(`${API_BASE}/questions/${questionId}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(10000),
-    });
-    if (res.status === 401) {
-      try { token = await auth.currentUser?.getIdToken(true) ?? null; } catch { token = null; }
-      res = await fetch(`${API_BASE}/questions/${questionId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        signal: AbortSignal.timeout(10000),
-      });
-    }
-    if (!res.ok) return null;
-    const data = await res.json();
-    const nextQuestion = mapQuestion(data);
-    return {
-      answer: getPrimaryAcceptedAnswer(nextQuestion),
-      answers: getAcceptedAnswers(nextQuestion),
-      answerStatus: nextQuestion.answerStatus,
-    };
-  };
-
-  const fetchExplanationForQuestion = async (
-    questionId: string,
-    options?: {
-      background?: boolean;
-      deferUnavailable?: boolean;
-      revealedAnswer?: string;
-    }
-  ): Promise<string | null> => {
-    const existing = practiceQueue.find((item) => item.id === questionId);
-    if (isRenderableExplanation(existing?.explanation)) {
-      explanationCacheRef.current[questionId] = existing.explanation;
-      return existing.explanation;
-    }
-
-    if (isRenderableExplanation(explanationCacheRef.current[questionId])) {
-      const cachedExplanation = explanationCacheRef.current[questionId];
-      updatePracticeQuestion(questionId, {
-        explanation: cachedExplanation,
-        ...(options?.revealedAnswer ? { answer: options.revealedAnswer } : {}),
-      });
-      return cachedExplanation;
-    }
-
-    if (explanationInFlightRef.current[questionId]) {
-      return explanationInFlightRef.current[questionId];
-    }
-
-    const explanationUrl = `${API_BASE}/explanation/${questionId}`;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(
-      () => controller.abort(),
-      options?.background ? 12000 : 25000
-    );
-    const explanationToken = await getApiToken();
-    const promise = (async () => {
-      try {
-        const res = await fetch(explanationUrl, {
-          signal: controller.signal,
-          headers: explanationToken ? { Authorization: `Bearer ${explanationToken}` } : {},
-        });
-        if (!res.ok) {
-          if (!options?.background && !options?.deferUnavailable) {
-            updatePracticeQuestion(questionId, {
-              explanation: UNAVAILABLE_EXPLANATION,
-              ...(options?.revealedAnswer ? { answer: options.revealedAnswer } : {}),
-            });
-          }
-          return null;
-        }
-        const data = await res.json();
-        const source = (data.source || "").toString();
-        const explanation =
-          typeof data.explanation === "string" ? data.explanation.trim() : "";
-        const verifiedAnswers = Array.isArray(data.verified_answers)
-          ? data.verified_answers
-              .map((item: unknown) => String(item || "").trim().toUpperCase())
-              .filter((item: string) => ["A", "B", "C", "D"].includes(item))
-          : [];
-        const verifiedAnswer = (
-          data.verified_answer ??
-          options?.revealedAnswer ??
-          ""
-        )
-          .toString()
-          .trim()
-          .toUpperCase();
-        const patch: Partial<Question> = {};
-        if (verifiedAnswers.length) patch.answers = verifiedAnswers;
-        if (data.answer_status) patch.answerStatus = String(data.answer_status);
-        if (["A", "B", "C", "D"].includes(verifiedAnswer))
-          patch.answer = verifiedAnswer;
-        if (source === "blocked-unverified-answer") {
-          patch.explanation = BLOCKED_EXPLANATION;
-        } else if (source === "deleted-question") {
-          patch.explanation = "This question was deleted in the official final key.";
-        } else if (source === "multiple-correct-answers") {
-          patch.explanation =
-            "The official key accepts more than one answer for this question.";
-        } else if (source === "hidden-contradiction") {
-          patch.explanation = UNAVAILABLE_EXPLANATION;
-        } else if (source === "unavailable-error") {
-          if (!options?.background && !options?.deferUnavailable) {
-            patch.explanation = UNAVAILABLE_EXPLANATION;
-          }
-        } else if (isRenderableExplanation(explanation)) {
-          patch.explanation = explanation;
-          explanationCacheRef.current[questionId] = explanation;
-        } else if (!explanation && !options?.deferUnavailable) {
-          patch.explanation = UNAVAILABLE_EXPLANATION;
-        }
-        if (Object.keys(patch).length) {
-          updatePracticeQuestion(questionId, patch);
-        }
-        return isRenderableExplanation(explanation) ? explanation : null;
-      } catch {
-        if (!options?.background && !options?.deferUnavailable) {
-          updatePracticeQuestion(questionId, {
-            explanation: UNAVAILABLE_EXPLANATION,
-            ...(options?.revealedAnswer ? { answer: options.revealedAnswer } : {}),
-          });
-        }
-        return null;
-      } finally {
-        window.clearTimeout(timeout);
-        delete explanationInFlightRef.current[questionId];
-      }
-    })();
-
-    explanationInFlightRef.current[questionId] = promise;
-    return promise;
-  };
-
-  const fetchFreshExplanationAfterAnswer = async (
-    questionId: string,
-    revealedAnswer?: string
-  ): Promise<boolean> => {
-    const retryDelaysMs = [0, 1200, 2200];
-    for (const delayMs of retryDelaysMs) {
-      if (delayMs > 0) {
-        await new Promise((resolve) => window.setTimeout(resolve, delayMs));
-      }
-
-      const explanation = await fetchExplanationForQuestion(questionId, {
-        deferUnavailable: true,
-        revealedAnswer,
-      });
-      if (isRenderableExplanation(explanation)) {
-        return true;
-      }
-
-      const latestQuestion = practiceQueueRef.current.find(
-        (item) => item.id === questionId
-      );
-      const latestExplanation = latestQuestion?.explanation;
-      if (
-        latestExplanation === BLOCKED_EXPLANATION ||
-        latestExplanation === UNAVAILABLE_EXPLANATION ||
-        latestExplanation ===
-          "This question was deleted in the official final key." ||
-        latestExplanation ===
-          "The official key accepts more than one answer for this question."
-      ) {
-        return latestExplanation !== UNAVAILABLE_EXPLANATION;
-      }
-    }
-
-    updatePracticeQuestion(questionId, {
-      explanation: UNAVAILABLE_EXPLANATION,
-      ...(revealedAnswer ? { answer: revealedAnswer } : {}),
-    });
-    return false;
-  };
 
   const handleAnswerSelect = async (key: string) => {
     if (!currentPracticeQ?.id || practiceAnswered || practiceAnswerLoading)
@@ -2324,65 +1095,6 @@ function AppContent() {
     }
   };
 
-  const nextPracticeQuestion = () => {
-    if (practiceIndex < practiceQueue.length - 1) {
-      jumpToPracticeQuestion(practiceIndex + 1);
-    }
-  };
-
-  const prevPracticeQuestion = () => {
-    if (practiceIndex > 0) {
-      jumpToPracticeQuestion(practiceIndex - 1);
-    }
-  };
-
-  const jumpToPracticeQuestion = (i: number) => {
-    setPracticeIndex(i);
-    const ans = practiceSessionAnswers[i];
-    if (ans) {
-      setPracticeAnswered(true);
-      setPracticeSelectedOption(ans.selected);
-      const nextQuestion = practiceQueue[i];
-      setPracticeExplanationLoading(
-        Boolean(
-          nextQuestion &&
-            !isRenderableExplanation(nextQuestion.explanation)
-        )
-      );
-    } else {
-      setPracticeAnswered(false);
-      setPracticeSelectedOption(null);
-      setPracticeExplanationLoading(false);
-    }
-    practiceStartRef.current = Date.now();
-  };
-
-  useEffect(() => {
-    if (view !== "practice") return;
-    const current = practiceQueue[practiceIndex];
-    if (!current?.id) return;
-
-    const timers: number[] = [];
-    const queueForWarmup = [current, practiceQueue[practiceIndex + 1]].filter(
-      Boolean
-    ) as Question[];
-    queueForWarmup.forEach((item, idx) => {
-      if (isRenderableExplanation(item.explanation)) return;
-      if (explanationCacheRef.current[item.id]) return;
-      timers.push(
-        window.setTimeout(
-          () => {
-            void fetchExplanationForQuestion(item.id, { background: true });
-          },
-          idx === 0 ? 250 : 1200
-        )
-      );
-    });
-
-    return () => {
-      timers.forEach(window.clearTimeout);
-    };
-  }, [view, practiceIndex, practiceQueue]);
 
   useEffect(() => {
     if (!practiceAnswered) {
@@ -2441,114 +1153,6 @@ function AppContent() {
     examSession?.hasMore,
     mockBatchLoading,
   ]);
-
-  const loadMoreMockQuestions = async () => {
-    if (!examSession || mockBatchLoading) return;
-    setMockBatchLoading(true);
-    try {
-      const page = await requestExamPage(examSession.examName, examSession.year, {
-        pageSize: 20,
-        cursor: examSession.nextCursor,
-        paperId: examSession.paperId,
-        shiftLabel: examSession.shiftLabel,
-      });
-      setExamSession((prev) =>
-        prev
-          ? {
-              ...prev,
-              questions: (() => {
-                const seen = new Set(prev.questions.map((q) => q.id));
-                const fresh = page.rows.filter((q) => !seen.has(q.id));
-                return fresh.length ? [...prev.questions, ...fresh] : prev.questions;
-              })(),
-              hasMore: page.hasMore,
-              nextCursor: page.nextCursor,
-              totalCount: page.totalCount || prev.totalCount,
-            }
-          : prev
-      );
-    } finally {
-      setMockBatchLoading(false);
-    }
-  };
-
-  const loadMorePracticeQuestions = async () => {
-    if (!practiceHasMore || practiceBatchLoading) {
-      return;
-    }
-    setPracticeBatchLoading(true);
-    setPracticeLoadMoreError(null);
-    try {
-      let sortedBatch: Question[] = [];
-      let nextHasMore = false;
-      let nextCursor: string | null = null;
-      let totalCount = 0;
-
-      if (selectedYear) {
-        if (!selectedExamName) {
-          return;
-        }
-        const page = await requestExamPage(selectedExamName, selectedYear, {
-          pageSize: 20,
-          cursor: practiceNextCursor,
-          subject: practiceSubject,
-          topic: practiceTopic,
-          paperId: practicePaperId,
-          shiftLabel: practiceShiftLabel,
-        });
-        const hasNums = page.rows.some((x) => x.question_number);
-        sortedBatch = hasNums
-          ? [...page.rows].sort(
-              (a, b) => (a.question_number ?? 999) - (b.question_number ?? 999)
-            )
-          : [...page.rows];
-        nextHasMore = page.hasMore;
-        nextCursor = page.nextCursor;
-        totalCount = page.totalCount;
-      } else {
-        if (practiceSubject === "All" || practiceTopic === "All") {
-          return;
-        }
-        const page = await requestTopicPracticePage(
-          practiceSubject,
-          practiceTopic,
-          {
-            pageSize: 20,
-            offset: Number(practiceNextCursor || "0"),
-          }
-        );
-        sortedBatch = page.rows;
-        nextHasMore = page.hasMore;
-        nextCursor =
-          page.nextOffset !== null ? String(page.nextOffset) : null;
-        totalCount = page.totalCount;
-      }
-
-      let freshCount = 0;
-      setPracticeQueue((prev) => {
-        const seen = new Set(prev.map((item) => item.id));
-        const fresh = sortedBatch.filter((item) => !seen.has(item.id) && !bookmarkIdsRef.current.has(item.id));
-        freshCount = fresh.length;
-        return fresh.length ? [...prev, ...fresh] : prev;
-      });
-      if (freshCount > 0) {
-        setPracticeSessionAnswers((prev) => [
-          ...prev,
-          ...new Array(freshCount).fill(null),
-        ]);
-      }
-      setPracticeHasMore(nextHasMore);
-      setPracticeNextCursor(nextCursor);
-      setPracticeLoadProgress((prev) => ({
-        loaded: prev.loaded + freshCount,
-        total: totalCount || prev.total,
-      }));
-    } catch (e: any) {
-      setPracticeLoadMoreError(e?.message || "Failed to load more questions");
-    } finally {
-      setPracticeBatchLoading(false);
-    }
-  };
 
   const startMockExam = async (examName: string, year: number) => {
     const selector = await resolvePaperSelector(examName, year);
@@ -2645,30 +1249,6 @@ function AppContent() {
     void persistMockAttempts(finalSession);
     setExamSession(finalSession);
     setView("results");
-  };
-
-  const loadMoreResultQuestions = async () => {
-    if (!examSession) return;
-    const rows = await loadMoreExamQuestions(examSession.examName, examSession.year, 20, {
-      paperId: examSession.paperId,
-      shiftLabel: examSession.shiftLabel,
-    });
-    const key = buildQuestionSetKey(examSession.examName, examSession.year, {
-      paperId: examSession.paperId,
-      shiftLabel: examSession.shiftLabel,
-    });
-    setExamSession((prev) =>
-      prev
-        ? {
-            ...prev,
-            questions: rows,
-            hasMore: examPageStateRef.current[key]?.hasMore,
-            nextCursor: examPageStateRef.current[key]?.nextCursor,
-            totalCount:
-              examPageStateRef.current[key]?.totalCount || prev.totalCount,
-          }
-        : prev
-    );
   };
 
   const generateReport = async (examName: string, year: number) => {
@@ -2848,36 +1428,8 @@ function AppContent() {
     [catalogSummary]
   );
 
-  const ORDERED_COMMISSIONS = ['UPSC','APPSC','TSPSC','TSLPRB','APSLPRB','APHC','TSHC','AP','TS','SSC','IBPS','RRB'];
-  const freePaperByCommission = useMemo(() => {
-    const unlockedByCommission: Record<string, { examName: string; year: number }> = {};
-    const orderedKeys = [
-      ...ORDERED_COMMISSIONS,
-      ...Object.keys(commissionMap).filter((commission) => !ORDERED_COMMISSIONS.includes(commission)),
-    ];
-
-    for (const commission of orderedKeys) {
-      const exams = commissionMap[commission];
-      if (!exams) continue;
-      const firstKey = Object.keys(exams)[0];
-      if (!firstKey) continue;
-      const info = exams[firstKey];
-      if (!info?.years?.length) continue;
-      unlockedByCommission[commission] = {
-        examName: info.fullName,
-        year: Math.max(...info.years),
-      };
-    }
-
-    return unlockedByCommission;
-  }, [commissionMap]);
-
-  const isLocked = (examName: string, year: number, commission?: string) => {
-    if (isPremium) return false;
-    if (!commission) return false;
-    const freePaper = freePaperByCommission[commission];
-    if (!freePaper) return false;
-    return !(examName === freePaper.examName && year === freePaper.year);
+  const isLocked = (_examName: string, _year: number, _commission?: string) => {
+    return false;
   };
 
   useEffect(() => {
@@ -2996,11 +1548,24 @@ function AppContent() {
 
   if (!user)
     return (
-      <LandingPage
-        onLogin={handleLogin}
-        catalogSummary={catalogSummary}
-        feedSummary={feedSummary}
-      />
+      <>
+        <LandingPage
+          onLogin={handleLogin}
+          catalogSummary={catalogSummary}
+          feedSummary={feedSummary}
+        />
+        <AnimatePresence>
+          {showAuthModal && (
+            <AuthModal
+              onClose={() => setShowAuthModal(false)}
+              onGoogleSignIn={handleGoogleSignIn}
+              onEmailSignIn={handleEmailSignIn}
+              onEmailSignUp={handleEmailSignUp}
+              onForgotPassword={handleForgotPassword}
+            />
+          )}
+        </AnimatePresence>
+      </>
     );
 
   // ── Main Render ─────────────────────────────────────────────────────────────

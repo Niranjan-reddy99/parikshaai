@@ -218,6 +218,7 @@ export interface RepairQueuePaper {
   publishable: boolean;
   likely_publishable_with_hidden_rows: boolean;
   blocked: boolean;
+  reupload_needed: boolean;
   visible_question_count: number;
   hidden_question_count: number;
   paper_blocker_count: number;

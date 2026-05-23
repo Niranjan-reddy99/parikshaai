@@ -48,6 +48,65 @@ _ALWAYS_CURRENT_AFFAIRS = frozenset({
     "domestic affairs", "summits & conferences",
 })
 
+# Technical subject topic anchors — topics that unambiguously belong to a specific engineering/professional subject
+_ALWAYS_ELECTRICAL = frozenset({
+    "circuit theory & network analysis", "electrical machines", "power systems",
+    "power electronics", "measurements & instrumentation",
+    "electromagnetic theory", "high voltage engineering", "electrical materials & wiring",
+})
+_ALWAYS_MECHANICAL = frozenset({
+    "thermodynamics & heat transfer", "strength of materials",
+    "theory of machines & machine design", "manufacturing technology",
+    "industrial engineering & management", "refrigeration & air conditioning",
+    "engineering mechanics", "metrology & quality control",
+})
+_ALWAYS_CIVIL = frozenset({
+    "structural engineering", "geotechnical engineering",
+    "transportation engineering", "irrigation & water resources",
+    "concrete technology", "estimating & costing", "surveying & mapping",
+    "construction materials & technology",
+})
+_ALWAYS_ECE = frozenset({
+    "electronic devices & circuits", "digital electronics & logic design",
+    "communication systems", "signals & systems",
+    "microprocessors & microcontrollers", "vlsi design", "antenna & wave propagation",
+})
+_ALWAYS_CSE = frozenset({
+    "data structures & algorithms", "database management systems",
+    "computer networks", "software engineering", "theory of computation",
+    "computer architecture & organization", "compiler design",
+    "artificial intelligence & machine learning",
+})
+_ALWAYS_AGRICULTURE = frozenset({
+    "soil science & agronomy", "horticulture & floriculture",
+    "plant pathology & entomology", "agricultural economics & marketing",
+    "seed technology & genetics", "animal husbandry & veterinary science",
+    "farm machinery & engineering", "agricultural extension", "post-harvest technology",
+})
+_ALWAYS_FORESTRY = frozenset({
+    "forest management & policy", "silviculture", "forest botany & ecology",
+    "wildlife management & conservation", "agroforestry & social forestry",
+    "wood science & technology", "forest survey & mapping", "forest laws & administration",
+})
+_ALWAYS_COMMERCE = frozenset({
+    "financial accounting", "cost & management accounting",
+    "business law & company law", "auditing & assurance",
+    "taxation (direct & indirect)", "capital markets & securities",
+})
+_ALWAYS_LAW = frozenset({
+    "criminal law & procedure", "civil law & procedure",
+    "contract & tort law", "property & transfer law",
+    "family law & personal law", "administrative law",
+    "international law", "labour & industrial law", "evidence law",
+})
+_ALWAYS_PUBLIC_ADMIN = frozenset({
+    "administrative theory & thought", "organisational behaviour",
+    "public policy & analysis", "budgeting & financial administration",
+    "e-governance & digital services", "rural & urban administration",
+    "development administration", "comparative public administration",
+    "accountability & ethics",
+})
+
 # Known OCR/AI garbled topic names → correct canonical name
 _TOPIC_NAME_FIXES: dict[str, str] = {
     "synergisms": "Syllogisms",
@@ -215,6 +274,38 @@ def canonical_subject_family(subject: Any, topic: Any, subtopic: Any) -> str:
         return "Science & Technology"
     if topic_lc in _ALWAYS_POLITY and clean_subject not in {"Polity"}:
         return "Polity"
+
+    # Technical subject overrides — only correct mislabelling WITHIN the technical domain.
+    # Rule: only fires when AI already assigned a technical subject — never reclassifies a GS subject.
+    # This prevents GS questions about physics/thermodynamics/law from being pulled into engineering buckets.
+    _TECHNICAL_SUBJECTS = {
+        "electrical engineering", "mechanical engineering", "civil engineering",
+        "electronics & communication engineering", "computer science & engineering",
+        "chemical engineering", "agriculture", "forestry",
+        "commerce & accountancy", "law", "public administration",
+    }
+    if clean_subject.lower() in _TECHNICAL_SUBJECTS:
+        if topic_lc in _ALWAYS_ELECTRICAL:
+            return "Electrical Engineering"
+        if topic_lc in _ALWAYS_MECHANICAL:
+            return "Mechanical Engineering"
+        if topic_lc in _ALWAYS_CIVIL:
+            return "Civil Engineering"
+        if topic_lc in _ALWAYS_ECE:
+            return "Electronics & Communication Engineering"
+        if topic_lc in _ALWAYS_CSE:
+            return "Computer Science & Engineering"
+        if topic_lc in _ALWAYS_AGRICULTURE:
+            return "Agriculture"
+        if topic_lc in _ALWAYS_FORESTRY:
+            return "Forestry"
+        if topic_lc in _ALWAYS_COMMERCE:
+            return "Commerce & Accountancy"
+        if topic_lc in _ALWAYS_LAW:
+            return "Law"
+        if topic_lc in _ALWAYS_PUBLIC_ADMIN:
+            return "Public Administration"
+
     rescue_text = f"{clean_topic} {clean_subtopic}"
     if _CRIMINAL_LAW_PATTERN.search(rescue_text) or _POLITY_RESCUE_PATTERN.search(rescue_text):
         return "Polity"

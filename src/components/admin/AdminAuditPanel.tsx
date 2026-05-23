@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, EyeOff, Image as ImageIcon, Info, LayoutGrid, RefreshCw, ShieldAlert, Tag, Wrench } from 'lucide-react';
-import { motion } from 'motion/react';
+import { CheckCircle2, EyeOff, Image as ImageIcon, Info, LayoutGrid, RefreshCw, ShieldAlert, Tag, UploadCloud, Wrench } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { API_BASE, adminHeaders } from '../../lib/adminApi';
 import { C } from '../../lib/tokens';
 import { type Question, type RepairQueueItem, type RepairQueuePaper } from '../../types';
+import { UploadPaperModal } from './UploadPaperModal';
 
 interface AdminAuditPanelProps {
   questions: Question[];
@@ -187,6 +188,7 @@ export function AdminAuditPanel({
   const [paper, setPaper] = useState<RepairQueuePaper | null>(null);
   const [queueLoading, setQueueLoading] = useState(false);
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [uploadIntent, setUploadIntent] = useState<'repair' | 'replace' | null>(null);
 
   const stats = useMemo(() => {
     const loadedNumbers = new Set(
@@ -339,12 +341,34 @@ export function AdminAuditPanel({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 20 }}>
         <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, border: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 11, color: C.textSec, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Paper Status</div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: paper?.blocked ? C.danger : paper?.likely_publishable_with_hidden_rows ? C.warn : C.success }}>
-            {paper?.blocked ? 'Blocked' : paper?.likely_publishable_with_hidden_rows ? 'Publishable With Hidden Rows' : 'Clean'}
+          <div style={{ fontSize: 16, fontWeight: 800, color: (paper?.blocked || paper?.reupload_needed) ? C.danger : paper?.likely_publishable_with_hidden_rows ? C.warn : C.success }}>
+            {paper?.reupload_needed ? 'Reupload Needed' : paper?.blocked ? 'Blocked' : paper?.likely_publishable_with_hidden_rows ? 'Publishable With Hidden Rows' : 'Clean'}
           </div>
           <div style={{ fontSize: 12, color: C.textSec, marginTop: 6 }}>
             {paper ? `${paper.visible_question_count} visible · ${paper.hidden_question_count} hidden` : 'Loading status...'}
           </div>
+          {paper && (paper.row_blocker_count > 0 || paper.reupload_needed || paper.blocked) && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+              {paper.row_blocker_count > 0 && (
+                <button
+                  onClick={() => setUploadIntent('repair')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 8, fontSize: 11, fontWeight: 700, color: '#22c55e', cursor: 'pointer' }}
+                  className="hover-lift"
+                >
+                  <Wrench size={12} /> Repair Questions
+                </button>
+              )}
+              {(paper.reupload_needed || paper.blocked || paper.visible_question_count === 0) && (
+                <button
+                  onClick={() => setUploadIntent('replace')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, fontSize: 11, fontWeight: 700, color: '#FBBF24', cursor: 'pointer' }}
+                  className="hover-lift"
+                >
+                  <UploadCloud size={12} /> Replace Paper
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, border: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 11, color: C.textSec, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Repair Rows</div>
@@ -489,6 +513,16 @@ export function AdminAuditPanel({
       </div>
 
       <PatternTagPanel />
+
+      <AnimatePresence>
+        {uploadIntent && (
+          <UploadPaperModal
+            prefill={{ examName, year, intent: uploadIntent }}
+            onClose={() => setUploadIntent(null)}
+            onComplete={() => setUploadIntent(null)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
