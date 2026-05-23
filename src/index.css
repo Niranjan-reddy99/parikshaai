@@ -1387,22 +1387,40 @@ body {
 .lp2-feature-desc { font-size: 13.5px; line-height: 1.65; color: var(--lp-card-desc); margin: 0; }
 
 /* ── Commission grid ── */
-.lp2-commission-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.lp2-commission-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .lp2-commission-card {
   position: relative;
   background: var(--lp-card-bg);
   border: 1px solid var(--lp-card-border);
-  border-radius: 14px;
-  padding: 22px 20px 20px;
+  border-radius: 18px;
+  padding: 28px 24px 22px;
   overflow: hidden;
   box-shadow: var(--lp-shadow-card);
-  transition: border-color 0.25s, transform 0.25s;
+  transition: border-color 0.22s, transform 0.22s, box-shadow 0.22s;
+  cursor: default;
 }
-.lp2-commission-card:hover { border-color: rgba(20,184,166,0.25); }
-.lp2-commission-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; }
-.lp2-commission-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; margin-bottom: 10px; }
-.lp2-commission-full { font-size: 12.5px; color: var(--lp-comm-full); line-height: 1.4; margin-bottom: 12px; }
-.lp2-commission-count { font-size: 13px; font-weight: 700; font-family: "DM Mono", monospace; }
+.lp2-commission-card:hover {
+  transform: translateY(-5px);
+  border-color: color-mix(in srgb, var(--c-color, #14b8a6) 40%, transparent);
+  box-shadow: 0 16px 48px -16px color-mix(in srgb, var(--c-color, #14b8a6) 28%, transparent), var(--lp-shadow-card);
+}
+.lp2-commission-accent { position: absolute; top: 0; left: 0; bottom: 0; width: 4px; border-radius: 18px 0 0 18px; }
+.lp2-commission-logo {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 900; letter-spacing: -0.03em;
+  margin-bottom: 16px; flex-shrink: 0;
+}
+.lp2-commission-abbr { font-size: 22px; font-weight: 900; letter-spacing: -0.03em; line-height: 1; margin-bottom: 6px; }
+.lp2-commission-full { font-size: 12px; color: var(--lp-text-4); line-height: 1.45; margin-bottom: 20px; }
+.lp2-commission-count {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 11.5px; font-weight: 700; font-family: "DM Mono", monospace;
+  background: color-mix(in srgb, var(--c-color, #14b8a6) 12%, transparent);
+  color: var(--c-color, #14b8a6);
+}
+.lp2-commission-badge { display: none; }
 
 /* ── How it works ── */
 .lp2-steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }

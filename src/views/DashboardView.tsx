@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
+  ResponsiveContainer, BarChart, Bar, Cell,
 } from 'recharts';
 import { type View, type CommissionMap } from '../types/index';
 import { type UserStats } from '../lib/stats';
@@ -232,25 +232,28 @@ export function DashboardView({
   }, [recentAttemptReview]);
 
   const paceBreakdown = useMemo(() => {
-    const buckets = { Fast: 0, Balanced: 0, Slow: 0 };
+    const buckets: Record<string, number> = { Fast: 0, Balanced: 0, Slow: 0 };
     recentAttemptReview.forEach((attempt) => {
       const label = paceLabel(parseAttemptTimeToSeconds(attempt.time));
       buckets[label] += 1;
     });
     return [
-      { name: 'Fast', value: buckets.Fast, fill: '#16a34a' },
-      { name: 'Balanced', value: buckets.Balanced, fill: '#2563eb' },
-      { name: 'Slow', value: buckets.Slow, fill: '#f59e0b' },
+      { name: 'Fast (<30s)', value: buckets.Fast, fill: '#16a34a', desc: 'under 30 seconds' },
+      { name: 'Balanced (30–60s)', value: buckets.Balanced, fill: '#2563eb', desc: '30–60 seconds' },
+      { name: 'Slow (>60s)', value: buckets.Slow, fill: '#f59e0b', desc: 'over 60 seconds' },
     ];
   }, [recentAttemptReview]);
 
+  // Rolling 5-question accuracy — shows a real trend instead of 0/100 spikes per question
   const recentAccuracyTrend = useMemo(() => {
     const ordered = [...recentAttemptReview].reverse();
-    return ordered.map((attempt, index) => ({
-      name: `A${index + 1}`,
-      Accuracy: attempt.correct ? 100 : 0,
-      Pace: parseAttemptTimeToSeconds(attempt.time),
-    }));
+    const WINDOW = 5;
+    return ordered.map((_, index) => {
+      const start = Math.max(0, index - WINDOW + 1);
+      const slice = ordered.slice(start, index + 1);
+      const rolling = Math.round((slice.filter(a => a.correct).length / slice.length) * 100);
+      return { name: `Q${index + 1}`, Accuracy: rolling };
+    });
   }, [recentAttemptReview]);
 
   const mistakeBySubject = useMemo(() => {
@@ -890,48 +893,58 @@ export function DashboardView({
 
           <div className="dashboard-half-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
             <SectionCard>
-              <SectionHeader title="Recent Attempt Accuracy" />
-              {recentAccuracyTrend.length < 2 ? (
+              <SectionHeader title="Accuracy Trend (rolling 5 questions)" />
+              <div style={{ fontSize: 12, color: 'var(--text-tert)', marginBottom: 10, lineHeight: 1.5 }}>
+                Each point = your accuracy on the last 5 questions up to that point. The dotted line is the 70% target. Rising = improving.
+              </div>
+              {recentAccuracyTrend.length < 5 ? (
                 <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tert)', fontSize: 13 }}>
-                  Answer a few more questions to see your review trend.
+                  Answer at least 5 questions to see your accuracy trend.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={recentAccuracyTrend} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                  <LineChart data={recentAccuracyTrend} margin={{ top: 8, right: 10, left: -20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-tert)' }} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--text-tert)' }} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-tert)' }} interval="preserveStartEnd" />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--text-tert)' }} tickFormatter={(v) => `${v}%`} />
+                    <ReferenceLine y={70} stroke="#f59e0b" strokeDasharray="4 3" strokeWidth={1.5}
+                      label={{ value: '70% target', position: 'insideTopRight', fontSize: 10, fill: '#f59e0b' }} />
                     <Tooltip
                       contentStyle={{ fontSize: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}
-                      formatter={(value: number, key: string) => key === 'Accuracy' ? [`${value}%`, 'Result'] : [formatAttemptSeconds(value), 'Pace']}
+                      formatter={(value) => [`${value}%`, 'Rolling accuracy']}
+                      labelFormatter={(label) => `After question ${label.replace('Q', '')}`}
                     />
-                    <Line type="monotone" dataKey="Accuracy" stroke="#2563eb" strokeWidth={2} dot={{ r: 4, fill: '#2563eb' }} activeDot={{ r: 5 }} />
+                    <Line type="monotone" dataKey="Accuracy" stroke="#2563eb" strokeWidth={2.5}
+                      dot={{ r: 3, fill: '#2563eb' }} activeDot={{ r: 5 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
             </SectionCard>
 
             <SectionCard>
-              <SectionHeader title="Pace Distribution" />
+              <SectionHeader title="Time per question" />
+              <div style={{ fontSize: 12, color: 'var(--text-tert)', marginBottom: 10, lineHeight: 1.5 }}>
+                How many of your last 20 questions fell into each speed bucket. Slow = overthinking; Fast = confident or guessing.
+              </div>
               {testReviewSummary.total === 0 ? (
                 <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tert)', fontSize: 13 }}>
                   No timing data yet.
                 </div>
               ) : (
-                <>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={paceBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-tert)' }} />
-                      <YAxis tick={{ fontSize: 11, fill: 'var(--text-tert)' }} />
-                      <Tooltip contentStyle={{ fontSize: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }} />
-                      <Bar dataKey="value" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                  <div style={{ fontSize: 11.5, color: 'var(--text-tert)', marginTop: 8 }}>
-                    Fast: under 30s · Balanced: 30–60s · Slow: above 60s
-                  </div>
-                </>
+                <ResponsiveContainer width="100%" height={190}>
+                  <BarChart data={paceBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-tert)' }} />
+                    <YAxis tick={{ fontSize: 11, fill: 'var(--text-tert)' }} allowDecimals={false} label={{ value: 'questions', angle: -90, position: 'insideLeft', fontSize: 10, fill: 'var(--text-tert)', dy: 30 }} />
+                    <Tooltip
+                      contentStyle={{ fontSize: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}
+                      formatter={(value, _name, entry) => [`${value} questions`, (entry.payload as typeof paceBreakdown[0]).desc]}
+                    />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                      {paceBreakdown.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               )}
             </SectionCard>
           </div>

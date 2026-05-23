@@ -614,32 +614,39 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
                 <motion.div
                   key={c.key}
                   className="lp2-commission-card"
-                  initial={{ opacity: 0, scale: 0.94 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: '-40px' }}
-                  transition={{ duration: 0.4, delay: i * 0.06 }}
-                  whileHover={{ y: -4, transition: { duration: 0.18 } }}
+                  transition={{ duration: 0.4, delay: i * 0.07 }}
                   style={{ '--c-color': c.color } as React.CSSProperties}
                 >
                   <div className="lp2-commission-accent" style={{ background: c.color }} />
-                  <div className="lp2-commission-badge" style={{ background: c.bg, color: c.color }}>{c.label}</div>
+                  <div className="lp2-commission-logo" style={{ background: c.bg, color: c.color }}>
+                    {c.label}
+                  </div>
+                  <div className="lp2-commission-abbr" style={{ color: c.color }}>{c.label}</div>
                   <div className="lp2-commission-full">{c.full}</div>
-                  {count > 0 && <div className="lp2-commission-count" style={{ color: c.color }}>{count.toLocaleString()} questions</div>}
+                  {count > 0 && (
+                    <div className="lp2-commission-count">
+                      {count.toLocaleString()}+ questions
+                    </div>
+                  )}
                 </motion.div>
               );
             })}
             <motion.div
               className="lp2-commission-card"
-              initial={{ opacity: 0, scale: 0.94 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: COMMISSIONS.length * 0.06 }}
-              style={{ '--c-color': 'rgba(255,255,255,0.2)', opacity: 0.5 } as React.CSSProperties}
+              transition={{ duration: 0.4, delay: COMMISSIONS.length * 0.07 }}
+              style={{ '--c-color': '#94a3b8', opacity: 0.65 } as React.CSSProperties}
             >
-              <div className="lp2-commission-accent" style={{ background: 'rgba(128,128,128,0.3)' }} />
-              <div className="lp2-commission-badge" style={{ background: 'rgba(128,128,128,0.08)', color: 'var(--lp-text-4)' }}>More</div>
-              <div className="lp2-commission-full" style={{ color: 'var(--lp-text-4)' }}>More commissions and exams being added</div>
-              <div style={{ fontSize: 11, color: 'var(--lp-text-4)', marginTop: 8 }}>All included in your subscription</div>
+              <div className="lp2-commission-accent" style={{ background: '#94a3b8' }} />
+              <div className="lp2-commission-logo" style={{ background: 'rgba(148,163,184,0.12)', color: '#94a3b8' }}>+</div>
+              <div className="lp2-commission-abbr" style={{ color: 'var(--lp-text-3)' }}>More</div>
+              <div className="lp2-commission-full">More commissions and exams being added continuously</div>
+              <div className="lp2-commission-count" style={{ background: 'rgba(148,163,184,0.12)', color: '#94a3b8' }}>All included</div>
             </motion.div>
           </div>
         </div>
