@@ -33,17 +33,17 @@ interface ExamEntry {
 }
 
 const SUBJECT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
-  'Polity':                { bg: '#dbeafe', text: '#1e40af', dot: '#2563eb' },
-  'History':               { bg: '#fef3c7', text: '#92400e', dot: '#d97706' },
-  'Geography':             { bg: '#d1fae5', text: '#065f46', dot: '#059669' },
-  'Economy':               { bg: '#ede9fe', text: '#6d28d9', dot: '#7c3aed' },
-  'Environment':           { bg: '#dcfce7', text: '#166534', dot: '#16a34a' },
-  'Science & Technology':  { bg: '#e0f2fe', text: '#0369a1', dot: '#0ea5e9' },
-  'Current Affairs':       { bg: '#fce7f3', text: '#9d174d', dot: '#ec4899' },
-  'Logical Reasoning':     { bg: '#f3e8ff', text: '#6b21a8', dot: '#9333ea' },
-  'Quantitative Aptitude': { bg: '#ccfbf1', text: '#0f766e', dot: '#0d9488' },
-  'English Language':      { bg: '#fee2e2', text: '#991b1b', dot: '#dc2626' },
-  'General Awareness':     { bg: '#f0fdf4', text: '#166534', dot: '#22c55e' },
+  'Polity':                { bg: 'rgba(37,99,235,0.12)',   text: 'var(--blue)',  dot: '#2563eb' },
+  'History':               { bg: 'rgba(217,119,6,0.12)',   text: 'var(--warn)',  dot: '#d97706' },
+  'Geography':             { bg: 'rgba(5,150,105,0.12)',   text: 'var(--green)', dot: '#059669' },
+  'Economy':               { bg: 'rgba(124,58,237,0.12)',  text: '#7c3aed',      dot: '#7c3aed' },
+  'Environment':           { bg: 'rgba(22,163,74,0.12)',   text: 'var(--green)', dot: '#16a34a' },
+  'Science & Technology':  { bg: 'rgba(14,165,233,0.12)',  text: 'var(--blue)',  dot: '#0ea5e9' },
+  'Current Affairs':       { bg: 'rgba(236,72,153,0.12)',  text: '#ec4899',      dot: '#ec4899' },
+  'Logical Reasoning':     { bg: 'rgba(147,51,234,0.12)',  text: '#9333ea',      dot: '#9333ea' },
+  'Quantitative Aptitude': { bg: 'rgba(13,148,136,0.12)',  text: 'var(--green)', dot: '#0d9488' },
+  'English Language':      { bg: 'rgba(220,38,38,0.12)',   text: 'var(--red)',   dot: '#dc2626' },
+  'General Awareness':     { bg: 'rgba(34,197,94,0.12)',   text: 'var(--green)', dot: '#22c55e' },
 };
 
 const COMMISSION_META: Record<string, { label: string; desc: string; category: string }> = {
@@ -56,7 +56,7 @@ const COMMISSION_META: Record<string, { label: string; desc: string; category: s
 };
 
 function getSubjectStyle(subject: string) {
-  return SUBJECT_COLORS[subject] ?? { bg: '#f3f4f6', text: '#374151', dot: '#6b7280' };
+  return SUBJECT_COLORS[subject] ?? { bg: 'rgba(148,163,184,0.1)', text: 'var(--text-sec)', dot: 'var(--text-tert)' };
 }
 
 function commissionOf(examName: string): string {
@@ -67,7 +67,7 @@ function RepBadge({ yearCount }: { yearCount: number }) {
   if (yearCount >= 5)
     return <span style={{ fontSize: 10, fontWeight: 600, color: '#16a34a', background: '#dcfce7', padding: '2px 6px', borderRadius: 99 }}>High Rep</span>;
   if (yearCount >= 2)
-    return <span style={{ fontSize: 10, fontWeight: 600, color: '#d97706', background: '#fef3c7', padding: '2px 6px', borderRadius: 99 }}>Med Rep</span>;
+    return <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--warn)', background: 'var(--warn-soft)', padding: '2px 6px', borderRadius: 99 }}>Med Rep</span>;
   return null;
 }
 
@@ -259,7 +259,7 @@ function SubjectPills({ subjects, selected, onChange }: {
     <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 18 }}>
       {['All', ...subjects].map(s => {
         const active = s === selected;
-        const { bg, text } = getSubjectStyle(s);
+        const { bg, text, dot } = getSubjectStyle(s);
         return (
           <button
             key={s}
@@ -269,7 +269,7 @@ function SubjectPills({ subjects, selected, onChange }: {
               fontWeight: active ? 700 : 500,
               color: active ? text : 'var(--text-sec)',
               background: active ? bg : 'var(--bg)',
-              border: `1.5px solid ${active ? text + '60' : 'var(--border)'}`,
+              border: `1.5px solid ${active ? dot + '60' : 'var(--border)'}`,
               borderRadius: 99, cursor: 'pointer', fontFamily: 'inherit',
               transition: 'all 0.12s',
             }}
@@ -655,7 +655,7 @@ export function FeedView({ subjects, exams = [], startPractice, startTopicPracti
                     padding: '5px 11px', fontSize: 11.5,
                     fontWeight: sortMode === m ? 700 : 500,
                     color: sortMode === m ? '#2563eb' : 'var(--text-tert)',
-                    background: sortMode === m ? '#eff6ff' : 'var(--bg)',
+                    background: sortMode === m ? 'var(--blue-soft)' : 'var(--bg)',
                     border: `1px solid ${sortMode === m ? '#2563eb40' : 'var(--border)'}`,
                     borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'all 0.12s',
@@ -672,12 +672,12 @@ export function FeedView({ subjects, exams = [], startPractice, startTopicPracti
             ? <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-tert)', fontSize: 13 }}>No topics found.</div>
             : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {subjectGroups.map((group, gi) => (
+                {subjectGroups.map((group) => (
                   <SubjectGroup
                     key={group.subject}
                     subject={group.subject}
                     topics={group.topics}
-                    defaultOpen={gi < 3}
+                    defaultOpen={false}
                     onPractice={(item) => {
                       if (startTopicPractice) startTopicPractice(item.subject, item.topic);
                       else startPractice?.(item.latestExam, item.latestYear, item.subject, item.topic);

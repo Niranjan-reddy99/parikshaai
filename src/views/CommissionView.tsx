@@ -234,8 +234,8 @@ export function CommissionView({
                       }}
                       style={{
                         flex: 1, padding: '9px 0',
-                        background: locked ? 'var(--bg-alt)' : '#eff6ff',
-                        border: `1px solid ${locked ? 'var(--border)' : '#bfdbfe'}`,
+                        background: locked ? 'var(--bg-alt)' : 'var(--blue-soft)',
+                        border: `1px solid ${locked ? 'var(--border)' : 'rgba(37,99,235,0.25)'}`,
                         borderRadius: 9, fontSize: 12.5, fontWeight: 700,
                         color: locked ? C.textTert : '#2563eb',
                         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,

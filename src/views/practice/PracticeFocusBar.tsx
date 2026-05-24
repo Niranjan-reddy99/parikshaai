@@ -39,7 +39,7 @@ export function PracticeFocusBar({
   return (
     <div
       style={{
-        background: 'rgba(255,255,255,0.92)',
+        background: 'var(--bg)',
         borderRadius: 18,
         padding: '14px 16px',
         marginBottom: 16,

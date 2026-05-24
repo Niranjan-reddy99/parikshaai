@@ -68,9 +68,9 @@ export function getPracticeOptionStyles() {
       textColor: C.text,
     },
     selected: {
-      border: '1px solid #2563eb60',
-      background: '#dbeafe',
-      keyBg: '#2563eb',
+      border: '1px solid rgba(37,99,235,0.35)',
+      background: 'var(--blue-soft)',
+      keyBg: 'var(--blue)',
       keyColor: 'white',
       textColor: C.text,
     },

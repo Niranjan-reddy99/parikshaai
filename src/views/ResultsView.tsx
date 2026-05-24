@@ -42,7 +42,7 @@ function accColor(c: number, t: number) {
 }
 function accBg(c: number, t: number) {
   const p = pct(c, t);
-  return p >= 60 ? '#d1fae5' : p >= 40 ? C.warnDim : C.dangerDim;
+  return p >= 60 ? C.successDim : p >= 40 ? C.warnDim : C.dangerDim;
 }
 
 export function ResultsView({ examSession, examTimer, startMockExam, setExamSession, loadMoreResults, setView }: ResultsViewProps) {
@@ -230,7 +230,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
       {examTimer === 0 && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
           style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderRadius: 10, marginBottom: 12,
-            background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e' }}>
+            background: 'var(--warn-soft)', border: '1px solid rgba(212,138,23,0.25)', color: 'var(--warn)' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
             <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
           </svg>
@@ -242,7 +242,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
       <motion.div className="results-hero" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: '28px 24px', textAlign: 'center', marginBottom: 16 }}>
 
-        <div style={{ width: 64, height: 64, borderRadius: 18, background: '#dbeafe', border: '2px solid #2563eb40', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+        <div style={{ width: 64, height: 64, borderRadius: 18, background: 'var(--blue-soft)', border: '2px solid rgba(37,99,235,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
           <Trophy style={{ width: 34, height: 34, color: '#2563eb' }} />
         </div>
 
@@ -426,7 +426,7 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
                       {selectedAnswer ? `${selectedAnswer}: ${q.options[selectedAnswer as keyof typeof q.options]}` : 'Not attempted'}
                     </p>
                   </div>
-                  <div style={{ padding: '10px 12px', borderRadius: 10, background: deleted ? C.blueDim : '#d1fae5', border: deleted ? `1px solid ${C.blue}30` : '1px solid rgba(0,175,155,0.25)' }}>
+                  <div style={{ padding: '10px 12px', borderRadius: 10, background: deleted ? C.blueDim : C.successDim, border: deleted ? '1px solid rgba(37,99,235,0.2)' : '1px solid rgba(0,175,155,0.25)' }}>
                     <p style={{ fontSize: 9, fontWeight: 700, color: deleted ? C.blue : '#00af9b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
                       {deleted ? 'Official Status' : multipleAnswers ? 'Accepted Answers' : 'Correct Answer'}
                     </p>
@@ -444,9 +444,9 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
 
                 {/* AI-inferred answer disclaimer */}
                 {!deleted && q.answerStatus === 'ai_inferred' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fcd34d', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: 'var(--warn-soft)', border: '1px solid rgba(212,138,23,0.25)', marginBottom: 8 }}>
                     <span style={{ fontSize: 12 }}>⚠️</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#92400e' }}>AI-inferred answer — no official key available for this paper. Please verify with the official key before relying on this.</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--warn)' }}>AI-inferred answer — no official key available for this paper. Please verify with the official key before relying on this.</span>
                   </div>
                 )}
 

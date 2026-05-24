@@ -30,7 +30,7 @@ export function OnboardingModal({ userName, onComplete }: OnboardingModalProps) 
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{
             width: 52, height: 52, borderRadius: 14,
-            background: '#dbeafe', border: '1.5px solid #93c5fd',
+            background: 'var(--blue-soft)', border: '1.5px solid rgba(37,99,235,0.25)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 16px',
           }}>
@@ -61,7 +61,7 @@ export function OnboardingModal({ userName, onComplete }: OnboardingModalProps) 
             }}>
               <div style={{
                 width: 32, height: 32, borderRadius: 8,
-                background: '#dbeafe', display: 'flex', alignItems: 'center',
+                background: 'var(--blue-soft)', display: 'flex', alignItems: 'center',
                 justifyContent: 'center', fontSize: 16, flexShrink: 0,
               }}>{icon}</div>
               <div>

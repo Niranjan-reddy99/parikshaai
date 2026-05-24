@@ -1933,8 +1933,8 @@ body {
   border-radius: 18px;
   background:
     radial-gradient(circle at top right, rgba(37, 99, 235, 0.14), transparent 34%),
-    linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
-  box-shadow: 0 24px 60px -46px rgba(15, 23, 42, 0.4);
+    var(--bg);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
 
 .progress-coach-copy {
@@ -1986,8 +1986,9 @@ body {
 }
 
 .progress-coach-actions button.secondary {
-  background: white;
-  color: #1d4ed8;
+  background: var(--bg-alt);
+  color: var(--blue);
+  border-color: var(--border);
 }
 
 .progress-quick-stats,
@@ -2059,15 +2060,15 @@ body {
   height: 30px;
   flex: 0 0 30px;
   border-radius: 10px;
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--red-soft);
+  color: var(--red);
   font-size: 11px;
   font-weight: 900;
 }
 
 .progress-list-row.is-strong .progress-row-index {
-  background: #dcfce7;
-  color: #16a34a;
+  background: var(--green-soft);
+  color: var(--green);
 }
 
 .progress-list-row strong {

@@ -7,17 +7,17 @@ export const C = {
   border:       "var(--border)",
   borderLight:  "var(--border-h)",
   borderHover:  "var(--border-hh)",
-  accent:       "#2563eb",
-  accentDim:    "#dbeafe",
-  accentText:   "#1d4ed8",
-  success:      "#00af9b",
-  successDim:   "#d1fae5",
-  warn:         "#ffb800",
-  warnDim:      "#fef3c7",
-  danger:       "#ef4444",
-  dangerDim:    "#fee2e2",
-  blue:         "#2563eb",
-  blueDim:      "#dbeafe",
+  accent:       "var(--blue)",
+  accentDim:    "var(--blue-soft)",
+  accentText:   "var(--blue)",
+  success:      "var(--green)",
+  successDim:   "var(--green-soft)",
+  warn:         "var(--warn)",
+  warnDim:      "var(--warn-soft)",
+  danger:       "var(--red)",
+  dangerDim:    "var(--red-soft)",
+  blue:         "var(--blue)",
+  blueDim:      "var(--blue-soft)",
   text:         "var(--text)",
   textSec:      "var(--text-sec)",
   textTert:     "var(--text-tert)",
@@ -25,10 +25,10 @@ export const C = {
 };
 
 export const diffColor: Record<string, string> = {
-  Easy: "#00af9b", Medium: "#ffa116", Hard: "#ef4444",
+  Easy: "var(--green)", Medium: "var(--warn)", Hard: "var(--red)",
 };
 export const diffBg: Record<string, string> = {
-  Easy: "#d1fae5", Medium: "#fff7e6", Hard: "#fee2e2",
+  Easy: "var(--green-soft)", Medium: "var(--warn-soft)", Hard: "var(--red-soft)",
 };
 export const accuracyColor = (acc: number) =>
   acc >= 75 ? "#00af9b" : acc >= 50 ? "#ffa116" : "#ef4444";

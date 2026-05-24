@@ -97,12 +97,12 @@ export function PracticeQuestionCard({
             {question.difficulty}
           </span>
           {deletedQuestion && (
-            <span style={{ padding: '3px 10px', background: '#fff7ed', color: '#c2410c', fontSize: 10, fontWeight: 700, borderRadius: 8 }}>
+            <span style={{ padding: '3px 10px', background: 'var(--warn-soft)', color: 'var(--warn)', fontSize: 10, fontWeight: 700, borderRadius: 8 }}>
               Deleted In Key
             </span>
           )}
           {multiAnswerQuestion && (
-            <span style={{ padding: '3px 10px', background: '#eef2ff', color: '#4338ca', fontSize: 10, fontWeight: 700, borderRadius: 8 }}>
+            <span style={{ padding: '3px 10px', background: 'var(--blue-soft)', color: 'var(--blue)', fontSize: 10, fontWeight: 700, borderRadius: 8 }}>
               Multiple Accepted Answers
             </span>
           )}
@@ -288,12 +288,12 @@ export function PracticeQuestionCard({
               fontSize: 13,
               fontWeight: 600,
               background: deletedQuestion
-                ? '#fff7ed'
+                ? 'var(--warn-soft)'
                 : selectedIsAccepted
                 ? 'rgba(52,211,153,0.10)'
                 : 'rgba(248,113,113,0.10)',
               color: deletedQuestion
-                ? '#c2410c'
+                ? 'var(--warn)'
                 : selectedIsAccepted
                 ? '#34d399'
                 : '#f87171',
@@ -330,34 +330,34 @@ export function PracticeQuestionCard({
           )}
 
           {(question.pattern_tag || question.trap_tag || question.solve_hint || question.pattern_reason) && (
-            <div style={{ padding: '14px 16px', borderRadius: 12, marginBottom: 16, background: '#f8faff', border: '1px solid #dbeafe' }}>
+            <div style={{ padding: '14px 16px', borderRadius: 12, marginBottom: 16, background: 'var(--blue-soft)', border: '1px solid rgba(37,99,235,0.18)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   Pattern lens
                 </span>
                 {question.pattern_tag && (
-                  <span style={{ padding: '3px 8px', borderRadius: 999, background: 'white', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 11, fontWeight: 700 }}>
+                  <span style={{ padding: '3px 8px', borderRadius: 999, background: 'var(--bg)', border: '1px solid rgba(37,99,235,0.2)', color: 'var(--blue)', fontSize: 11, fontWeight: 700 }}>
                     {question.pattern_tag}
                   </span>
                 )}
                 {question.trap_tag && (
-                  <span style={{ padding: '3px 8px', borderRadius: 999, background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c', fontSize: 11, fontWeight: 700 }}>
+                  <span style={{ padding: '3px 8px', borderRadius: 999, background: 'var(--warn-soft)', border: '1px solid rgba(212,138,23,0.25)', color: 'var(--warn)', fontSize: 11, fontWeight: 700 }}>
                     trap: {question.trap_tag}
                   </span>
                 )}
                 {question.skill_tag && (
-                  <span style={{ padding: '3px 8px', borderRadius: 999, background: '#ecfdf5', border: '1px solid #bbf7d0', color: '#047857', fontSize: 11, fontWeight: 700 }}>
+                  <span style={{ padding: '3px 8px', borderRadius: 999, background: 'var(--green-soft)', border: '1px solid rgba(15,159,140,0.25)', color: 'var(--green)', fontSize: 11, fontWeight: 700 }}>
                     skill: {question.skill_tag}
                   </span>
                 )}
               </div>
               {question.pattern_reason && (
-                <p style={{ margin: '0 0 6px', fontSize: 12.5, lineHeight: 1.65, color: '#475569' }}>
+                <p style={{ margin: '0 0 6px', fontSize: 12.5, lineHeight: 1.65, color: 'var(--text-sec)' }}>
                   {question.pattern_reason}
                 </p>
               )}
               {question.solve_hint && (
-                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: '#1e3a8a', fontWeight: 600 }}>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: 'var(--blue)', fontWeight: 600 }}>
                   How to approach: {question.solve_hint}
                 </p>
               )}
@@ -367,11 +367,11 @@ export function PracticeQuestionCard({
           {practiceExplanationLoading ? (
             <ExplanationSkeleton />
           ) : question.explanation === BLOCKED_EXPLANATION ? (
-            <div style={{ padding: '16px 20px', background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 12, marginBottom: 20 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ padding: '16px 20px', background: 'var(--warn-soft)', border: '1px solid rgba(212,138,23,0.25)', borderRadius: 12, marginBottom: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--warn)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Brain style={{ width: 12, height: 12 }} /> Explanation Pending Review
               </div>
-              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: '#7c2d12', margin: 0 }}>{BLOCKED_EXPLANATION}</p>
+              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: 'var(--warn)', margin: 0 }}>{BLOCKED_EXPLANATION}</p>
             </div>
           ) : question.explanation === UNAVAILABLE_EXPLANATION ? (
             <div style={{ padding: '16px 20px', background: 'var(--bg-alt)', border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 20 }}>
@@ -381,31 +381,31 @@ export function PracticeQuestionCard({
               <p style={{ fontSize: 13.5, lineHeight: 1.85, color: C.textSec, margin: 0 }}>{UNAVAILABLE_EXPLANATION}</p>
             </div>
           ) : question.explanation && question.explanation.length > 5 ? (
-            <div style={{ padding: '16px 20px', background: '#f8faff', border: '1px solid #dbeafe', borderRadius: 12, marginBottom: 20 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ padding: '16px 20px', background: 'var(--blue-soft)', border: '1px solid rgba(37,99,235,0.18)', borderRadius: 12, marginBottom: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Brain style={{ width: 12, height: 12 }} /> Explanation
               </div>
               {question.answerStatus === 'ai_inferred' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 7, background: '#fffbeb', border: '1px solid #fcd34d', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 7, background: 'var(--warn-soft)', border: '1px solid rgba(212,138,23,0.25)', marginBottom: 10 }}>
                   <span style={{ fontSize: 12 }}>⚠️</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#92400e' }}>AI-inferred answer — no official key available. Verify independently before relying on this.</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--warn)' }}>AI-inferred answer — no official key available. Verify independently before relying on this.</span>
                 </div>
               )}
-              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: '#374151', margin: 0 }}>{question.explanation}</p>
+              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: 'var(--text)', margin: 0 }}>{question.explanation}</p>
             </div>
           ) : deletedQuestion ? (
-            <div style={{ padding: '16px 20px', background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 12, marginBottom: 20 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ padding: '16px 20px', background: 'var(--warn-soft)', border: '1px solid rgba(212,138,23,0.25)', borderRadius: 12, marginBottom: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--warn)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Brain style={{ width: 12, height: 12 }} /> Official Note
               </div>
-              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: '#7c2d12', margin: 0 }}>{DELETED_QUESTION_NOTE}</p>
+              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: 'var(--warn)', margin: 0 }}>{DELETED_QUESTION_NOTE}</p>
             </div>
           ) : multiAnswerQuestion ? (
-            <div style={{ padding: '16px 20px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 12, marginBottom: 20 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ padding: '16px 20px', background: 'var(--blue-soft)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, marginBottom: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Brain style={{ width: 12, height: 12 }} /> Official Note
               </div>
-              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: '#3730a3', margin: 0 }}>{MULTIPLE_ANSWERS_NOTE}</p>
+              <p style={{ fontSize: 13.5, lineHeight: 1.85, color: 'var(--blue)', margin: 0 }}>{MULTIPLE_ANSWERS_NOTE}</p>
             </div>
           ) : (
             <div style={{ padding: '16px 20px', background: 'var(--bg-alt)', border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 20 }}>

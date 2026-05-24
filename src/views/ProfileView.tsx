@@ -83,7 +83,7 @@ function SettingRow({
         <div style={{
           width: 38, height: 38, borderRadius: 8, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: '#eff0fe',
+          background: 'rgba(99,102,241,0.1)',
         }}>
           {icon}
         </div>
@@ -167,12 +167,12 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
     : 'Recently';
 
   const levelColors: Record<number, { bg: string; text: string; bar: string }> = {
-    1: { bg: '#f0fdf4', text: '#15803d', bar: '#22c55e' },
-    2: { bg: '#eff6ff', text: '#1d4ed8', bar: '#2563eb' },
-    3: { bg: '#fef9c3', text: '#854d0e', bar: '#eab308' },
-    4: { bg: '#fdf4ff', text: '#7e22ce', bar: '#a855f7' },
-    5: { bg: '#fff7ed', text: '#c2410c', bar: '#f97316' },
-    6: { bg: '#fef2f2', text: '#b91c1c', bar: '#ef4444' },
+    1: { bg: 'var(--green-soft)', text: 'var(--green)',  bar: 'var(--green)'  },
+    2: { bg: 'var(--blue-soft)',  text: 'var(--blue)',   bar: '#2563eb'       },
+    3: { bg: 'var(--warn-soft)',  text: 'var(--warn)',   bar: 'var(--warn)'   },
+    4: { bg: 'rgba(168,85,247,0.12)',  text: 'rgba(168,85,247,0.9)',  bar: '#a855f7' },
+    5: { bg: 'rgba(249,115,22,0.12)',  text: 'rgba(249,115,22,0.9)',  bar: '#f97316' },
+    6: { bg: 'var(--red-soft)',   text: 'var(--red)',    bar: 'var(--red)'    },
   };
   const lc = levelColors[Math.min(level, 6)] ?? levelColors[6];
 
@@ -186,7 +186,7 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
           <p style={{ fontSize: 13, color: 'var(--text-sec)', margin: 0 }}>Manage your account and preferences</p>
         </div>
         {savedMsg && (
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#15803d', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '4px 12px', borderRadius: 99 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--green)', background: 'var(--green-soft)', border: '1px solid rgba(16,185,129,0.25)', padding: '4px 12px', borderRadius: 99 }}>
             ✓ {savedMsg}
           </span>
         )}
@@ -339,7 +339,7 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Google Sign-In</div>
                 <div style={{ fontSize: 12, color: 'var(--text-sec)', marginTop: 2 }}>Secure authentication via Google OAuth</div>
               </div>
-              <span style={{ padding: '3px 10px', background: '#f0fdf4', color: '#15803d', borderRadius: 99, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+              <span style={{ padding: '3px 10px', background: 'var(--green-soft)', color: 'var(--green)', borderRadius: 99, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                 Active
               </span>
             </div>
@@ -366,8 +366,8 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
                         onClick={() => updateDailyGoal(g)}
                         style={{
                           width: 52, height: 40, border: `1.5px solid ${active ? '#2563eb' : 'var(--border)'}`,
-                          borderRadius: 7, background: active ? '#eff6ff' : 'var(--bg)',
-                          color: active ? '#1d4ed8' : 'var(--text-sec)',
+                          borderRadius: 7, background: active ? 'var(--blue-soft)' : 'var(--bg)',
+                          color: active ? 'var(--blue)' : 'var(--text-sec)',
                           fontSize: 13, fontWeight: active ? 700 : 500,
                           cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
                         }}
@@ -393,8 +393,8 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
                         style={{
                           padding: '6px 12px', borderRadius: 99,
                           border: `1.5px solid ${enrolled ? '#2563eb' : 'var(--border)'}`,
-                          background: enrolled ? '#eff6ff' : 'var(--bg)',
-                          color: enrolled ? '#1d4ed8' : 'var(--text-sec)',
+                          background: enrolled ? 'var(--blue-soft)' : 'var(--bg)',
+                          color: enrolled ? 'var(--blue)' : 'var(--text-sec)',
                           fontSize: 12, fontWeight: enrolled ? 700 : 500,
                           cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
                           display: 'flex', alignItems: 'center', gap: 4,
@@ -420,13 +420,13 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
       <div style={{ marginBottom: 24, marginTop: 24 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Subscription</div>
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 10, background: '#fff7ed', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 10, background: 'var(--warn-soft)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
             👑
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Free Plan</span>
-              <span style={{ padding: '2px 8px', background: '#f0fdf4', color: '#15803d', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>Active</span>
+              <span style={{ padding: '2px 8px', background: 'var(--green-soft)', color: 'var(--green)', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>Active</span>
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--text-sec)' }}>All PYQ features included · Unlimited practice</div>
           </div>
@@ -486,7 +486,7 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
           }}
           onMouseEnter={e => {
             (e.currentTarget as HTMLButtonElement).style.borderColor = '#fca5a5';
-            (e.currentTarget as HTMLButtonElement).style.background = '#fef2f2';
+            (e.currentTarget as HTMLButtonElement).style.background = 'var(--red-soft)';
           }}
           onMouseLeave={e => {
             (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';

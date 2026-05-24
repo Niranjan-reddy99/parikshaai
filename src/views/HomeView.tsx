@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookOpen, ChevronRight, Play, Shield, Target, TrendingDown, TrendingUp, Zap } from 'lucide-react';
+import { ChevronRight, Play, Target, TrendingDown, TrendingUp, Zap } from 'lucide-react';
 import { type CommissionMap, type View } from '../types';
 import { type UserStats } from '../lib/stats';
 
@@ -8,9 +8,9 @@ interface HomeViewProps {
   openCommission?: (c: string) => void;
   openExam: (examName: string, commission: string, examType: string, preferredYear?: number) => void;
   startPractice: (examName: string, year: number, subject?: string, topic?: string) => void;
-  startMockExam: (examName: string, year: number) => void;
   setView: (v: View) => void;
   openQuestionBankHome: () => void;
+  openFeedWithSubject?: (subject: string) => void;
   stats: UserStats;
   userDisplayName: string | null;
   userId: string;
@@ -32,13 +32,13 @@ const COMMISSION_META: Record<string, { gradient: string; abbr: string; label: s
 };
 
 const CANONICAL_SUBJECTS = [
-  { num: 1, name: 'History & Culture',     keys: ['history', 'culture', 'art'],        color: '#92400e', bg: '#fef3c7', softBg: 'rgba(146,64,14,0.08)' },
-  { num: 2, name: 'Polity & Governance',   keys: ['polity', 'governance', 'constitu'], color: '#1d4ed8', bg: '#dbeafe', softBg: 'rgba(29,78,216,0.08)' },
-  { num: 3, name: 'Geography',             keys: ['geography', 'geo'],                 color: '#065f46', bg: '#d1fae5', softBg: 'rgba(6,95,70,0.08)'   },
-  { num: 4, name: 'Indian Economy',        keys: ['economy', 'economic', 'finance'],   color: '#c2410c', bg: '#ffedd5', softBg: 'rgba(194,65,12,0.08)' },
-  { num: 5, name: 'Science & Technology',  keys: ['science', 'tech', 'biology', 'physics', 'chemistry'], color: '#6d28d9', bg: '#ede9fe', softBg: 'rgba(109,40,217,0.08)' },
-  { num: 6, name: 'Environment',           keys: ['environment', 'ecology', 'enviro'], color: '#047857', bg: '#d1fae5', softBg: 'rgba(4,120,87,0.08)'  },
-  { num: 7, name: 'Current Affairs',       keys: ['current', 'affairs', 'news'],       color: '#be185d', bg: '#fce7f3', softBg: 'rgba(190,24,93,0.08)' },
+  { num: 1, name: 'History & Culture',     feedSubject: 'History',             keys: ['history', 'culture', 'art'],        color: '#92400e', bg: '#fef3c7', softBg: 'rgba(146,64,14,0.08)' },
+  { num: 2, name: 'Polity & Governance',   feedSubject: 'Polity',              keys: ['polity', 'governance', 'constitu'], color: '#1d4ed8', bg: '#dbeafe', softBg: 'rgba(29,78,216,0.08)' },
+  { num: 3, name: 'Geography',             feedSubject: 'Geography',           keys: ['geography', 'geo'],                 color: '#065f46', bg: '#d1fae5', softBg: 'rgba(6,95,70,0.08)'   },
+  { num: 4, name: 'Indian Economy',        feedSubject: 'Economy',             keys: ['economy', 'economic', 'finance'],   color: '#c2410c', bg: '#ffedd5', softBg: 'rgba(194,65,12,0.08)' },
+  { num: 5, name: 'Science & Technology',  feedSubject: 'Science & Technology', keys: ['science', 'tech', 'biology', 'physics', 'chemistry'], color: '#6d28d9', bg: '#ede9fe', softBg: 'rgba(109,40,217,0.08)' },
+  { num: 6, name: 'Environment',           feedSubject: 'Environment',         keys: ['environment', 'ecology', 'enviro'], color: '#047857', bg: '#d1fae5', softBg: 'rgba(4,120,87,0.08)'  },
+  { num: 7, name: 'Current Affairs',       feedSubject: 'Current Affairs',     keys: ['current', 'affairs', 'news'],       color: '#be185d', bg: '#fce7f3', softBg: 'rgba(190,24,93,0.08)' },
 ];
 
 function subjectAccuracy(stats: UserStats, keywords: string[]) {
@@ -151,8 +151,8 @@ function GoalsModal({ dailyGoal, examYear, onSave, onClose }: {
 
 export function HomeView({
   commissionMap, openCommission,
-  startPractice, startMockExam,
-  setView, openQuestionBankHome,
+  startPractice,
+  setView, openQuestionBankHome, openFeedWithSubject,
   stats, userDisplayName, userId,
 }: HomeViewProps) {
   const [hoveredCommission, setHoveredCommission] = useState<string | null>(null);
@@ -190,10 +190,7 @@ export function HomeView({
     ? subjectEntries.reduce((a, b) => (a.pct <= b.pct ? a : b))
     : null;
 
-  // Last practiced subject for "resume" card
   const lastSubject = stats.recentAttempts?.[0]?.subject;
-  const lastTopic = stats.recentAttempts?.[0]?.topic;
-  const hasActivity = stats.totalAnswered > 0;
   const hasActivityToday = todayCount > 0;
 
   // Commission list
@@ -284,7 +281,7 @@ export function HomeView({
             Welcome back, {firstName}
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-tert)', margin: '6px 0 0', lineHeight: 1.6 }}>
-            Your next step, saved work, and progress signals are pulled from the current dashboard overview.
+            Your daily progress, bookmarked sessions, and recommended next step — all in one place.
           </p>
         </div>
 
@@ -304,7 +301,7 @@ export function HomeView({
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                TRUTHFUL NEXT STEP
+                TODAY'S FOCUS
               </div>
               <div style={{
                 padding: '3px 10px', borderRadius: 20,
@@ -354,89 +351,6 @@ export function HomeView({
           </div>
         </div>
 
-        {/* ── Saved sessions ── */}
-        {hasActivity && (
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: 3 }}>CONTINUE</div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Resume saved sessions</div>
-              </div>
-              <div style={{
-                padding: '3px 10px', borderRadius: 20,
-                background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.2)',
-                fontSize: 11, fontWeight: 700, color: '#2563eb',
-              }}>
-                {hasActivityToday ? '2 active' : '1 active'}
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {/* Practice card */}
-              <div
-                className="surface-card"
-                style={{ borderRadius: 16, padding: '16px 18px', cursor: 'pointer' }}
-                onClick={() => firstExam && startPractice(firstExam.fullName, firstExam.years[0], lastSubject)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(37,99,235,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <BookOpen size={15} color="#2563eb" />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#2563eb' }}>Chapter Practice</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-tert)' }}>Updated today</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
-                  {lastSubject || 'PYQ Practice'}
-                </div>
-                {lastTopic && (
-                  <div style={{ fontSize: 11, color: 'var(--text-tert)', marginBottom: 10 }}>
-                    {lastTopic}
-                  </div>
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-tert)' }}>{todayCount} answered today</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: todayCount > 0 ? '#2563eb' : 'var(--text-tert)' }}>
-                    {goalPct}% complete
-                  </span>
-                </div>
-                <div style={{ height: 3, background: 'var(--bg-canvas)', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${goalPct}%`, background: '#2563eb', borderRadius: 99, transition: 'width 0.4s ease' }} />
-                </div>
-              </div>
-
-              {/* Mock card */}
-              {firstExam && (
-                <div
-                  className="surface-card"
-                  style={{ borderRadius: 16, padding: '16px 18px', cursor: 'pointer' }}
-                  onClick={() => startMockExam(firstExam.fullName, firstExam.years[0])}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Shield size={15} color="#7c3aed" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>Mock Test</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-tert)' }}>Timed simulation</div>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
-                    Mock session
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-tert)', marginBottom: 10 }}>
-                    Full paper, exam conditions
-                  </div>
-                  <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600 }}>
-                    Start new →
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* ── Practice Library ── */}
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -445,7 +359,7 @@ export function HomeView({
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Browse subjects</div>
             </div>
             <button
-              onClick={openQuestionBankHome}
+              onClick={() => openFeedWithSubject ? openFeedWithSubject('') : openQuestionBankHome()}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
             >
               Open practice hub <ChevronRight size={14} />
@@ -461,7 +375,7 @@ export function HomeView({
                   key={subj.num}
                   onMouseEnter={() => setHoveredSubject(subj.num)}
                   onMouseLeave={() => setHoveredSubject(null)}
-                  onClick={openQuestionBankHome}
+                  onClick={() => openFeedWithSubject ? openFeedWithSubject(subj.feedSubject) : openQuestionBankHome()}
                   style={{
                     background: 'var(--bg)',
                     border: `1px solid ${hov ? subj.color + '44' : 'var(--border)'}`,
@@ -683,7 +597,7 @@ export function HomeView({
                 color: '#f59e0b',
               },
               {
-                label: 'Today',
+                label: 'Daily Goal',
                 value: `${todayCount}/${dailyGoal}`,
                 color: goalPct >= 100 ? '#16a34a' : '#2563eb',
               },
@@ -703,33 +617,6 @@ export function HomeView({
           )}
         </div>
 
-        {/* Quick actions */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button
-            onClick={() => firstExam && startPractice(firstExam.fullName, firstExam.years[0])}
-            style={{
-              width: '100%', padding: '11px 0',
-              background: '#2563eb', border: 'none',
-              borderRadius: 12, fontSize: 13, fontWeight: 700,
-              color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            }}
-          >
-            <Play size={13} strokeWidth={2.5} />
-            Practice
-          </button>
-          <button
-            onClick={() => firstExam && startMockExam(firstExam.fullName, firstExam.years[0])}
-            style={{
-              width: '100%', padding: '11px 0',
-              background: 'var(--bg)', border: '1px solid var(--border)',
-              borderRadius: 12, fontSize: 13, fontWeight: 600,
-              color: 'var(--text-sec)', cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            Start Mock
-          </button>
-        </div>
       </div>
     </div>
   );

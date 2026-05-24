@@ -219,9 +219,9 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
   });
 
   const rankBadge = (rank: number) => {
-    if (rank === 1) return { text: '🥇', bg: '#fef9c3', color: '#854d0e' };
-    if (rank === 2) return { text: '🥈', bg: '#f1f5f9', color: '#475569' };
-    if (rank === 3) return { text: '🥉', bg: '#fff7ed', color: '#9a3412' };
+    if (rank === 1) return { text: '🥇', bg: 'rgba(234,179,8,0.2)', color: 'var(--warn)' };
+    if (rank === 2) return { text: '🥈', bg: 'rgba(148,163,184,0.18)', color: 'var(--text-sec)' };
+    if (rank === 3) return { text: '🥉', bg: 'rgba(180,83,9,0.18)', color: 'var(--warn)' };
     return { text: `${rank}`, bg: 'transparent', color: 'var(--text-tert)' };
   };
 
@@ -285,7 +285,12 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
                 const podiumOrder = [2, 1, 3];
                 const rank = podiumOrder[podiumIdx];
                 const heights = [72, 92, 56];
-                const bg = rank === 1 ? '#fef9c3' : rank === 2 ? '#f1f5f9' : '#fff7ed';
+                const bg = rank === 1
+                  ? 'linear-gradient(160deg, rgba(251,191,36,0.28), rgba(234,179,8,0.16))'
+                  : rank === 2
+                  ? 'linear-gradient(160deg, rgba(148,163,184,0.22), rgba(100,116,139,0.14))'
+                  : 'linear-gradient(160deg, rgba(194,97,22,0.24), rgba(154,52,18,0.15))';
+                const podiumBorder = rank === 1 ? '1px solid rgba(234,179,8,0.4)' : rank === 2 ? '1px solid rgba(148,163,184,0.3)' : '1px solid rgba(194,97,22,0.35)';
                 const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
                 return (
                   <div key={e.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -302,11 +307,11 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
                     </div>
                     <div style={{
                       width: '100%', height: heights[podiumIdx],
-                      background: bg, borderRadius: '10px 10px 0 0',
+                      background: bg, border: podiumBorder, borderRadius: '10px 10px 0 0',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2,
                     }}>
                       <span style={{ fontSize: 22 }}>{medal}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>#{rank}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tert)' }}>#{rank}</span>
                     </div>
                   </div>
                 );
@@ -316,7 +321,7 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
 
           {/* Error */}
           {error && (
-            <div style={{ marginBottom: 14, padding: '11px 14px', borderRadius: 10, border: '1px solid #fecaca', background: '#fef2f2', color: '#b91c1c', fontSize: 13 }}>
+            <div style={{ marginBottom: 14, padding: '11px 14px', borderRadius: 10, border: '1px solid rgba(220,77,77,0.2)', background: 'var(--red-soft)', color: 'var(--red)', fontSize: 13 }}>
               {error}. Showing your local stats.
             </div>
           )}
@@ -350,7 +355,7 @@ export function LeaderboardView({ stats, user }: LeaderboardViewProps) {
                     display: 'grid', gridTemplateColumns: '52px 1fr 90px 80px',
                     padding: '11px 16px', gap: 12, alignItems: 'center',
                     borderBottom: i < entries.length - 1 ? '1px solid var(--border)' : 'none',
-                    background: e.isMe ? '#eff6ff' : 'transparent',
+                    background: e.isMe ? 'var(--blue-soft)' : 'transparent',
                     transition: 'background 0.1s',
                   }}
                   onMouseEnter={ev => { if (!e.isMe) ev.currentTarget.style.background = 'var(--bg-alt)'; }}

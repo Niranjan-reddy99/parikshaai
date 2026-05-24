@@ -112,7 +112,7 @@ export function PremiumGateModal({ freePaperLabel, onClose, onUpgrade }: Premium
         {notified ? (
           <div style={{
             padding: '13px 0', borderRadius: 10,
-            background: '#f0fdf4', border: '1px solid #bbf7d0',
+            background: 'var(--green-soft)', border: '1px solid rgba(16,185,129,0.25)',
             textAlign: 'center', marginBottom: 10,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}>

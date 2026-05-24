@@ -374,9 +374,9 @@ export function DashboardView({
         <div className="dashboard-header-badges" style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 7,
-            padding: '7px 13px', background: '#eff6ff',
-            border: '1px solid #bfdbfe', borderRadius: 10,
-            fontSize: 12.5, fontWeight: 700, color: '#2563eb',
+            padding: '7px 13px', background: 'var(--blue-soft)',
+            border: '1px solid rgba(37,99,235,0.2)', borderRadius: 10,
+            fontSize: 12.5, fontWeight: 700, color: 'var(--blue)',
           }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 3v18h18"/><polyline points="7 14 11 10 15 13 21 7"/>
@@ -386,9 +386,9 @@ export function DashboardView({
           {stats.streak > 0 && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 7,
-              padding: '7px 13px', background: '#fff1f2',
-              border: '1px solid #fecdd3', borderRadius: 10,
-              fontSize: 12.5, fontWeight: 700, color: '#e11d48',
+              padding: '7px 13px', background: 'var(--red-soft)',
+              border: '1px solid rgba(220,77,77,0.2)', borderRadius: 10,
+              fontSize: 12.5, fontWeight: 700, color: 'var(--red)',
             }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
@@ -414,7 +414,7 @@ export function DashboardView({
           {!hasData ? (
             <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '56px 32px', textAlign: 'center' }}>
               <div style={{
-                width: 56, height: 56, borderRadius: 14, background: '#eff6ff',
+                width: 56, height: 56, borderRadius: 14, background: 'var(--blue-soft)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px',
               }}>
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -634,7 +634,7 @@ export function DashboardView({
             <SectionCard>
               <SectionHeader title="Where to Focus Next" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, fontSize: 12.5, color: '#1d4ed8', lineHeight: 1.6 }}>
+                <div style={{ padding: '12px 14px', background: 'var(--blue-soft)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 10, fontSize: 12.5, color: 'var(--blue)', lineHeight: 1.6 }}>
                   {weakSubjects.length > 0
                     ? `Open your next session with ${weakSubjects[0].subject} — that's currently your clearest path to gaining marks.`
                     : 'Practice across 2–3 subjects so the app can identify reliable strengths and weak spots.'}
@@ -645,7 +645,7 @@ export function DashboardView({
                   </div>
                 )}
                 {needsWorkTopics.length > 0 && (
-                  <div style={{ padding: '12px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 10, fontSize: 12.5, color: '#c2410c', lineHeight: 1.6 }}>
+                  <div style={{ padding: '12px 14px', background: 'var(--warn-soft)', border: '1px solid rgba(212,138,23,0.25)', borderRadius: 10, fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.6 }}>
                     Risky topics: {needsWorkTopics.map((row) => `${row.subject} → ${row.topic}`).join(' · ')}.
                   </div>
                 )}
@@ -790,7 +790,7 @@ export function DashboardView({
                             <span style={{ fontSize: 11.5, color: 'var(--text-tert)' }}>{correct}/{total} correct</span>
                             {isWeak && (
                               <button onClick={() => setView('home')}
-                                style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', background: 'var(--blue-soft)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
                                 Practice this →
                               </button>
                             )}
@@ -827,7 +827,7 @@ export function DashboardView({
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                               {isWeak && (
                                 <button onClick={() => startPractice('', 0, subject, topic)}
-                                  style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                  style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', background: 'var(--blue-soft)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
                                   Practice →
                                 </button>
                               )}

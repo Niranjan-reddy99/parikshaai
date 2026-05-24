@@ -57,7 +57,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     const hasVisibleCatalog = Boolean(catalogSummary);
     const hasVisibleFeed    = Boolean(feedSummary);
 
-    const fetchWithTimeout = (url: string, ms = 18000): Promise<Response> => {
+    const fetchWithTimeout = (url: string, ms = 65000): Promise<Response> => {
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), ms);
       return fetch(url, { signal: ac.signal }).finally(() => clearTimeout(timer));

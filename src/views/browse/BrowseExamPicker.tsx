@@ -51,18 +51,16 @@ function CommissionCard({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background: hov
-          ? 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)'
-          : 'linear-gradient(180deg, #ffffff 0%, #fcfdff 100%)',
-        borderRadius: 22,
+        background: hov ? 'var(--bg-alt)' : 'var(--bg)',
+        borderRadius: 18,
         cursor: 'pointer',
         overflow: 'hidden',
         transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
         transform: hov ? 'translateY(-3px)' : 'none',
-        boxShadow: hov ? `0 18px 34px ${accentColor}18` : '0 12px 24px rgba(15,23,42,0.08)',
-        border: `1px solid ${hov ? `${accentColor}40` : '#dbe5f0'}`,
+        boxShadow: hov ? `0 16px 32px ${accentColor}20` : '0 2px 8px rgba(0,0,0,0.06)',
+        border: `1px solid ${hov ? `${accentColor}50` : 'var(--border)'}`,
         userSelect: 'none',
-        minHeight: 216,
+        minHeight: 200,
         position: 'relative',
       }}
     >
@@ -70,45 +68,41 @@ function CommissionCard({
         style={{
           position: 'absolute',
           inset: '0 0 auto 0',
-          height: 4,
-          background: `linear-gradient(90deg, ${accentColor}, ${accentColor}70)`,
-          opacity: hov ? 1 : 0.86,
+          height: 3,
+          background: `linear-gradient(90deg, ${accentColor}, ${accentColor}80)`,
         }}
       />
 
-      <div style={{ padding: '18px 18px 16px', minHeight: 216, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: '16px 16px 14px', minHeight: 200, display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
             <div
               style={{
-                width: 60,
-                height: 60,
-                borderRadius: 18,
-                background: `linear-gradient(135deg, ${accentColor}18, rgba(255,255,255,0.96))`,
-                border: `1px solid ${accentColor}20`,
+                width: 52,
+                height: 52,
+                borderRadius: 14,
+                background: `${accentColor}18`,
+                border: `1px solid ${accentColor}28`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: `inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 22px ${accentColor}12`,
                 flexShrink: 0,
               }}
             >
               <div
                 style={{
-                  minWidth: 38,
-                  height: 38,
-                  padding: '0 10px',
+                  minWidth: 34,
+                  height: 34,
+                  padding: '0 8px',
                   borderRadius: 999,
-                  background: '#ffffff',
-                  border: `1px solid ${accentColor}24`,
+                  background: `${accentColor}22`,
                   color: accentColor,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: shortMark.length > 3 ? 16 : 18,
+                  fontSize: shortMark.length > 3 ? 14 : 16,
                   fontWeight: 900,
                   letterSpacing: '-0.04em',
-                  boxShadow: `0 8px 18px ${accentColor}14`,
                 }}
               >
                 {shortMark}
@@ -120,38 +114,37 @@ function CommissionCard({
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 6,
-                  padding: '4px 9px',
+                  padding: '3px 8px',
                   borderRadius: 999,
-                  background: `${accentColor}10`,
+                  background: `${accentColor}14`,
                   color: accentColor,
-                  fontSize: 10.5,
-                  fontWeight: 800,
-                  letterSpacing: '0.06em',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
                   textTransform: 'uppercase',
-                  marginBottom: 10,
+                  marginBottom: 8,
                 }}
               >
                 {info.category}
               </div>
               <div
                 style={{
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: 800,
-                  color: '#243447',
+                  color: 'var(--text)',
                   lineHeight: 1.05,
-                  letterSpacing: '-0.04em',
-                  marginBottom: 6,
+                  letterSpacing: '-0.03em',
+                  marginBottom: 4,
                 }}
               >
                 {info.name}
               </div>
               <div
                 style={{
-                  fontSize: 13,
-                  color: '#64748b',
-                  lineHeight: 1.45,
-                  maxWidth: 240,
+                  fontSize: 12.5,
+                  color: 'var(--text-tert)',
+                  lineHeight: 1.4,
+                  maxWidth: 220,
                 }}
               >
                 {info.desc}
@@ -163,86 +156,63 @@ function CommissionCard({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 6,
-              padding: '6px 10px',
+              gap: 5,
+              padding: '4px 9px',
               borderRadius: 999,
-              background: '#f8fbff',
-              border: `1px solid ${accentColor}22`,
-              color: '#52657b',
-              fontSize: 11.5,
+              background: 'rgba(22,163,74,0.1)',
+              border: '1px solid rgba(22,163,74,0.2)',
+              color: '#16a34a',
+              fontSize: 10.5,
               fontWeight: 700,
               whiteSpace: 'nowrap',
               flexShrink: 0,
             }}
           >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: accentColor,
-                opacity: 0.85,
-              }}
-            />
-            Open
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16a34a' }} />
+            Active
           </div>
         </div>
 
-        <div style={{ marginTop: 'auto', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+        <div style={{ marginTop: 'auto', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
           <div
             style={{
-              padding: '11px 12px',
-              borderRadius: 14,
-              border: '1px solid rgba(148,163,184,0.18)',
-              background: 'rgba(248,250,252,0.92)',
+              padding: '10px 11px',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              background: 'var(--bg-canvas)',
             }}
           >
-            <div style={{ fontSize: 10.5, fontWeight: 700, color: '#7b8ca1', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-              Exam sets
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+              Papers
             </div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#203246', letterSpacing: '-0.03em' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
               {examLabel}
             </div>
           </div>
 
           <div
             style={{
-              padding: '11px 12px',
-              borderRadius: 14,
-              border: `1px solid ${accentColor}18`,
-              background: `linear-gradient(180deg, ${accentColor}08 0%, ${accentColor}12 100%)`,
+              padding: '10px 11px',
+              borderRadius: 12,
+              border: `1px solid ${accentColor}22`,
+              background: `${accentColor}0a`,
             }}
           >
-            <div style={{ fontSize: 10.5, fontWeight: 700, color: '#7b8ca1', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-              Question bank
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+              Questions
             </div>
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 7,
+                gap: 5,
                 color: accentColor,
                 fontWeight: 800,
-                fontSize: 16,
-                letterSpacing: '-0.03em',
+                fontSize: 15,
+                letterSpacing: '-0.02em',
               }}
             >
-              <span
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  background: '#ffffff',
-                  border: `1px solid ${accentColor}22`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 11,
-                  fontWeight: 900,
-                }}
-              >
-                ✓
-              </span>
+              <span style={{ fontSize: 13, fontWeight: 900 }}>✓</span>
               {questionLabel}
             </div>
           </div>
@@ -287,7 +257,7 @@ export function BrowseExamPicker({
   });
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ fontFamily: 'var(--font-sans)' }}>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', margin: '0 0 4px', letterSpacing: '-0.3px' }}>
           Question Bank

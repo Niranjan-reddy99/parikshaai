@@ -92,12 +92,12 @@ function UserAvatar({ displayName, email, size = 32 }: { displayName: string | n
     : email?.[0]?.toUpperCase() ?? '?';
 
   const colors = [
-    { bg: '#dbeafe', fg: '#1d4ed8' },
-    { bg: '#dcfce7', fg: '#16a34a' },
-    { bg: '#fef3c7', fg: '#d97706' },
-    { bg: '#f3e8ff', fg: '#7c3aed' },
-    { bg: '#ffe4e6', fg: '#e11d48' },
-    { bg: '#cffafe', fg: '#0891b2' },
+    { bg: 'rgba(37,99,235,0.15)',  fg: '#60a5fa' },
+    { bg: 'rgba(22,163,74,0.15)',  fg: '#4ade80' },
+    { bg: 'rgba(217,119,6,0.15)',  fg: '#fbbf24' },
+    { bg: 'rgba(124,58,237,0.15)', fg: '#a78bfa' },
+    { bg: 'rgba(225,29,72,0.15)',  fg: '#fb7185' },
+    { bg: 'rgba(8,145,178,0.15)',  fg: '#22d3ee' },
   ];
   const colorIndex = (initials.charCodeAt(0) || 0) % colors.length;
   const { bg, fg } = colors[colorIndex];
@@ -230,7 +230,7 @@ export function Navbar({
     },
     {
       id: 'pattern', icon: 'pulse', label: 'Pattern Practice', isActive: view === 'pattern-practice',
-      badge: { text: 'BETA', color: '#2563eb', bg: '#dbeafe' },
+      badge: { text: 'BETA', color: 'var(--blue)', bg: 'var(--blue-soft)' },
       onClick: openPatternPractice,
     },
   ];
@@ -249,12 +249,10 @@ export function Navbar({
   const communityItems: NavItemDef[] = [
     {
       id: 'feed', icon: 'feed', label: 'PYQ Feed', isActive: view === 'feed',
-      badge: { text: 'PRO', color: '#d97706', bg: '#fff7e6' },
       onClick: () => setView('feed'),
     },
     {
       id: 'referral', icon: 'users', label: 'Refer & Earn', isActive: view === 'referral',
-      badge: { text: 'NEW', color: '#16a34a', bg: '#dcfce7' },
       onClick: () => setView('referral'),
     },
   ];

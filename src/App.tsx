@@ -1500,8 +1500,20 @@ function AppContent() {
     [catalogSummary]
   );
 
-  const isLocked = (_examName: string, _year: number, _commission?: string) => {
-    return false;
+  const isLocked = (examName: string, year: number, commission?: string): boolean => {
+    if (isPremium) return false;
+    if (!year) return false; // topic practice uses year=0, never locked
+    // Find the ExamInfo for this exam to get the full year list
+    let examInfo = commission ? commissionMap[commission]?.[examName] : null;
+    if (!examInfo) {
+      // No commission given — search all commissions
+      for (const comm of Object.values(commissionMap)) {
+        if (comm[examName]) { examInfo = comm[examName]; break; }
+      }
+    }
+    if (!examInfo?.years?.length) return false;
+    const maxYear = Math.max(...examInfo.years);
+    return year < maxYear;
   };
 
   useEffect(() => {
@@ -1535,9 +1547,16 @@ function AppContent() {
       // Do not load questions for locked (premium) exams
       if (isLocked(selectedExamName, selectedYear, selectedCommission)) return;
       const manifest = examPaperManifestCache[`${selectedExamName}::${selectedYear}`];
-      if (manifest?.papers?.length && !selectedPaperId && !selectedShiftLabel) {
-        return;
-      }
+      // Wait for the paper manifest to load before fetching questions.
+      // This prevents a double-load: without this guard the effect fires once with
+      // paperId=null, then fires again after loadExamPapers resolves and sets the
+      // real paperId — causing the loading spinner to blink twice.
+      if (!manifest) return;
+      // If papers need explicit selection (multi-paper / shifted exams), wait.
+      const needsPaperSelection = manifest.papers?.some(
+        (p) => p.paper_id !== null || p.shift_label !== null
+      );
+      if (needsPaperSelection && !selectedPaperId && !selectedShiftLabel) return;
       loadExamQuestions(selectedExamName, selectedYear, false, {
         paperId: selectedPaperId,
         shiftLabel: selectedShiftLabel,
@@ -1964,6 +1983,10 @@ function AppContent() {
                     startMockExam={startMockExam}
                     setView={setView}
                     openQuestionBankHome={openQuestionBankHome}
+                    openFeedWithSubject={(subject) => {
+                      setFeedInitialSubject(subject);
+                      setView('feed');
+                    }}
                     stats={userStats}
                     userDisplayName={user?.displayName ?? null}
                     userId={user?.uid ?? ""}
