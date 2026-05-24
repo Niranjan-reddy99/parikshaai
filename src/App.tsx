@@ -71,6 +71,9 @@ const BookmarksView = lazy(() =>
 const ReferralView = lazy(() =>
   import("./views/ReferralView").then((m) => ({ default: m.ReferralView }))
 );
+const LegalView = lazy(() =>
+  import("./views/LegalView").then((m) => ({ default: m.LegalView }))
+);
 
 import { loadBookmarkMap, toggleBookmark, removeBookmark, clearBookmarks } from "./lib/bookmarks";
 import { parseExamName } from "./lib/examUtils";
@@ -1972,6 +1975,11 @@ function AppContent() {
                       displayName={user.displayName}
                       email={user.email}
                     />
+                  </Suspense>
+                )}
+                {view === "legal" && (
+                  <Suspense fallback={<ViewLoadingFallback label="Loading..." />}>
+                    <LegalView setView={setView} />
                   </Suspense>
                 )}
                 {view === "home" && (

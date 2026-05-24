@@ -475,6 +475,27 @@ export function Navbar({
             <LogOut style={{ width: 12, height: 12 }} /> Sign out
           </button>
         </div>
+
+        {/* Legal links */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 10 }}>
+          {(['Privacy Policy', 'Terms of Service'] as const).map(label => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => { setView('legal'); onNavigate?.(); }}
+              style={{
+                background: 'none', border: 'none', padding: 0,
+                fontSize: 10.5, color: 'var(--text-tert)',
+                cursor: 'pointer', fontFamily: 'inherit',
+                textDecoration: 'underline', textDecorationColor: 'transparent',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-sec)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-tert)'}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Feedback modal */}

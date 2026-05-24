@@ -139,7 +139,7 @@ export interface PaginatedQuestionsResponse {
   next_cursor?: string | null;
 }
 
-export type View = 'dashboard' | 'home' | 'commission' | 'exam-detail' | 'practice' | 'mock' | 'results' | 'browse' | 'report' | 'feed' | 'badges' | 'leaderboard' | 'pattern-practice' | 'profile' | 'bookmarks' | 'referral';
+export type View = 'dashboard' | 'home' | 'commission' | 'exam-detail' | 'practice' | 'mock' | 'results' | 'browse' | 'report' | 'feed' | 'badges' | 'leaderboard' | 'pattern-practice' | 'profile' | 'bookmarks' | 'referral' | 'legal';
 
 export interface ExamSession {
   questions: Question[];
