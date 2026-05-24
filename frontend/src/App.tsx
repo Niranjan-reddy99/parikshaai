@@ -148,6 +148,7 @@ type QuestionEditorModalProps = {
   question: AdminQuestion;
   onClose: () => void;
   onSaved: (question: AdminQuestion) => void;
+  onDeleted?: (questionId: string) => void;
 };
 
 const ACTIVE_JOB_KEY = 'pariksha_admin_active_upload_job';
@@ -454,7 +455,7 @@ function PublishBadge({
   return <span className="badge badge-blue">Reviewing</span>;
 }
 
-function QuestionEditorModal({ question, onClose, onSaved }: QuestionEditorModalProps) {
+function QuestionEditorModal({ question, onClose, onSaved, onDeleted }: QuestionEditorModalProps) {
   const [questionText, setQuestionText] = useState(question.question_text);
   const [passage, setPassage] = useState(question.passage || '');
   const [optionA, setOptionA] = useState(question.option_a);
@@ -476,9 +477,33 @@ function QuestionEditorModal({ question, onClose, onSaved }: QuestionEditorModal
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
   const [savingImage, setSavingImage] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
   const hiddenImageInputRef = useRef<HTMLInputElement | null>(null);
   const cropImageRef = useRef<HTMLImageElement | null>(null);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/admin/questions/${question.id}`, {
+        method: 'DELETE',
+        headers: await adminHeaders(),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Delete failed (${res.status})`);
+      }
+      onDeleted?.(question.id);
+      onClose();
+    } catch (deleteError: any) {
+      setError(deleteError?.message || 'Delete failed.');
+      setConfirmDelete(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const uploadImageDataUrl = async (base64Image: string) => {
     const res = await fetch(`${API_BASE}/admin/questions/${question.id}/image`, {
@@ -818,10 +843,35 @@ function QuestionEditorModal({ question, onClose, onSaved }: QuestionEditorModal
         ) : null}
 
         <div className="action-row">
-          <button className="primary-button" onClick={() => void handleSave()} disabled={saving}>
+          <button className="primary-button" onClick={() => void handleSave()} disabled={saving || deleting}>
             {saving ? <Loader2 size={16} className="spin" /> : <CheckCircle2 size={16} />}
             Save changes
           </button>
+          {confirmDelete ? (
+            <>
+              <button
+                className="danger-button"
+                onClick={() => void handleDelete()}
+                disabled={deleting}
+              >
+                {deleting ? <Loader2 size={16} className="spin" /> : <Trash size={16} />}
+                Confirm delete
+              </button>
+              <button className="ghost-button" onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              className="ghost-button"
+              style={{ color: 'var(--color-danger, #ef4444)' }}
+              onClick={() => setConfirmDelete(true)}
+              disabled={saving || deleting}
+            >
+              <Trash size={15} />
+              Delete question
+            </button>
+          )}
           <button className="ghost-button" onClick={onClose}>
             Close
           </button>
@@ -867,6 +917,8 @@ export default function App() {
   const [publishingPaper, setPublishingPaper] = useState(false);
   const [renamingExam, setRenamingExam] = useState(false);
   const [generatingExplanations, setGeneratingExplanations] = useState(false);
+  const [deletingPaper, setDeletingPaper] = useState(false);
+  const [confirmDeletePaper, setConfirmDeletePaper] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
@@ -1446,6 +1498,37 @@ export default function App() {
     }
   }, [loadReviewWorkspace, reviewTarget]);
 
+  const handleDeletePaper = useCallback(async () => {
+    if (!reviewTarget) return;
+    setDeletingPaper(true);
+    setReviewError('');
+    setReviewActionMessage('');
+    try {
+      const params = new URLSearchParams({
+        exam_name: reviewTarget.examName,
+        exam_year: String(reviewTarget.examYear),
+      });
+      const res = await fetch(`${API_BASE}/admin/delete-exam?${params.toString()}`, {
+        method: 'DELETE',
+        headers: await adminHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || data.message || `Delete failed (${res.status})`);
+      setReviewActionTone('success');
+      setReviewActionMessage(`Paper deleted. ${data.affected ?? 0} questions removed from the learner app.`);
+      setConfirmDeletePaper(false);
+      setReviewWorkspace({ paper: null, repairItems: [], questions: [] });
+      setReviewTarget(null);
+      void loadRecentJobs();
+    } catch (err: any) {
+      setReviewActionTone('danger');
+      setReviewActionMessage(err?.message || 'Could not delete this paper.');
+      setConfirmDeletePaper(false);
+    } finally {
+      setDeletingPaper(false);
+    }
+  }, [loadRecentJobs, reviewTarget]);
+
   const handleAdminSignIn = useCallback(async () => {
     setAuthError('');
     setAuthLoading(true);
@@ -1945,6 +2028,31 @@ export default function App() {
                     {publishingPaper ? <Loader2 size={16} className="spin" /> : <CheckCircle2 size={16} />}
                     Publish to frontend
                   </button>
+                  {confirmDeletePaper ? (
+                    <>
+                      <button
+                        className="danger-button"
+                        onClick={() => void handleDeletePaper()}
+                        disabled={deletingPaper}
+                      >
+                        {deletingPaper ? <Loader2 size={16} className="spin" /> : <Trash size={16} />}
+                        Confirm — delete all questions
+                      </button>
+                      <button className="ghost-button" onClick={() => setConfirmDeletePaper(false)}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="ghost-button"
+                      style={{ color: 'var(--color-danger, #ef4444)' }}
+                      onClick={() => setConfirmDeletePaper(true)}
+                      disabled={deletingPaper || !reviewTarget}
+                    >
+                      <Trash size={15} />
+                      Delete paper
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2129,6 +2237,14 @@ export default function App() {
           question={editorQuestion}
           onClose={() => setEditorQuestion(null)}
           onSaved={handleQuestionSaved}
+          onDeleted={(deletedId) => {
+            setEditorQuestion(null);
+            setReviewWorkspace((prev) => ({
+              ...prev,
+              questions: prev.questions.filter((q) => q.id !== deletedId),
+            }));
+            if (reviewTarget) void loadReviewWorkspace(reviewTarget);
+          }}
         />
       ) : null}
     </div>

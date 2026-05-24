@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
-import { C } from '../lib/tokens';
-import { type Question, type CommissionMap, type ExamPaperManifest, type WeightageItem, type View } from '../types';
+import { useState } from 'react';
+import { type CommissionMap, type ExamPaperManifest, type WeightageItem, type View } from '../types';
 import { ExamDetailControls } from './exam-detail/ExamDetailControls';
 import { ExamDetailHeader } from './exam-detail/ExamDetailHeader';
 import { ExamDetailModeCards } from './exam-detail/ExamDetailModeCards';
 import { ExamDetailSubjectBreakdown } from './exam-detail/ExamDetailSubjectBreakdown';
-import { ExamDetailAuditSection } from './exam-detail/ExamDetailAuditSection';
 import {
   getAvailablePapers,
   getAvailableYears,
@@ -21,8 +19,6 @@ interface ExamDetailViewProps {
   selectedYear: number;
   setSelectedYear: (y: number) => void;
   commissionMap: CommissionMap;
-  examYearQs: Question[];
-  examLoading: boolean;
   examPaperManifest: ExamPaperManifest | null;
   examPaperLoading: boolean;
   selectedPaperId: string | null;
@@ -31,45 +27,32 @@ interface ExamDetailViewProps {
   setSelectedShiftLabel: (v: string | null) => void;
   weightage: WeightageItem[];
   examQuestionCount: number;
+  examLoading: boolean;
   startPractice: (examName: string, year: number, subject?: string, topic?: string) => void;
   startMockExam: (examName: string, year: number) => void;
   browseWithFilters: (subject?: string, topic?: string, subtopic?: string) => void;
   setView: (v: View) => void;
   isLocked: (examName: string, year: number, commission?: string) => boolean;
   onLockedClick: () => void;
-  isAdmin?: boolean;
-  doAddBlankQuestion?: (examName: string, year: number, questionNumber?: number) => void;
-  setEditQuestion?: (q: Question | null) => void;
-  doDeleteQuestion?: (id: string) => void;
 }
 
 export function ExamDetailView({
   selectedCommission, selectedExamType, selectedExamName, selectedYear, setSelectedYear,
-  commissionMap, examYearQs, examLoading, examPaperManifest, examPaperLoading,
-  selectedPaperId, selectedShiftLabel, setSelectedPaperId, setSelectedShiftLabel, weightage, examQuestionCount,
+  commissionMap, examPaperManifest, examPaperLoading,
+  selectedPaperId, selectedShiftLabel, setSelectedPaperId, setSelectedShiftLabel,
+  weightage, examQuestionCount, examLoading,
   startPractice, startMockExam, browseWithFilters, setView,
   isLocked, onLockedClick,
-  isAdmin, doAddBlankQuestion, setEditQuestion, doDeleteQuestion,
 }: ExamDetailViewProps) {
-  // =========================
-  // SECTION: State Management
-  // =========================
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
-  const [showAudit, setShowAudit] = useState(false);
+
   const examInfo = getExamInfo(commissionMap, selectedCommission, selectedExamType);
   const availableYears = getAvailableYears(selectedYear, examInfo?.years);
   const examDuration = getExamDurationLabel(examQuestionCount);
   const availablePapers = getAvailablePapers(examPaperManifest);
-  const selectedPaperLabel = getSelectedPaperLabel(
-    availablePapers,
-    selectedShiftLabel,
-    selectedPaperId
-  );
+  const selectedPaperLabel = getSelectedPaperLabel(availablePapers, selectedShiftLabel, selectedPaperId);
   const yearLocked = isLocked(selectedExamName, selectedYear, selectedCommission);
 
-  // =========================
-  // SECTION: Render Exam Detail
-  // =========================
   return (
     <div className="exam-detail-shell">
       <ExamDetailHeader
@@ -123,19 +106,6 @@ export function ExamDetailView({
         setExpandedSubjects={setExpandedSubjects}
         browseWithFilters={browseWithFilters}
         startPractice={startPractice}
-      />
-
-      <ExamDetailAuditSection
-        isAdmin={!!isAdmin}
-        showAudit={showAudit}
-        setShowAudit={setShowAudit}
-        questions={examYearQs}
-        selectedExamName={selectedExamName}
-        selectedYear={selectedYear}
-        selectedCommission={selectedCommission}
-        doAddBlankQuestion={doAddBlankQuestion}
-        setEditQuestion={setEditQuestion}
-        doDeleteQuestion={doDeleteQuestion}
       />
     </div>
   );

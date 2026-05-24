@@ -4927,13 +4927,20 @@ def admin_status_page():
         color = {"completed": "#10b981", "processing": "#6366f1", "pending": "#f59e0b", "failed": "#ef4444"}.get(status, "#94a3b8")
         bar_color = color
         icon = {"completed": "✅", "processing": "⏳", "pending": "🕐", "failed": "❌"}.get(status, "•")
-        error_row = f'<div style="color:#ef4444;font-size:12px;margin-top:4px;">⚠️ {job.get("error_log","")}</div>' if job.get("error_log") else ""
+        import html as _html
+        safe_log  = _html.escape(str(job.get("error_log") or ""))
+        safe_fn   = _html.escape(str(job.get("filename") or "?"))
+        safe_exam = _html.escape(str(job.get("exam_name") or ""))
+        safe_year = _html.escape(str(job.get("exam_year") or ""))
+        safe_id   = _html.escape(str(job.get("id") or ""))
+        safe_upd  = _html.escape(str(job.get("updated_at") or "")[:19].replace("T", " "))
+        error_row = f'<div style="color:#ef4444;font-size:12px;margin-top:4px;">⚠️ {safe_log}</div>' if job.get("error_log") else ""
         rows += f"""
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:16px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
             <div>
-              <span style="font-weight:700;font-size:15px;">{icon} {job.get('filename','?')}</span>
-              <span style="margin-left:12px;color:#64748b;font-size:13px;">{job.get('exam_name','')} · {job.get('exam_year','')}</span>
+              <span style="font-weight:700;font-size:15px;">{icon} {safe_fn}</span>
+              <span style="margin-left:12px;color:#64748b;font-size:13px;">{safe_exam} · {safe_year}</span>
             </div>
             <span style="background:{color};color:#fff;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;">{status.upper()}</span>
           </div>
@@ -4944,7 +4951,7 @@ def admin_status_page():
             <span>Progress</span><span style="font-weight:700;color:{color};">{prog}%</span>
           </div>
           {error_row}
-          <div style="font-size:11px;color:#cbd5e1;margin-top:6px;">ID: {job.get('id','')} · Updated: {job.get('updated_at','')[:19].replace('T',' ')}</div>
+          <div style="font-size:11px;color:#cbd5e1;margin-top:6px;">ID: {safe_id} · Updated: {safe_upd}</div>
         </div>"""
 
     if not rows:
@@ -5372,7 +5379,7 @@ def admin_update_question(question_id: str, update: QuestionUpdate, background_t
             current_q = current_rows[0]
             explanation_present = False
             try:
-                exp_res = supabase.table("explanations").select("id").eq("question_id", question_id).limit(1).execute()
+                exp_res = supabase.table("explanations").select("question_id").in_("question_id", [question_id]).execute()
                 explanation_present = bool(exp_res.data)
             except Exception:
                 explanation_present = False
@@ -5730,19 +5737,32 @@ async def admin_add_blank_question(req: dict):
 def admin_delete_exam(
     exam_name: str = Query(...),
     exam_year: int = Query(...),
+    hard_delete: bool = Query(False, description="Set true to permanently delete. Default: soft-delete (is_active=False)."),
 ):
-    """Delete all questions for an exam (use with care)."""
+    """Soft-delete (default) or hard-delete all questions for an exam."""
     try:
+        exam_name = normalize_exam_name(exam_name)
         pr = supabase.table("papers").select("id").eq("exam_name", exam_name).eq("exam_year", exam_year).execute()
         paper_ids = [row["id"] for row in (pr.data or [])]
-        r = supabase.table("questions").delete().eq("exam_name", exam_name).eq("exam_year", exam_year).execute()
+        if hard_delete:
+            r = supabase.table("questions").delete().eq("exam_name", exam_name).eq("exam_year", exam_year).execute()
+            affected = len(r.data or [])
+            action = "hard_deleted"
+        else:
+            from datetime import datetime, timezone as _tz
+            r = supabase.table("questions").update({
+                "is_active": False,
+                "updated_at": datetime.now(_tz.utc).isoformat(),
+            }).eq("exam_name", exam_name).eq("exam_year", exam_year).execute()
+            affected = len(r.data or [])
+            action = "soft_deleted"
         for pid in paper_ids:
             refresh_paper_publish_state(pid, sb=supabase)
         _invalidate_meta_cache()
-        return {"status": "deleted", "removed": len(r.data or []), "exam_name": exam_name}
+        return {"status": action, "affected": affected, "exam_name": exam_name, "exam_year": exam_year}
     except Exception as e:
-        print(f"[ERROR] Delete error: {e}")
-        raise HTTPException(500, "Delete error")
+        print(f"[ERROR] Delete exam error: {e}")
+        raise HTTPException(500, "Delete exam failed")
 
 
 @app.post("/admin/retag", dependencies=[Depends(verify_admin)])

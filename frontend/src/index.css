@@ -251,6 +251,7 @@ textarea {
 .primary-button,
 .secondary-button,
 .ghost-button,
+.danger-button,
 .icon-button {
   border: none;
   border-radius: 14px;
@@ -260,7 +261,8 @@ textarea {
 
 .primary-button,
 .secondary-button,
-.ghost-button {
+.ghost-button,
+.danger-button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -282,6 +284,17 @@ textarea {
 .secondary-button {
   background: #eef5ff;
   color: #1d4ed8;
+}
+
+.danger-button {
+  background: linear-gradient(135deg, #b91c1c, #ef4444);
+  color: white;
+}
+
+.danger-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .ghost-button,
