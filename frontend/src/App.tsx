@@ -920,6 +920,7 @@ export default function App() {
   const [generatingExplanations, setGeneratingExplanations] = useState(false);
   const [deletingPaper, setDeletingPaper] = useState(false);
   const [confirmDeletePaper, setConfirmDeletePaper] = useState(false);
+  const [confirmHardDeletePaper, setConfirmHardDeletePaper] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
@@ -1499,7 +1500,7 @@ export default function App() {
     }
   }, [loadReviewWorkspace, reviewTarget]);
 
-  const handleDeletePaper = useCallback(async () => {
+  const handleDeletePaper = useCallback(async (hardDelete = false) => {
     if (!reviewTarget) return;
     setDeletingPaper(true);
     setReviewError('');
@@ -1508,6 +1509,7 @@ export default function App() {
       const params = new URLSearchParams({
         exam_name: reviewTarget.examName,
         exam_year: String(reviewTarget.examYear),
+        ...(hardDelete ? { hard_delete: 'true' } : {}),
       });
       const res = await fetch(`${API_BASE}/admin/delete-exam?${params.toString()}`, {
         method: 'DELETE',
@@ -1516,8 +1518,13 @@ export default function App() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || data.message || `Delete failed (${res.status})`);
       setReviewActionTone('success');
-      setReviewActionMessage(`Paper deleted. ${data.affected ?? 0} questions removed from the learner app.`);
+      setReviewActionMessage(
+        hardDelete
+          ? `Permanently deleted. ${data.affected ?? 0} questions erased from the database.`
+          : `Paper hidden. ${data.affected ?? 0} questions removed from the learner app (recoverable).`
+      );
       setConfirmDeletePaper(false);
+      setConfirmHardDeletePaper(false);
       setReviewWorkspace({ paper: null, repairItems: [], questions: [] });
       setReviewTarget(null);
       void loadRecentJobs();
@@ -1525,6 +1532,7 @@ export default function App() {
       setReviewActionTone('danger');
       setReviewActionMessage(err?.message || 'Could not delete this paper.');
       setConfirmDeletePaper(false);
+      setConfirmHardDeletePaper(false);
     } finally {
       setDeletingPaper(false);
     }
@@ -2055,28 +2063,40 @@ export default function App() {
                   </button>
                   {confirmDeletePaper ? (
                     <>
-                      <button
-                        className="danger-button"
-                        onClick={() => void handleDeletePaper()}
-                        disabled={deletingPaper}
-                      >
+                      <button className="danger-button" onClick={() => void handleDeletePaper(false)} disabled={deletingPaper}>
                         {deletingPaper ? <Loader2 size={16} className="spin" /> : <Trash size={16} />}
-                        Confirm — delete all questions
+                        Confirm hide (recoverable)
                       </button>
-                      <button className="ghost-button" onClick={() => setConfirmDeletePaper(false)}>
-                        Cancel
+                      <button className="ghost-button" onClick={() => setConfirmDeletePaper(false)}>Cancel</button>
+                    </>
+                  ) : confirmHardDeletePaper ? (
+                    <>
+                      <button className="danger-button" onClick={() => void handleDeletePaper(true)} disabled={deletingPaper}>
+                        {deletingPaper ? <Loader2 size={16} className="spin" /> : <Trash size={16} />}
+                        Confirm — permanently erase
                       </button>
+                      <button className="ghost-button" onClick={() => setConfirmHardDeletePaper(false)}>Cancel</button>
                     </>
                   ) : (
-                    <button
-                      className="ghost-button"
-                      style={{ color: 'var(--color-danger, #ef4444)' }}
-                      onClick={() => setConfirmDeletePaper(true)}
-                      disabled={deletingPaper || !reviewTarget}
-                    >
-                      <Trash size={15} />
-                      Delete paper
-                    </button>
+                    <>
+                      <button
+                        className="ghost-button"
+                        style={{ color: 'var(--color-danger, #ef4444)' }}
+                        onClick={() => setConfirmDeletePaper(true)}
+                        disabled={deletingPaper || !reviewTarget}
+                      >
+                        <Trash size={15} /> Hide paper
+                      </button>
+                      <button
+                        className="ghost-button"
+                        style={{ color: 'var(--color-danger, #ef4444)', opacity: 0.7 }}
+                        onClick={() => setConfirmHardDeletePaper(true)}
+                        disabled={deletingPaper || !reviewTarget}
+                        title="Permanently delete from database — cannot be undone"
+                      >
+                        <Trash size={15} /> Permanent delete
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
