@@ -897,6 +897,7 @@ export default function App() {
   const [debug, setDebug] = useState('');
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobSearch, setJobSearch] = useState('');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [conflict, setConflict] = useState<UploadConflict | null>(null);
   const [reviewTarget, setReviewTarget] = useState<ReviewTarget | null>(null);
@@ -1001,7 +1002,7 @@ export default function App() {
   const loadRecentJobs = useCallback(async () => {
     setJobsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/admin/jobs?limit=8`, {
+      const res = await fetch(`${API_BASE}/admin/jobs?limit=100`, {
         headers: await adminHeaders(),
       });
       if (!res.ok) throw new Error(`Failed to load jobs (${res.status})`);
@@ -1869,8 +1870,28 @@ export default function App() {
               </button>
             </div>
 
+            <input
+              type="search"
+              placeholder="Filter by exam name…"
+              value={jobSearch}
+              onChange={e => setJobSearch(e.target.value)}
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '7px 10px', borderRadius: 8, marginBottom: 10,
+                border: '1px solid var(--border)', background: 'var(--bg-alt)',
+                color: 'var(--text)', fontSize: 13, fontFamily: 'inherit',
+                outline: 'none',
+              }}
+            />
+
             <div className="job-list">
-              {recentJobs.map((job) => (
+              {recentJobs
+                .filter(job =>
+                  !jobSearch.trim() ||
+                  (job.exam_name ?? '').toLowerCase().includes(jobSearch.toLowerCase()) ||
+                  (job.filename  ?? '').toLowerCase().includes(jobSearch.toLowerCase())
+                )
+                .map((job) => (
                 <button
                   key={job.id}
                   type="button"
@@ -1890,7 +1911,11 @@ export default function App() {
                   <small>{formatTimestamp(job.updated_at)}</small>
                 </button>
               ))}
-              {!recentJobs.length && !jobsLoading ? (
+              {!recentJobs.filter(j =>
+                !jobSearch.trim() ||
+                (j.exam_name ?? '').toLowerCase().includes(jobSearch.toLowerCase()) ||
+                (j.filename  ?? '').toLowerCase().includes(jobSearch.toLowerCase())
+              ).length && !jobsLoading ? (
                 <div className="empty-state">No upload jobs yet.</div>
               ) : null}
             </div>
