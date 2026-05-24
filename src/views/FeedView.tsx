@@ -103,25 +103,126 @@ function BackButton({ label, onClick }: { label: string; onClick: () => void }) 
   );
 }
 
-function TopicCard({
-  item,
-  onClick,
-  onHover,
+// Compact row used inside a subject group (no subject badge — already shown in header)
+function TopicRow({
+  item, onClick, onHover,
+}: { item: TopicItem; onClick: () => void; onHover?: () => void }) {
+  const [hov, setHov] = useState(false);
+  const { dot } = getSubjectStyle(item.subject);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => { setHov(true); onHover?.(); }}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 14px',
+        background: hov ? 'var(--bg-alt)' : 'transparent',
+        borderRadius: 8, cursor: 'pointer',
+        transition: 'background 0.12s',
+      }}
+    >
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0, opacity: 0.7 }} />
+      <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)', lineHeight: 1.35 }}>
+        {item.topic}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <RepBadge yearCount={item.yearCount} />
+        <span style={{ fontSize: 11.5, color: 'var(--text-tert)', fontVariantNumeric: 'tabular-nums' }}>
+          {item.count} Qs
+        </span>
+        <span style={{ color: hov ? '#2563eb' : 'var(--text-tert)', transition: 'color 0.12s' }}>
+          <ChevronRight />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Subject accordion group
+function SubjectGroup({
+  subject, topics, defaultOpen, onPractice, onPrefetch,
 }: {
-  item: TopicItem;
-  onClick: () => void;
-  onHover?: () => void;
+  subject: string;
+  topics: TopicItem[];
+  defaultOpen: boolean;
+  onPractice: (item: TopicItem) => void;
+  onPrefetch?: (item: TopicItem) => void;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const { bg, text, dot } = getSubjectStyle(subject);
+  const totalQs = topics.reduce((sum, t) => sum + t.count, 0);
+  const highRepCount = topics.filter(t => t.yearCount >= 5).length;
+
+  return (
+    <div style={{
+      border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden',
+      background: 'var(--bg)',
+    }}>
+      {/* Header */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+          padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer',
+          fontFamily: 'inherit', textAlign: 'left',
+        }}
+      >
+        <div style={{
+          width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+          background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: dot, display: 'block' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1 }}>{subject}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-tert)', marginTop: 3 }}>
+            {topics.length} topics · {totalQs.toLocaleString()} questions
+            {highRepCount > 0 && <span style={{ color: '#16a34a', marginLeft: 8 }}>{highRepCount} high-rep</span>}
+          </div>
+        </div>
+        <span style={{
+          fontSize: 11, fontWeight: 700, color: text,
+          background: bg, padding: '3px 9px', borderRadius: 99, flexShrink: 0,
+        }}>
+          {topics.length}
+        </span>
+        <svg
+          width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="var(--text-tert)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ flexShrink: 0, transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'none' }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {/* Topics list */}
+      {open && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: '6px 4px 8px' }}>
+          {topics.map((item, i) => (
+            <TopicRow
+              key={`${item.topic}::${i}`}
+              item={item}
+              onHover={() => onPrefetch?.(item)}
+              onClick={() => onPractice(item)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Legacy flat card — kept for exam-drill-down view
+function TopicCard({
+  item, onClick, onHover,
+}: { item: TopicItem; onClick: () => void; onHover?: () => void }) {
   const [hov, setHov] = useState(false);
   const { bg, text, dot } = getSubjectStyle(item.subject);
   return (
     <div
       onClick={onClick}
-      onMouseEnter={() => {
-        setHov(true);
-        onHover?.();
-      }}
-      onFocus={onHover}
+      onMouseEnter={() => { setHov(true); onHover?.(); }}
       onMouseLeave={() => setHov(false)}
       style={{
         background: hov ? 'var(--bg-alt)' : 'var(--bg)',
@@ -328,11 +429,28 @@ export function FeedView({ subjects, exams = [], startPractice, startTopicPracti
 
   const subjectNames = useMemo(() => subjects.map(s => s.subject), [subjects]);
 
-  const topicItems = useMemo(() => {
-    let items = filterSubject === 'All' ? allTopics : allTopics.filter(i => i.subject === filterSubject);
-    if (sortMode === 'az') return [...items].sort((a, b) => a.topic.localeCompare(b.topic));
-    return [...items].sort((a, b) => b.count - a.count || b.yearCount - a.yearCount);
+  // Grouped by subject for accordion view
+  const subjectGroups = useMemo(() => {
+    const map = new Map<string, TopicItem[]>();
+    for (const item of allTopics) {
+      const arr = map.get(item.subject) ?? [];
+      arr.push(item);
+      map.set(item.subject, arr);
+    }
+    // Sort topics within each subject
+    for (const [, arr] of map) {
+      arr.sort(sortMode === 'az'
+        ? (a, b) => a.topic.localeCompare(b.topic)
+        : (a, b) => b.count - a.count || b.yearCount - a.yearCount
+      );
+    }
+    // Sort subjects by total question count descending
+    return Array.from(map.entries())
+      .map(([subject, topics]) => ({ subject, topics, totalQs: topics.reduce((s, t) => s + t.count, 0) }))
+      .filter(g => filterSubject === 'All' || g.subject === filterSubject)
+      .sort((a, b) => b.totalQs - a.totalQs);
   }, [allTopics, filterSubject, sortMode]);
+
 
   // Build exam map from real per-exam coverage. Do not infer this from topic.latest_exam;
   // latest_exam only means "newest paper where this topic appeared", not "all topics in that exam".
@@ -525,7 +643,8 @@ export function FeedView({ subjects, exams = [], startPractice, startTopicPracti
         </div>
       ) : tab === 'by-topic' ? (
         <>
-          <div className="feed-toolbar" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+          {/* Toolbar */}
+          <div className="feed-toolbar" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
             <SubjectPills subjects={subjectNames} selected={filterSubject} onChange={setFilterSubject} />
             <div style={{ display: 'flex', gap: 6, flexShrink: 0, paddingTop: 2 }}>
               {(['count', 'az'] as SortMode[]).map(m => (
@@ -547,25 +666,28 @@ export function FeedView({ subjects, exams = [], startPractice, startTopicPracti
               ))}
             </div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-tert)', marginBottom: 14 }}>
-            {topicItems.length} topics{filterSubject !== 'All' ? ` in ${filterSubject}` : ' across all exams'}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {topicItems.length === 0
-              ? <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-tert)', fontSize: 13 }}>No topics found.</div>
-              : topicItems.map((item, i) => (
-                <TopicCard
-                  key={`${item.subject}::${item.topic}::${i}`}
-                  item={item}
-                  onHover={() => prefetchTopicPractice?.(item.subject, item.topic)}
-                  onClick={() => {
-                    if (startTopicPractice) startTopicPractice(item.subject, item.topic);
-                    else startPractice?.(item.latestExam, item.latestYear, item.subject, item.topic);
-                  }}
-                />
-              ))
-            }
-          </div>
+
+          {/* Subject accordion groups */}
+          {subjectGroups.length === 0
+            ? <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-tert)', fontSize: 13 }}>No topics found.</div>
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {subjectGroups.map((group, gi) => (
+                  <SubjectGroup
+                    key={group.subject}
+                    subject={group.subject}
+                    topics={group.topics}
+                    defaultOpen={gi < 3}
+                    onPractice={(item) => {
+                      if (startTopicPractice) startTopicPractice(item.subject, item.topic);
+                      else startPractice?.(item.latestExam, item.latestYear, item.subject, item.topic);
+                    }}
+                    onPrefetch={(item) => prefetchTopicPractice?.(item.subject, item.topic)}
+                  />
+                ))}
+              </div>
+            )
+          }
         </>
       ) : renderByExam()}
     </div>
