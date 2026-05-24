@@ -49,6 +49,70 @@
   --c-bg-overlay-1: transparent;
   --c-bg-overlay-2: transparent;
   --c-bg-top: var(--bg-canvas);
+
+  --nav-bg: rgba(255, 255, 255, 0.82);
+  --nav-footer-bg: rgba(255, 255, 255, 0.94);
+  --nav-signout-bg: rgba(255, 255, 255, 0.88);
+}
+
+html[data-theme="dark"] {
+  --bg:           #0f172a;
+  --bg-alt:       #1e293b;
+  --bg-canvas:    #020617;
+  --border:       rgba(255, 255, 255, 0.08);
+  --border-h:     rgba(255, 255, 255, 0.12);
+  --border-hh:    rgba(255, 255, 255, 0.2);
+  --text:         #f8fafc;
+  --text-sec:     #cbd5e1;
+  --text-tert:    #94a3b8;
+  --accent:       #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-soft:  rgba(59, 130, 246, 0.15);
+  --blue:         #3b82f6;
+  --blue-soft:    rgba(59, 130, 246, 0.15);
+  --green:        #10b981;
+  --green-soft:   rgba(16, 185, 129, 0.15);
+  --warn:         #f59e0b;
+  --warn-soft:    rgba(245, 158, 11, 0.15);
+  --red:          #ef4444;
+  --red-soft:     rgba(239, 68, 68, 0.15);
+  --brand-ink:    #f8fafc;
+  --brand-teal:   #14b8a6;
+  --brand-gold:   #f59e0b;
+
+  --nav-bg: rgba(15, 23, 42, 0.82);
+  --nav-footer-bg: rgba(15, 23, 42, 0.94);
+  --nav-signout-bg: rgba(30, 41, 59, 0.88);
+
+  /* Legacy compat overrides */
+  --c-bg:           var(--bg-canvas);
+  --c-surface:      var(--bg);
+  --c-surface2:     var(--bg-alt);
+  --c-surface3:     var(--border);
+  --c-border:       var(--border);
+  --c-border-l:     var(--border-h);
+  --c-border-h:     var(--border-hh);
+  --c-text:         var(--text);
+  --c-text-sec:     var(--text-sec);
+  --c-text-tert:    var(--text-tert);
+  --c-heading-em:   var(--text);
+}
+
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.06), transparent 24rem),
+    radial-gradient(circle at top right, rgba(20, 184, 166, 0.06), transparent 20rem),
+    linear-gradient(180deg, #090f1e 0%, #020617 100%);
+}
+
+html[data-theme="dark"] .app-shell {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.04), transparent 20rem),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.5) 0%, rgba(2, 6, 23, 0) 12rem);
+}
+
+html[data-theme="dark"] .app-topbar {
+  background: rgba(15, 23, 42, 0.82);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -2713,5 +2777,24 @@ body {
   .hover-lift,
   .study-card {
     transition: none !important;
+  }
+}
+
+/* ── Badges Grid ────────────────────────────────────────────────────────── */
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .badges-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .badges-grid {
+    grid-template-columns: 1fr;
   }
 }

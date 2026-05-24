@@ -202,6 +202,24 @@ app.add_middleware(
 # ── Rate limiting (in-memory sliding window, Priority 6) ─────────────────────
 import collections
 _rate_limit_store: dict[str, collections.deque] = {}
+
+# Per-UID scraping detection: 200 requests per 10-minute window
+_UID_WINDOW_SECONDS = 600
+_UID_MAX_REQUESTS = 200
+_uid_rate_store: dict[str, collections.deque] = {}
+_uid_rate_lock = threading.Lock()
+
+def _check_uid_rate_limit(uid: str) -> None:
+    now = time.time()
+    with _uid_rate_lock:
+        window = _uid_rate_store.setdefault(uid, collections.deque())
+        while window and window[0] < now - _UID_WINDOW_SECONDS:
+            window.popleft()
+        window.append(now)
+        count = len(window)
+    if count > _UID_MAX_REQUESTS:
+        print(f"[SCRAPER DETECTED] uid={uid} requests={count} window={_UID_WINDOW_SECONDS}s — blocked")
+        raise HTTPException(429, "Too many requests. Please slow down.")
 _RL_WINDOW_S = 60
 _RL_MAX_PUBLIC = 120   # req/min for unauthenticated public endpoints
 _RL_MAX_AUTH   = 300   # req/min for authenticated users
@@ -2255,7 +2273,12 @@ def get_current_user(authorization: str = Header(None)) -> dict:
         raise HTTPException(401, "Missing Authorization header")
     token = authorization.split("Bearer ")[1]
     try:
-        return _verify_firebase_token_cached(token)
+        user = _verify_firebase_token_cached(token)
+        if uid := user.get("uid"):
+            _check_uid_rate_limit(uid)
+        return user
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(401, str(e))
 

@@ -29,3 +29,10 @@ gcp-key.json
 # Telegram session files — contain live auth tokens
 *.session
 backend/*.session
+
+# Local backend runtime artifacts
+backend/uploads/
+backend/snapshots/
+backend/upsc.db
+backend/backend_logs.txt
+backend/*.db

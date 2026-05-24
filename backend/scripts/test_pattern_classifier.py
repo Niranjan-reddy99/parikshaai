@@ -96,6 +96,7 @@ class PatternClassifierTests(unittest.TestCase):
     def test_fill_in_the_blank_question(self):
         tag = classify_question_rule({
             "question_text": "Select the most appropriate option to fill in the blank: He has been working here ___ 2020.",
+            "subject": "English",
             "option_a": "for",
             "option_b": "since",
             "option_c": "from",
@@ -107,6 +108,7 @@ class PatternClassifierTests(unittest.TestCase):
     def test_fill_blank_beats_general_grammar_wording(self):
         tag = classify_question_rule({
             "question_text": "Select the grammatically correct option to fill in the blank. I don't need to tell you my reasons, ___?",
+            "subject": "English",
             "option_a": "do I",
             "option_b": "don't I",
             "option_c": "need I",

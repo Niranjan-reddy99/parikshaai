@@ -219,13 +219,35 @@ function AppNavIcon({ name }: { name: "explore" | "bank" | "feed" | "progress" |
 }
 
 function AppContent() {
-  // ── Bookmarks ───────────────────────────────────────────────────────────────
   const [bookmarkMap, setBookmarkMap] = useState<Record<string, Question>>({});
   const bookmarkIdsRef = useRef<Set<string>>(new Set());
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 1024 : false
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // ── Theme State ──────────────────────────────────────────────────────────────
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      return (localStorage.getItem('app-theme') || localStorage.getItem('lp-theme') || 'light') as 'light' | 'dark';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('app-theme', theme);
+      localStorage.setItem('lp-theme', theme);
+    } catch {
+      // ignore
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   // ── Auth (from context) ──────────────────────────────────────────────────────
   const {
@@ -1730,7 +1752,7 @@ function AppContent() {
                   height: 40,
                   borderRadius: 14,
                   border: "1px solid var(--border)",
-                  background: "rgba(255,255,255,0.88)",
+                  background: "var(--bg-alt)",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -1767,7 +1789,7 @@ function AppContent() {
                 alignItems: "center",
                 gap: 8,
                 padding: "0 12px",
-                background: "rgba(255,255,255,0.88)",
+                background: "var(--bg-alt)",
                 borderRadius: 16,
                 width: "100%",
                 height: 44,
@@ -1825,6 +1847,8 @@ function AppContent() {
                 handleLogout={handleLogout}
                 mode="drawer"
                 onNavigate={() => setMobileNavOpen(false)}
+                theme={theme}
+                toggleTheme={toggleTheme}
               />
             </div>
           </div>
@@ -1853,6 +1877,8 @@ function AppContent() {
               openExam={openExam}
               openPatternPractice={() => setView("pattern-practice")}
               handleLogout={handleLogout}
+              theme={theme}
+              toggleTheme={toggleTheme}
             />
           </div>
 

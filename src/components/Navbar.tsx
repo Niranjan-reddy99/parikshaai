@@ -27,6 +27,8 @@ interface NavbarProps {
   handleLogout: () => void;
   mode?: 'sidebar' | 'drawer';
   onNavigate?: () => void;
+  theme?: 'light' | 'dark';
+  toggleTheme?: () => void;
 }
 
 function NavIcon({ name }: { name: string }) {
@@ -136,6 +138,8 @@ export function Navbar({
   setView, openQuestionBankHome, openPatternPractice, handleLogout,
   mode = 'sidebar',
   onNavigate,
+  theme = 'light',
+  toggleTheme = () => {},
 }: NavbarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
@@ -284,7 +288,7 @@ export function Navbar({
 
   return (
     <aside style={{
-      background: isDrawer ? 'transparent' : 'rgba(255,255,255,0.82)',
+      background: isDrawer ? 'transparent' : 'var(--nav-bg)',
       backdropFilter: 'blur(18px)',
       borderRight: isDrawer ? 'none' : '1px solid var(--border)',
       display: 'flex',
@@ -299,20 +303,46 @@ export function Navbar({
       <div style={{
         padding: isDrawer ? '20px 18px 14px' : '18px 16px 14px',
         borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 9, flexShrink: 0,
       }}>
-        <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
-          <rect width="32" height="32" rx="8" fill="#0f172a" />
-          <path d="M9 22V10l7 4 7-4v12l-7-4z" fill="#5eead4" />
-        </svg>
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', lineHeight: 1 }}>Pariksha</div>
-          {isDrawer ? (
-            <div style={{ fontSize: 10.5, color: 'var(--text-tert)', marginTop: 3 }}>
-              Navigation
-            </div>
-          ) : null}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="#0f172a" />
+            <path d="M9 22V10l7 4 7-4v12l-7-4z" fill="#5eead4" />
+          </svg>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', lineHeight: 1 }}>Pariksha</div>
+          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+          style={{
+            background: 'var(--bg-alt)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-sec)',
+            cursor: 'pointer',
+            padding: 6,
+            borderRadius: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          {theme === 'light' ? (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+          )}
+        </button>
       </div>
 
       {/* Navigation */}
@@ -337,7 +367,7 @@ export function Navbar({
         style={{
           padding: '12px 10px 10px',
           borderTop: '1px solid var(--border)',
-          background: isDrawer ? 'transparent' : 'rgba(255,255,255,0.94)',
+          background: isDrawer ? 'transparent' : 'var(--nav-footer-bg)',
           boxShadow: isDrawer ? 'none' : '0 -12px 28px -30px rgba(15,23,42,0.28)',
           flexShrink: 0,
         }}
@@ -436,9 +466,9 @@ export function Navbar({
             onMouseLeave={() => setHoveredItem(null)}
             style={{
               minHeight: 38, padding: '0 12px', borderRadius: 10,
-              border: `1px solid ${hoveredItem === 'logout' ? 'rgba(220,38,38,0.28)' : 'var(--border)'}`,
-              background: hoveredItem === 'logout' ? 'rgba(254,226,226,0.7)' : 'rgba(255,255,255,0.88)',
-              color: hoveredItem === 'logout' ? '#dc2626' : 'var(--text-tert)',
+              border: `1px solid ${hoveredItem === 'logout' ? 'var(--red)' : 'var(--border)'}`,
+              background: hoveredItem === 'logout' ? 'var(--red-soft)' : 'var(--nav-signout-bg)',
+              color: hoveredItem === 'logout' ? 'var(--red)' : 'var(--text-tert)',
               display: 'inline-flex', alignItems: 'center', gap: 7,
               fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
               cursor: 'pointer', transition: 'all 0.12s ease',
@@ -461,7 +491,7 @@ export function Navbar({
           <div
             style={{
               width: '100%', maxWidth: 440,
-              background: 'var(--surface, #1e293b)',
+              background: 'var(--bg)',
               border: '1px solid var(--border)',
               borderRadius: 18, padding: 20,
               boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
@@ -490,7 +520,7 @@ export function Navbar({
                   rows={4}
                   style={{
                     width: '100%', boxSizing: 'border-box',
-                    background: 'var(--bg, #0f172a)', border: '1px solid var(--border)',
+                    background: 'var(--bg-alt)', border: '1px solid var(--border)',
                     borderRadius: 10, color: 'var(--text)', fontSize: 13,
                     padding: '10px 12px', resize: 'vertical', fontFamily: 'inherit',
                     outline: 'none', marginBottom: 10,

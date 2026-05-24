@@ -106,9 +106,19 @@ class _FakeTable:
 
 class _FakeSupabase:
     def __init__(self):
-        self.db = {"papers": [], "questions": [], "jobs": [], "explanations": [], "question_repairs": []}
+        self.db = {
+            "papers": [],
+            "questions": [],
+            "jobs": [],
+            "explanations": [],
+            "question_repairs": [],
+            "user_subscriptions": [],
+            "user_attempts": [],
+        }
 
     def table(self, name):
+        if name not in self.db:
+            self.db[name] = []
         return _FakeTable(name, self.db)
 
 
@@ -145,9 +155,13 @@ def _load_main_module(fake_supabase: _FakeSupabase):
             self.status_code = status_code
             self.detail = detail
 
+    class _FakeRouter:
+        def __init__(self):
+            self.routes = []
+
     class _FakeFastAPI:
         def __init__(self, *args, **kwargs):
-            pass
+            self.router = _FakeRouter()
 
         def add_middleware(self, *args, **kwargs):
             return None
@@ -157,7 +171,17 @@ def _load_main_module(fake_supabase: _FakeSupabase):
                 return fn
             return wrap
 
-        get = post = patch = delete = _decorator
+        get = post = patch = delete = on_event = middleware = exception_handler = _decorator
+
+    class _FakeRequest:
+        pass
+
+    class _FakeResponse:
+        def __init__(self):
+            self.headers = {}
+
+    class _FakeBackgroundTasks:
+        pass
 
     fake_fastapi.FastAPI = _FakeFastAPI
     fake_fastapi.HTTPException = _FakeHTTPException
@@ -166,6 +190,9 @@ def _load_main_module(fake_supabase: _FakeSupabase):
     fake_fastapi.Depends = lambda dep=None: dep
     fake_fastapi.File = lambda default=None, **kwargs: default
     fake_fastapi.Form = lambda default=None, **kwargs: default
+    fake_fastapi.Request = _FakeRequest
+    fake_fastapi.Response = _FakeResponse
+    fake_fastapi.BackgroundTasks = _FakeBackgroundTasks
 
     class _FakeUploadFile:
         pass
@@ -175,13 +202,19 @@ def _load_main_module(fake_supabase: _FakeSupabase):
 
     fake_fastapi_middleware = types.ModuleType("fastapi.middleware")
     fake_fastapi_cors = types.ModuleType("fastapi.middleware.cors")
+    fake_fastapi_gzip = types.ModuleType("fastapi.middleware.gzip")
 
     class _FakeCORSMiddleware:
         pass
 
+    class _FakeGZipMiddleware:
+        pass
+
     fake_fastapi_cors.CORSMiddleware = _FakeCORSMiddleware
+    fake_fastapi_gzip.GZipMiddleware = _FakeGZipMiddleware
     sys.modules["fastapi.middleware"] = fake_fastapi_middleware
     sys.modules["fastapi.middleware.cors"] = fake_fastapi_cors
+    sys.modules["fastapi.middleware.gzip"] = fake_fastapi_gzip
 
     fake_fastapi_responses = types.ModuleType("fastapi.responses")
 
@@ -189,6 +222,7 @@ def _load_main_module(fake_supabase: _FakeSupabase):
         def __init__(self, *args, **kwargs):
             self.args = args
             self.kwargs = kwargs
+            self.headers = {}
 
     fake_fastapi_responses.HTMLResponse = _FakeResponse
     fake_fastapi_responses.JSONResponse = _FakeResponse
@@ -304,164 +338,204 @@ class PublishStatePhase4Tests(unittest.TestCase):
         self.assertEqual(stored["structural_issue_count"], 3)
 
     def test_public_endpoints_filter_on_stored_visibility_and_paper_status(self):
-        sb = _FakeSupabase()
-        p1 = papers.ensure_paper_for_upload("Good Exam", 2025, sb=sb)
-        p2 = papers.ensure_paper_for_upload("Mixed Exam", 2025, sb=sb)
-        p3 = papers.ensure_paper_for_upload("Blocked Exam", 2025, sb=sb)
-        p4 = papers.ensure_paper_for_upload("Reupload Exam", 2025, sb=sb)
+        import os
+        from pathlib import Path
+        old_all = os.environ.get("PUBLIC_INCLUDE_ALL_QUESTIONS")
+        old_pr = os.environ.get("PUBLIC_USE_PRACTICE_READY")
+        os.environ["PUBLIC_INCLUDE_ALL_QUESTIONS"] = "0"
+        os.environ["PUBLIC_USE_PRACTICE_READY"] = "0"
 
-        sb.db["questions"].extend([
-            {
-                "id": "good-visible",
-                "paper_id": p1["id"],
-                "exam_name": "Good Exam",
-                "exam_year": 2025,
-                "question_text": "Valid question one?",
-                "option_a": "A",
-                "option_b": "B",
-                "option_c": "C",
-                "option_d": "D",
-                "correct_answer": "A",
-                "subject": "History",
-                "topic": "General",
-                "subtopic": "General",
-                "difficulty": "Easy",
-                "question_type": "mcq",
-                "concept": None,
-                "question_number": 1,
-                "needs_review": True,
-                "has_image": False,
-                "image_url": None,
-                "public_visibility": "visible",
-                "structural_status": "valid",
-                "created_at": "2026-01-01T00:00:00Z",
-            },
-            {
-                "id": "mixed-hidden",
-                "paper_id": p2["id"],
-                "exam_name": "Mixed Exam",
-                "exam_year": 2025,
-                "question_text": "Broken question two?",
-                "option_a": "A",
-                "option_b": "",
-                "option_c": "C",
-                "option_d": "D",
-                "correct_answer": "A",
-                "subject": "Polity",
-                "topic": "General",
-                "subtopic": "General",
-                "difficulty": "Easy",
-                "question_type": "mcq",
-                "concept": None,
-                "question_number": 2,
-                "needs_review": False,
-                "has_image": False,
-                "image_url": None,
-                "public_visibility": "hidden_structural",
-                "structural_status": "broken",
-                "created_at": "2026-01-02T00:00:00Z",
-            },
-            {
-                "id": "mixed-visible",
-                "paper_id": p2["id"],
-                "exam_name": "Mixed Exam",
-                "exam_year": 2025,
-                "question_text": "Valid question three?",
-                "option_a": "A",
-                "option_b": "B",
-                "option_c": "C",
-                "option_d": "D",
-                "correct_answer": "B",
-                "subject": "Geography",
-                "topic": "General",
-                "subtopic": "General",
-                "difficulty": "Medium",
-                "question_type": "mcq",
-                "concept": None,
-                "question_number": 3,
-                "needs_review": False,
-                "has_image": False,
-                "image_url": None,
-                "public_visibility": "visible",
-                "structural_status": "valid",
-                "created_at": "2026-01-03T00:00:00Z",
-            },
-            {
-                "id": "blocked-visible",
-                "paper_id": p3["id"],
-                "exam_name": "Blocked Exam",
-                "exam_year": 2025,
-                "question_text": "Looks visible but paper is blocked?",
-                "option_a": "A",
-                "option_b": "B",
-                "option_c": "C",
-                "option_d": "D",
-                "correct_answer": "C",
-                "subject": "Economy",
-                "topic": "General",
-                "subtopic": "General",
-                "difficulty": "Hard",
-                "question_type": "mcq",
-                "concept": None,
-                "question_number": 4,
-                "needs_review": False,
-                "has_image": False,
-                "image_url": None,
-                "public_visibility": "visible",
-                "structural_status": "valid",
-                "created_at": "2026-01-04T00:00:00Z",
-            },
-            {
-                "id": "reupload-visible",
-                "paper_id": p4["id"],
-                "exam_name": "Reupload Exam",
-                "exam_year": 2025,
-                "question_text": "Looks visible but paper is reupload needed?",
-                "option_a": "A",
-                "option_b": "B",
-                "option_c": "C",
-                "option_d": "D",
-                "correct_answer": "D",
-                "subject": "Science",
-                "topic": "General",
-                "subtopic": "General",
-                "difficulty": "Medium",
-                "question_type": "mcq",
-                "concept": None,
-                "question_number": 5,
-                "needs_review": False,
-                "has_image": False,
-                "image_url": None,
-                "public_visibility": "visible",
-                "structural_status": "valid",
-                "created_at": "2026-01-05T00:00:00Z",
-            },
-        ])
+        cache_file = Path(__file__).parent / "cache" / "public_meta_snapshot.json"
+        backup_file = Path(__file__).parent / "cache" / "public_meta_snapshot.json.bak"
+        has_cache = cache_file.exists()
 
-        sb.table("papers").update({"publish_status": "publishable", "lifecycle_status": "ingested"}).eq("id", p1["id"]).execute()
-        sb.table("papers").update({"publish_status": "publishable_with_hidden_rows", "lifecycle_status": "ingested"}).eq("id", p2["id"]).execute()
-        sb.table("papers").update({"publish_status": "blocked", "lifecycle_status": "ingested"}).eq("id", p3["id"]).execute()
-        sb.table("papers").update({"publish_status": "reupload_needed", "lifecycle_status": "ingested"}).eq("id", p4["id"]).execute()
+        if has_cache:
+            if backup_file.exists():
+                backup_file.unlink()
+            cache_file.rename(backup_file)
 
-        main = _load_main_module(sb)
+        try:
+            sb = _FakeSupabase()
+            p1 = papers.ensure_paper_for_upload("Good Exam", 2025, sb=sb)
+            p2 = papers.ensure_paper_for_upload("Mixed Exam", 2025, sb=sb)
+            p3 = papers.ensure_paper_for_upload("Blocked Exam", 2025, sb=sb)
+            p4 = papers.ensure_paper_for_upload("Reupload Exam", 2025, sb=sb)
 
-        list_result = asyncio.run(main.get_questions(limit=20, offset=0))
-        returned_ids = {row["id"] for row in list_result["questions"]}
-        self.assertEqual(returned_ids, {"good-visible", "mixed-visible"})
+            sb.db["questions"].extend([
+                {
+                    "id": "good-visible",
+                    "paper_id": p1["id"],
+                    "exam_name": "Good Exam",
+                    "exam_year": 2025,
+                    "question_text": "Valid question one?",
+                    "option_a": "A",
+                    "option_b": "B",
+                    "option_c": "C",
+                    "option_d": "D",
+                    "correct_answer": "A",
+                    "subject": "History",
+                    "topic": "General",
+                    "subtopic": "General",
+                    "difficulty": "Easy",
+                    "question_type": "mcq",
+                    "concept": None,
+                    "question_number": 1,
+                    "needs_review": True,
+                    "has_image": False,
+                    "image_url": None,
+                    "public_visibility": "visible",
+                    "structural_status": "valid",
+                    "created_at": "2026-01-01T00:00:00Z",
+                },
+                {
+                    "id": "mixed-hidden",
+                    "paper_id": p2["id"],
+                    "exam_name": "Mixed Exam",
+                    "exam_year": 2025,
+                    "question_text": "Broken question two?",
+                    "option_a": "A",
+                    "option_b": "",
+                    "option_c": "C",
+                    "option_d": "D",
+                    "correct_answer": "A",
+                    "subject": "Polity",
+                    "topic": "General",
+                    "subtopic": "General",
+                    "difficulty": "Easy",
+                    "question_type": "mcq",
+                    "concept": None,
+                    "question_number": 2,
+                    "needs_review": False,
+                    "has_image": False,
+                    "image_url": None,
+                    "public_visibility": "hidden_structural",
+                    "structural_status": "broken",
+                    "created_at": "2026-01-02T00:00:00Z",
+                },
+                {
+                    "id": "mixed-visible",
+                    "paper_id": p2["id"],
+                    "exam_name": "Mixed Exam",
+                    "exam_year": 2025,
+                    "question_text": "Valid question three?",
+                    "option_a": "A",
+                    "option_b": "B",
+                    "option_c": "C",
+                    "option_d": "D",
+                    "correct_answer": "B",
+                    "subject": "Geography",
+                    "topic": "General",
+                    "subtopic": "General",
+                    "difficulty": "Medium",
+                    "question_type": "mcq",
+                    "concept": None,
+                    "question_number": 3,
+                    "needs_review": False,
+                    "has_image": False,
+                    "image_url": None,
+                    "public_visibility": "visible",
+                    "structural_status": "valid",
+                    "created_at": "2026-01-03T00:00:00Z",
+                },
+                {
+                    "id": "blocked-visible",
+                    "paper_id": p3["id"],
+                    "exam_name": "Blocked Exam",
+                    "exam_year": 2025,
+                    "question_text": "Looks visible but paper is blocked?",
+                    "option_a": "A",
+                    "option_b": "B",
+                    "option_c": "C",
+                    "option_d": "D",
+                    "correct_answer": "C",
+                    "subject": "Economy",
+                    "topic": "General",
+                    "subtopic": "General",
+                    "difficulty": "Hard",
+                    "question_type": "mcq",
+                    "concept": None,
+                    "question_number": 4,
+                    "needs_review": False,
+                    "has_image": False,
+                    "image_url": None,
+                    "public_visibility": "visible",
+                    "structural_status": "valid",
+                    "created_at": "2026-01-04T00:00:00Z",
+                },
+                {
+                    "id": "reupload-visible",
+                    "paper_id": p4["id"],
+                    "exam_name": "Reupload Exam",
+                    "exam_year": 2025,
+                    "question_text": "Looks visible but paper is reupload needed?",
+                    "option_a": "A",
+                    "option_b": "B",
+                    "option_c": "C",
+                    "option_d": "D",
+                    "correct_answer": "D",
+                    "subject": "Science",
+                    "topic": "General",
+                    "subtopic": "General",
+                    "difficulty": "Medium",
+                    "question_type": "mcq",
+                    "concept": None,
+                    "question_number": 5,
+                    "needs_review": False,
+                    "has_image": False,
+                    "image_url": None,
+                    "public_visibility": "visible",
+                    "structural_status": "valid",
+                    "created_at": "2026-01-05T00:00:00Z",
+                },
+            ])
 
-        meta_result = asyncio.run(main.get_questions_meta())
-        self.assertEqual(meta_result["total"], 2)
+            sb.table("papers").update({"publish_status": "publishable", "lifecycle_status": "ingested", "question_count": 1, "visible_question_count": 1}).eq("id", p1["id"]).execute()
+            sb.table("papers").update({"publish_status": "publishable_with_hidden_rows", "lifecycle_status": "ingested", "question_count": 2, "visible_question_count": 1}).eq("id", p2["id"]).execute()
+            sb.table("papers").update({"publish_status": "blocked", "lifecycle_status": "ingested", "question_count": 1, "visible_question_count": 1}).eq("id", p3["id"]).execute()
+            sb.table("papers").update({"publish_status": "reupload_needed", "lifecycle_status": "ingested", "question_count": 1, "visible_question_count": 1}).eq("id", p4["id"]).execute()
 
-        question_result = asyncio.run(main.get_question_with_answer("mixed-visible"))
-        self.assertEqual(question_result["id"], "mixed-visible")
+            sb.table("user_subscriptions").insert({
+                "firebase_uid": "test-premium",
+                "plan": "pro",
+                "status": "active",
+            }).execute()
 
-        with self.assertRaises(main.HTTPException) as hidden_ctx:
-            asyncio.run(main.get_question_with_answer("mixed-hidden"))
-        self.assertEqual(hidden_ctx.exception.status_code, 404)
+            main = _load_main_module(sb)
+            main._read_public_meta_snapshot = lambda now: None
 
-        with self.assertRaises(main.HTTPException) as blocked_ctx:
-            asyncio.run(main.get_question_with_answer("blocked-visible"))
-        self.assertEqual(blocked_ctx.exception.status_code, 404)
+            user = {"uid": "test-premium"}
+            list_result = asyncio.run(main.get_questions(limit=20, offset=0, _current_user=user))
+            print("DEBUG returned list_result:", list_result)
+            returned_ids = {row["id"] for row in list_result["questions"]}
+            self.assertEqual(returned_ids, {"good-visible", "mixed-visible"})
+
+            meta_result = asyncio.run(main.get_questions_meta(response=main.Response()))
+            self.assertEqual(meta_result["total"], 2)
+
+            question_result = asyncio.run(main.get_question_with_answer("mixed-visible", _current_user=user))
+            self.assertEqual(question_result["id"], "mixed-visible")
+
+            with self.assertRaises(main.HTTPException) as hidden_ctx:
+                asyncio.run(main.get_question_with_answer("mixed-hidden", _current_user=user))
+            self.assertEqual(hidden_ctx.exception.status_code, 404)
+
+            with self.assertRaises(main.HTTPException) as blocked_ctx:
+                asyncio.run(main.get_question_with_answer("blocked-visible", _current_user=user))
+            self.assertEqual(blocked_ctx.exception.status_code, 404)
+        finally:
+            if old_all is not None:
+                os.environ["PUBLIC_INCLUDE_ALL_QUESTIONS"] = old_all
+            else:
+                os.environ.pop("PUBLIC_INCLUDE_ALL_QUESTIONS", None)
+            if old_pr is not None:
+                os.environ["PUBLIC_USE_PRACTICE_READY"] = old_pr
+            else:
+                os.environ.pop("PUBLIC_USE_PRACTICE_READY", None)
+
+            if has_cache and backup_file.exists():
+                if cache_file.exists():
+                    cache_file.unlink()
+                backup_file.rename(cache_file)
 
 
 if __name__ == "__main__":

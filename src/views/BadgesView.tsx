@@ -82,7 +82,7 @@ export function BadgesView({ stats }: BadgesViewProps) {
           <div style={{ fontSize: 13, color: C.textTert }}>Answer questions, build streaks, and unlock achievements.</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <div className="badges-grid">
           {badges.map(b => (
             <div key={b.id}
               style={{

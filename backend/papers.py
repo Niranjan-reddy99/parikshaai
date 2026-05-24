@@ -638,6 +638,8 @@ def latest_live_paper_rows(
     for row in rows:
         if row.get("lifecycle_status") == "archived":
             continue
+        if row.get("publish_status") not in PUBLIC_PAPER_STATUSES:
+            continue
         if int(row.get("question_count") or 0) <= 0:
             continue
         if int(row.get("visible_question_count") or 0) <= 0 and int(row.get("hidden_question_count") or 0) <= 0:

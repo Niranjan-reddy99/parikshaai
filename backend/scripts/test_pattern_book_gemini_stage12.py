@@ -23,7 +23,8 @@ class PatternBookGeminiStage12Tests(unittest.TestCase):
                 "option_b": "5",
                 "option_c": "10",
                 "option_d": "15",
-            }
+            },
+            pattern_fallback="Percentages"
         )
         self.assertTrue(ok)
         self.assertEqual(reasons, [])
@@ -38,7 +39,8 @@ class PatternBookGeminiStage12Tests(unittest.TestCase):
                 "option_b": "x",
                 "option_c": "",
                 "option_d": "!",
-            }
+            },
+            pattern_fallback="Percentages"
         )
         self.assertFalse(ok)
         self.assertIn("missing_or_invalid_question_number", reasons)
@@ -68,7 +70,7 @@ class PatternBookGeminiStage12Tests(unittest.TestCase):
 
             calls: list[tuple[str, str | None]] = []
 
-            def fake_gemini(_img, *, heading=None, page_type="question_page"):
+            def fake_gemini(_img, *, heading=None, current_pattern=None, page_type="question_page"):
                 calls.append((page_type, heading))
                 if page_type == "mixed_special_page":
                     return [

@@ -20,9 +20,10 @@ export function OnboardingModal({ userName, onComplete }: OnboardingModalProps) 
       <div
         style={{
           width: '100%', maxWidth: 440,
-          background: '#fff',
+          background: 'var(--bg)',
           borderRadius: 20, padding: '32px 28px 24px',
           boxShadow: '0 24px 60px rgba(0,0,0,0.45)',
+          border: '1px solid var(--border)',
         }}
       >
         {/* Logo */}
@@ -38,10 +39,10 @@ export function OnboardingModal({ userName, onComplete }: OnboardingModalProps) 
               <path d="M7 4L9.6 5.5V8.5L7 10L4.4 8.5V5.5L7 4Z" fill="#2dd4bf" opacity=".5"/>
             </svg>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 6 }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
             Welcome, {firstName}!
           </div>
-          <div style={{ fontSize: 13.5, color: '#6b7280', lineHeight: 1.55 }}>
+          <div style={{ fontSize: 13.5, color: 'var(--text-sec)', lineHeight: 1.55 }}>
             Pariksha helps you master PYQs with AI-powered insights.
           </div>
         </div>
@@ -55,8 +56,8 @@ export function OnboardingModal({ userName, onComplete }: OnboardingModalProps) 
           ].map(([icon, title, desc]) => (
             <div key={title} style={{
               display: 'flex', alignItems: 'center', gap: 12,
-              padding: '9px 12px', background: '#f9fafb',
-              border: '1px solid #e5e7eb', borderRadius: 10,
+              padding: '9px 12px', background: 'var(--bg-alt)',
+              border: '1px solid var(--border)', borderRadius: 10,
             }}>
               <div style={{
                 width: 32, height: 32, borderRadius: 8,
@@ -64,8 +65,8 @@ export function OnboardingModal({ userName, onComplete }: OnboardingModalProps) 
                 justifyContent: 'center', fontSize: 16, flexShrink: 0,
               }}>{icon}</div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{title}</div>
-                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{desc}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{title}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-tert)', marginTop: 1 }}>{desc}</div>
               </div>
             </div>
           ))}

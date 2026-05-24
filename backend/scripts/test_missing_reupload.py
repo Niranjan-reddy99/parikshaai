@@ -27,11 +27,11 @@ class MissingReuploadTests(unittest.TestCase):
     @patch.object(main, "_question_rows_for_exam")
     def test_repair_target_numbers_include_inactive_numbered_rows(self, mock_rows):
         mock_rows.return_value = [
-            {"question_number": 1, "is_active": True},
-            {"question_number": 2, "is_active": True},
-            {"question_number": 3, "is_active": False},
-            {"question_number": 4, "is_active": True},
-            {"question_number": 5, "is_active": False},
+            {"question_number": 1, "is_active": True, "question_text": "This is a valid question text long enough.", "option_a": "A", "option_b": "B", "option_c": "C", "option_d": "D"},
+            {"question_number": 2, "is_active": True, "question_text": "This is a valid question text long enough.", "option_a": "A", "option_b": "B", "option_c": "C", "option_d": "D"},
+            {"question_number": 3, "is_active": False, "question_text": "This is a valid question text long enough.", "option_a": "A", "option_b": "B", "option_c": "C", "option_d": "D"},
+            {"question_number": 4, "is_active": True, "question_text": "This is a valid question text long enough.", "option_a": "A", "option_b": "B", "option_c": "C", "option_d": "D"},
+            {"question_number": 5, "is_active": False, "question_text": "This is a valid question text long enough.", "option_a": "A", "option_b": "B", "option_c": "C", "option_d": "D"},
         ]
         targets = main._repair_target_numbers_for_exam("Demo Exam", 2024, expected_count=6)
         self.assertEqual(targets, [3, 5, 6])

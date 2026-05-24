@@ -71,9 +71,13 @@ def _load_main_module():
             self.status_code = status_code
             self.detail = detail
 
+    class _FakeRouter:
+        def __init__(self):
+            self.routes = []
+
     class _FakeFastAPI:
         def __init__(self, *args, **kwargs):
-            pass
+            self.router = _FakeRouter()
 
         def add_middleware(self, *args, **kwargs):
             return None
@@ -83,7 +87,7 @@ def _load_main_module():
                 return fn
             return wrap
 
-        get = post = patch = delete = _decorator
+        get = post = patch = delete = on_event = middleware = exception_handler = _decorator
 
     fake_fastapi.FastAPI = _FakeFastAPI
     fake_fastapi.HTTPException = _FakeHTTPException
@@ -96,18 +100,37 @@ def _load_main_module():
     class _FakeUploadFile:
         pass
 
+    class _FakeRequest:
+        pass
+
+    class _FakeResponse:
+        pass
+
+    class _FakeBackgroundTasks:
+        pass
+
     fake_fastapi.UploadFile = _FakeUploadFile
+    fake_fastapi.Request = _FakeRequest
+    fake_fastapi.Response = _FakeResponse
+    fake_fastapi.BackgroundTasks = _FakeBackgroundTasks
     sys.modules["fastapi"] = fake_fastapi
 
     fake_fastapi_middleware = types.ModuleType("fastapi.middleware")
     fake_fastapi_cors = types.ModuleType("fastapi.middleware.cors")
+    fake_fastapi_gzip = types.ModuleType("fastapi.middleware.gzip")
 
     class _FakeCORSMiddleware:
         pass
 
+    class _FakeGZipMiddleware:
+        pass
+
     fake_fastapi_cors.CORSMiddleware = _FakeCORSMiddleware
+    fake_fastapi_gzip.GZipMiddleware = _FakeGZipMiddleware
+
     sys.modules["fastapi.middleware"] = fake_fastapi_middleware
     sys.modules["fastapi.middleware.cors"] = fake_fastapi_cors
+    sys.modules["fastapi.middleware.gzip"] = fake_fastapi_gzip
 
     fake_fastapi_responses = types.ModuleType("fastapi.responses")
 

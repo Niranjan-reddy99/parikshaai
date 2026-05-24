@@ -36,6 +36,8 @@ def collect_public_question_meta_rows(
         batch = result.data or []
 
         for row in batch:
+            if row.get("public_visibility") == "hidden_structural":
+                continue
             if not row_matches_selected_papers(row, publishable_ids):
                 continue
             if publishable_exam_keys is not None and not row.get("paper_id"):
