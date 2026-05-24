@@ -379,7 +379,7 @@ def _get_publishable_paper_ids() -> set[str]:
 
 
 def _invalidate_meta_cache() -> None:
-    global _meta_cache, _meta_cache_ts, _catalog_cache, _catalog_cache_ts, _feed_cache, _feed_cache_ts, _admin_meta_cache, _admin_meta_cache_ts, _publish_gate_cache, _publish_gate_cache_ts, _topic_bucket_cache, _topic_first_page_cache, _publishable_paper_ids_cache, _publishable_paper_ids_cache_ts, _exam_qs_cache, _practice_ready_present_cache, _practice_ready_present_cache_ts, _stats_cache, _stats_cache_ts, _leaderboard_cache
+    global _meta_cache, _meta_cache_ts, _catalog_cache, _catalog_cache_ts, _feed_cache, _feed_cache_ts, _admin_meta_cache, _admin_meta_cache_ts, _publish_gate_cache, _publish_gate_cache_ts, _topic_bucket_cache, _topic_first_page_cache, _publishable_paper_ids_cache, _publishable_paper_ids_cache_ts, _exam_qs_cache, _practice_ready_present_cache, _practice_ready_present_cache_ts, _stats_cache, _stats_cache_ts, _leaderboard_cache, _free_papers_cache, _free_papers_cache_ts
     with _meta_snapshot_lock:
         _meta_cache = None
         _meta_cache_ts = 0.0
@@ -401,6 +401,8 @@ def _invalidate_meta_cache() -> None:
         _stats_cache = None
         _stats_cache_ts = 0.0
         _leaderboard_cache = {}
+        _free_papers_cache = None
+        _free_papers_cache_ts = 0.0
     try:
         _PUBLIC_META_CACHE_FILE.unlink(missing_ok=True)
     except Exception:
