@@ -2664,7 +2664,7 @@ async def get_questions(
     offset: int = Query(0, ge=0),
     cursor: Optional[str] = Query(None),
     response: Response = None,
-    _current_user: dict = Depends(optional_user),
+    _current_user: dict = Depends(get_current_user),
 ):
     """Fetch filtered + paginated questions. Answers are NOT included here —
     use GET /questions/{id} after the user selects, or POST /reveal-answers after exam submission."""
@@ -2862,7 +2862,7 @@ async def reveal_answers(body: dict, _current_user: dict = Depends(get_current_u
 
 
 @app.get("/explanation/{question_id}")
-def get_explanation(question_id: str, _current_user: dict = Depends(optional_user)):
+def get_explanation(question_id: str, _current_user: dict = Depends(get_current_user)):
     """
     Lazy-loaded explanation + Real-time Answer Consistency.
     If the Reasoning Engine finds a corrected answer, it is returned here
@@ -2992,7 +2992,7 @@ def _explanation_unavailable_payload(
 
 
 @app.post("/explanations/batch")
-def get_explanations_batch(body: _BatchExplRequest, _current_user: dict = Depends(optional_user)):
+def get_explanations_batch(body: _BatchExplRequest, _current_user: dict = Depends(get_current_user)):
     """Return already-generated explanations for up to 50 questions in one DB query.
     IDs with no explanation yet are omitted from the response — caller fetches those individually."""
     ids = list(dict.fromkeys(body.question_ids))[:50]  # dedup + cap
@@ -3187,7 +3187,7 @@ async def get_questions_by_topic(
     limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
     response: Response = None,
-    _current_user: dict = Depends(optional_user),
+    _current_user: dict = Depends(get_current_user),
 ):
     try:
         if offset == 0 and limit <= 100:
