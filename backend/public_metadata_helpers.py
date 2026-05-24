@@ -2,6 +2,7 @@ import json
 from typing import Optional
 
 from papers import normalize_exam_name
+from canonical_taxonomy import canonical_subject_family
 
 
 PUBLIC_IDENTITY_BY_ROW_EXAMS: set[tuple[str, int]] = {
@@ -193,6 +194,8 @@ def build_feed_from_meta(rows: list[dict]) -> dict:
         subject = str(row.get("canonical_subject") or row.get("subject") or "General Awareness").strip() or "General Awareness"
         topic = str(row.get("canonical_topic_family") or row.get("topic") or "General").strip() or "General"
         subtopic = str(row.get("canonical_subtopic_family") or row.get("subtopic") or topic).strip() or topic
+        # Re-apply taxonomy override in case canonical_subject was incorrectly written to DB
+        subject = canonical_subject_family(subject, topic, subtopic) or subject
         exam_name = str(row.get("exam_name") or "")
         exam_year = int(row.get("exam_year") or 0)
 
