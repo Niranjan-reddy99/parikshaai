@@ -1980,7 +1980,6 @@ function AppContent() {
                     openCommission={openCommission}
                     openExam={openExam}
                     startPractice={startPractice}
-                    startMockExam={startMockExam}
                     setView={setView}
                     openQuestionBankHome={openQuestionBankHome}
                     openFeedWithSubject={(subject) => {
