@@ -1,9 +1,10 @@
 import admin from 'firebase-admin';
 
+const firebaseProjectId = process.env.FIREBASE_PROJECT_ID;
+if (!firebaseProjectId) throw new Error('FIREBASE_PROJECT_ID env var is required');
+
 if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID,
-  });
+  admin.initializeApp({ projectId: firebaseProjectId });
 }
 
 export async function verifyToken(authHeader: string | undefined): Promise<boolean> {

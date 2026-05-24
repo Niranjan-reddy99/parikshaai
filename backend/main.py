@@ -24,6 +24,7 @@ import patch_print
 import concurrent.futures as _cf
 import hashlib
 import os
+import secrets
 import json
 import time
 import tempfile
@@ -226,7 +227,7 @@ class _RateLimitMiddleware(BaseHTTPMiddleware):
         is_localhost = ip in {"127.0.0.1", "::1", "localhost"}
         is_admin_request = request.url.path.startswith("/admin/")
         admin_key = request.headers.get("x-admin-key")
-        if is_localhost and is_admin_request and admin_key and admin_key == os.getenv("ADMIN_API_KEY"):
+        if is_localhost and is_admin_request and admin_key and secrets.compare_digest(admin_key, os.getenv("ADMIN_API_KEY") or ""):
             return await call_next(request)
 
         # Periodically evict IPs that have had no requests in the last window —
@@ -323,6 +324,10 @@ _question_supported_columns_cache: set[str] | None = None
 # Cached set of publishable paper IDs — avoids hitting papers table on every /questions call.
 _publishable_paper_ids_cache: set[str] | None = None
 _publishable_paper_ids_cache_ts: float = 0.0
+
+_free_paper_ids_cache: set[str] | None = None
+_free_paper_ids_cache_ts: float = 0.0
+_FREE_PAPER_IDS_TTL = 300  # 5 min
 _PUBLISHABLE_PAPER_IDS_TTL = 60  # seconds
 
 _DEVANAGARI_RE = re.compile(r'[\u0900-\u097F]')
@@ -591,6 +596,8 @@ def _row_is_public(row: dict, supported_cols: set[str] | None = None) -> bool:
     supported = supported_cols or _question_supported_columns()
     if _public_include_all_questions():
         return row.get("is_active", True) is True
+    if "public_visibility" in supported and row.get("public_visibility") == "hidden_structural":
+        return False
     if _practice_ready_mode(supported):
         return row.get("practice_ready") is True
     if "is_active" in supported:
@@ -875,6 +882,32 @@ def _collect_public_exam_rows(
     )
 
 
+def _get_free_paper_ids() -> set[str]:
+    """Retrieve and cache the set of paper IDs belonging to free exams."""
+    global _free_paper_ids_cache, _free_paper_ids_cache_ts
+    now = time.time()
+    if _free_paper_ids_cache is not None and (now - _free_paper_ids_cache_ts) < _FREE_PAPER_IDS_TTL:
+        return _free_paper_ids_cache
+    try:
+        free_keys = _get_free_papers_set()
+        if not free_keys:
+            return set()
+        res = supabase.table("papers").select("id, exam_name, exam_year").execute()
+        rows = res.data or []
+        ids = set()
+        for r in rows:
+            name = str(r.get("exam_name") or "").strip().lower()
+            year = int(r.get("exam_year") or 0)
+            if (name, year) in free_keys:
+                ids.add(str(r["id"]))
+        _free_paper_ids_cache = ids
+        _free_paper_ids_cache_ts = now
+        return ids
+    except Exception as e:
+        print(f"WARN _get_free_paper_ids failed: {e}")
+        return set()
+
+
 def _stream_public_exam_page(
     *,
     exam_name: Optional[str] = None,
@@ -888,6 +921,7 @@ def _stream_public_exam_page(
     search: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
+    allowed_paper_ids_override: Optional[set[str]] = None,
 ) -> dict:
     return stream_public_exam_page(
         exam_name=exam_name,
@@ -907,7 +941,7 @@ def _stream_public_exam_page(
         practice_ready_mode=_practice_ready_mode,
         latest_live_paper_ids=latest_live_paper_ids,
         latest_live_exam_keys=latest_live_exam_keys,
-        get_publishable_paper_ids=_get_publishable_paper_ids,
+        get_publishable_paper_ids=lambda: allowed_paper_ids_override if allowed_paper_ids_override is not None else _get_publishable_paper_ids(),
         question_select_clause=_question_select_clause,
         apply_public_question_filter=_apply_public_question_filter,
         supabase=supabase,
@@ -949,11 +983,16 @@ def _collect_public_question_meta_rows() -> list[dict]:
     include_all_or_practice = _public_include_all_questions() or _practice_ready_mode(supported_cols)
     publishable_ids = None if include_all_or_practice else _get_publishable_paper_ids()
     publishable_exam_keys = None if include_all_or_practice else latest_live_exam_keys(sb=supabase)
-    select_clause = _question_select_clause([
+    
+    base_cols = [
         "id", "exam_name", "exam_year", "subject", "topic", "subtopic", "difficulty", "paper_id",
         "question_number", "question_hash", "created_at", "practice_ready", "shift_label",
         "canonical_subject", "canonical_topic_family", "canonical_subtopic_family",
-    ], supported_cols)
+    ]
+    if "public_visibility" in supported_cols:
+        base_cols.append("public_visibility")
+
+    select_clause = _question_select_clause(base_cols, supported_cols)
     return collect_public_question_meta_rows(
         supabase=supabase,
         supported_cols=supported_cols,
@@ -1597,7 +1636,7 @@ _IMAGE_RE = re.compile(
     r"dice|venn\s+diagram)\b",
     re.IGNORECASE,
 )
-_INLINE_OPTION_RE = re.compile(r'(?:^|\n)(?:A[\).]|B[\).]|C[\).]|D[\).])\s+', re.IGNORECASE)
+_INLINE_OPTION_RE = re.compile(r'(?:^|\s)(?:A[\).]|B[\).]|C[\).]|D[\).])\s+', re.IGNORECASE)
 _STATEMENT_STYLE_STEM_RE = re.compile(
     r'(?:which\s+(?:\w+\s+)?of\s+the\s+following\s+statements|read\s+the\s+statements|arrange\s+the\s+following|'
     r'which\s+of\s+the\s+above|select\s+the\s+correct\s+option|select\s+the\s+correct\s+pair|'
@@ -1629,6 +1668,10 @@ def _is_statement_style_question(text: str, filled_opts: list[str]) -> bool:
 
 
 def _sanitize_public_question_row(row: dict) -> Optional[dict]:
+    supported = _question_supported_columns()
+    if not _public_include_all_questions():
+        if "public_visibility" in supported and row.get("public_visibility") == "hidden_structural":
+            return None
     cleaned = clean_extracted_question({
         "question_text": row.get("question_text"),
         "option_a": row.get("option_a"),
@@ -2234,7 +2277,7 @@ async def verify_admin(
     authorization: str = Header(None),
 ):
     """Allow either backend-only API key auth or Firebase-authenticated admins."""
-    if x_admin_key and x_admin_key == ADMIN_API_KEY:
+    if x_admin_key and ADMIN_API_KEY and secrets.compare_digest(x_admin_key, ADMIN_API_KEY):
         return {"auth_mode": "api_key"}
 
     if authorization and authorization.startswith("Bearer "):
@@ -2372,7 +2415,7 @@ def _load_latest_or_named_json_artifact(directory: Path, filename: str = "") -> 
     if filename:
         target = directory / Path(filename).name
         if not target.exists():
-            raise HTTPException(404, f"Report not found: {filename}")
+            raise HTTPException(404, "Report not found")
     else:
         candidates = sorted(directory.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
         if not candidates:
@@ -2449,7 +2492,7 @@ async def admin_build_pattern_book_gemini_question_pilot(
 
         _allowed_base = (Path(__file__).parent / "uploads").resolve()
         path_obj = Path(target_path).resolve()
-        if not str(path_obj).startswith(str(_allowed_base)) and path_obj != Path(tmp_path or "").resolve():
+        if not path_obj.is_relative_to(_allowed_base) and path_obj != Path(tmp_path or "").resolve():
             raise HTTPException(400, "Invalid pdf_path")
         if not path_obj.exists():
             raise HTTPException(404, "PDF not found")
@@ -2490,7 +2533,7 @@ async def admin_build_pattern_book_gemini_stage12(
 
         _allowed_base = (Path(__file__).parent / "uploads").resolve()
         path_obj = Path(target_path).resolve()
-        if not str(path_obj).startswith(str(_allowed_base)) and path_obj != Path(tmp_path or "").resolve():
+        if not path_obj.is_relative_to(_allowed_base) and path_obj != Path(tmp_path or "").resolve():
             raise HTTPException(400, "Invalid pdf_path")
         if not path_obj.exists():
             raise HTTPException(404, "PDF not found")
@@ -2626,6 +2669,18 @@ async def get_questions(
     """Fetch filtered + paginated questions. Answers are NOT included here —
     use GET /questions/{id} after the user selects, or POST /reveal-answers after exam submission."""
     _require_exam_access(_current_user, exam_name, exam_year)
+
+    # Check subscription for topic practice/search gating
+    allowed_paper_ids = None
+    is_premium = False
+    if isinstance(_current_user, dict):
+        uid = _current_user.get("uid")
+        if uid:
+            sub = _get_subscription_cached(uid)
+            is_premium = sub.get("is_premium", False)
+    if not is_premium:
+        allowed_paper_ids = _get_free_paper_ids()
+
     try:
         start = safe_cursor_to_index(cursor) if cursor else offset
         page_data = _stream_public_exam_page(
@@ -2640,6 +2695,7 @@ async def get_questions(
             search=search,
             limit=limit,
             offset=start,
+            allowed_paper_ids_override=allowed_paper_ids,
         )
         # Strip correct answers from bulk response — revealed lazily per question
         if isinstance(page_data, dict) and "questions" in page_data:
@@ -2738,6 +2794,10 @@ async def get_question_with_answer(question_id: str, _current_user: dict = Depen
 
         if not r.data:
             raise HTTPException(404, "Question not found")
+
+        # Enforce premium access gating
+        _require_exam_access(_current_user, r.data.get("exam_name"), r.data.get("exam_year"))
+
         if not _row_is_public(r.data, supported_cols):
             raise HTTPException(404, "Question not found")
         if (not _public_include_all_questions()) and (not _practice_ready_mode(supported_cols)) and not _row_matches_selected_papers(
@@ -2823,6 +2883,10 @@ def get_explanation(question_id: str, _current_user: dict = Depends(optional_use
         qr = supabase.table("questions").select(", ".join(qr_select)).eq("id", question_id).single().execute()
         if not qr.data:
             raise HTTPException(404, "Question not found")
+
+        # Enforce premium access gating
+        _require_exam_access(_current_user, qr.data.get("exam_name"), qr.data.get("exam_year"))
+
         if not _row_is_public(qr.data, supported_cols):
             raise HTTPException(404, "Question not found")
         if (not _public_include_all_questions()) and (not _practice_ready_mode(supported_cols)) and not _row_matches_selected_papers(
@@ -3585,12 +3649,32 @@ def record_attempt(attempt: AttemptCreate, user: dict = Depends(get_current_user
     attempted_at = datetime.now(timezone.utc).isoformat()
     uid = user.get("uid", "unknown")
 
+    # Secure correctness evaluation on server-side
+    server_is_correct = False
+    try:
+        q_res = supabase.table("questions").select("correct_answer", "correct_answers").eq("id", attempt.question_id).execute()
+        if q_res.data:
+            q_row = q_res.data[0]
+            correct_answer = str(q_row.get("correct_answer") or "").strip().upper()
+            correct_answers = q_row.get("correct_answers") or []
+            sel = str(attempt.selected_answer).strip().upper()
+            if correct_answers:
+                norm_answers = {str(ans).strip().upper() for ans in correct_answers}
+                server_is_correct = sel in norm_answers
+            else:
+                server_is_correct = (sel == correct_answer)
+        else:
+            server_is_correct = attempt.is_correct
+    except Exception as e:
+        print(f"WARN record_attempt correctness check failed: {e}")
+        server_is_correct = attempt.is_correct
+
     try:
         res = supabase.table("user_attempts").insert({
             "firebase_uid": uid,
             "question_id": attempt.question_id,
             "selected_answer": attempt.selected_answer,
-            "is_correct": attempt.is_correct,
+            "is_correct": server_is_correct,
             "time_taken_s": int(attempt.time_taken_seconds or 0),
             "exam_name": attempt.exam_name,
             "subject": attempt.subject,
@@ -3616,7 +3700,7 @@ def record_attempt(attempt: AttemptCreate, user: dict = Depends(get_current_user
             "userId": uid,
             "questionId": attempt.question_id,
             "selectedAnswer": attempt.selected_answer,
-            "isCorrect": attempt.is_correct,
+            "isCorrect": server_is_correct,
             "timeTakenSeconds": attempt.time_taken_seconds,
             "examName": attempt.exam_name,
             "subject": attempt.subject,
@@ -3626,12 +3710,12 @@ def record_attempt(attempt: AttemptCreate, user: dict = Depends(get_current_user
         print(f"WARN record_attempt firestore failed uid={uid}: {type(e).__name__}: {e}")
 
     if persisted:
-        return {"status": "recorded", "attemptId": attempt_id, "isCorrect": attempt.is_correct}
+        return {"status": "recorded", "attemptId": attempt_id, "isCorrect": server_is_correct}
 
     return {
         "status": "deferred",
         "attemptId": None,
-        "isCorrect": attempt.is_correct,
+        "isCorrect": server_is_correct,
         "warning": warning or "Attempt was not persisted server-side.",
     }
 
@@ -3821,7 +3905,7 @@ def _require_exam_access(user: dict, exam_name: str | None, exam_year: int | Non
     # Dev bypass: localhost with no real auth infrastructure can skip gating
     if os.getenv("DISABLE_EXAM_GATING", "").lower() in ("1", "true", "yes"):
         return
-    uid = user.get("uid")
+    uid = user.get("uid") if isinstance(user, dict) else None
     if uid:
         sub = _get_subscription_cached(uid)
         if sub.get("is_premium"):
