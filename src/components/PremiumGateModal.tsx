@@ -1,12 +1,14 @@
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { loadRazorpayScript, type RazorpaySuccessResponse } from '../lib/razorpay';
+import { API_BASE } from '../lib/api';
 
 interface PremiumGateModalProps {
   freePaperLabel: string;
   onClose: () => void;
-  /** When provided, "Upgrade" button calls this instead of the "notify me" fallback.
-   *  Hook in your Razorpay / Stripe flow here. */
-  onUpgrade?: () => void;
 }
+
+type Plan = 'monthly' | 'yearly';
 
 const FEATURES = [
   'All previous year papers across every commission',
@@ -25,9 +27,90 @@ function CheckIcon() {
   );
 }
 
-export function PremiumGateModal({ freePaperLabel, onClose, onUpgrade }: PremiumGateModalProps) {
+const PLANS: Record<Plan, { label: string; price: string; subtext: string; paise: number }> = {
+  monthly: { label: 'Monthly', price: '₹149', subtext: 'per month', paise: 14900 },
+  yearly:  { label: 'Yearly',  price: '₹999', subtext: 'per year · save 44%', paise: 99900 },
+};
+
+export function PremiumGateModal({ freePaperLabel, onClose }: PremiumGateModalProps) {
+  const { user, getApiToken, refreshSubscription, handleLogin } = useAuth();
+  const [selectedPlan, setSelectedPlan] = useState<Plan>('yearly');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const [hoverClose, setHoverClose] = useState(false);
-  const [notified, setNotified] = useState(false);
+
+  const handleUpgrade = async () => {
+    if (!user) { handleLogin(); return; }
+    setError('');
+    setLoading(true);
+    try {
+      await loadRazorpayScript();
+      const token = await getApiToken();
+      if (!token) throw new Error('Not authenticated');
+
+      const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ plan: selectedPlan }),
+      });
+      if (!orderRes.ok) {
+        const msg = await orderRes.text().catch(() => 'Order creation failed');
+        throw new Error(msg);
+      }
+      const { order_id, amount, currency, key_id } = (await orderRes.json()) as {
+        order_id: string; amount: number; currency: string; key_id: string;
+      };
+
+      await new Promise<void>((resolve, reject) => {
+        const rzp = new window.Razorpay({
+          key: key_id,
+          amount,
+          currency,
+          name: 'Pariksha AI',
+          description: `${PLANS[selectedPlan].label} Premium`,
+          order_id,
+          prefill: {
+            name: user.displayName ?? undefined,
+            email: user.email ?? undefined,
+          },
+          theme: { color: '#f59e0b' },
+          handler: async (response: RazorpaySuccessResponse) => {
+            try {
+              const verifyRes = await fetch(`${API_BASE}/payment/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                  order_id: response.razorpay_order_id,
+                  payment_id: response.razorpay_payment_id,
+                  signature: response.razorpay_signature,
+                  plan: selectedPlan,
+                }),
+              });
+              if (!verifyRes.ok) throw new Error('Verification failed');
+              await refreshSubscription();
+              setSuccess(true);
+              setTimeout(onClose, 2200);
+              resolve();
+            } catch (e) {
+              reject(e instanceof Error ? e : new Error(String(e)));
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              setLoading(false);
+              resolve();
+            },
+          },
+        });
+        rzp.open();
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Payment failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div
@@ -46,7 +129,7 @@ export function PremiumGateModal({ freePaperLabel, onClose, onUpgrade }: Premium
           background: 'var(--bg)',
           borderRadius: 20,
           padding: '32px 32px 24px',
-          maxWidth: 440,
+          maxWidth: 460,
           width: '100%',
           boxShadow: '0 24px 64px rgba(0,0,0,0.24)',
           border: '1px solid var(--border)',
@@ -74,7 +157,7 @@ export function PremiumGateModal({ freePaperLabel, onClose, onUpgrade }: Premium
         </button>
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <div style={{ textAlign: 'center', marginBottom: 22 }}>
           <div style={{
             width: 56, height: 56, borderRadius: '50%',
             background: 'linear-gradient(135deg, #f59e0b, #d97706)',
@@ -91,15 +174,51 @@ export function PremiumGateModal({ freePaperLabel, onClose, onUpgrade }: Premium
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-sec)', margin: 0, lineHeight: 1.6 }}>
             Free plan includes <strong style={{ color: 'var(--text)' }}>{freePaperLabel}</strong> only.
-            Upgrade to access all{' '}
+            Upgrade for all{' '}
             <strong style={{ color: 'var(--text)' }}>2,500+ papers</strong> across every exam.
           </p>
         </div>
 
+        {/* Plan picker */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+          {(Object.entries(PLANS) as [Plan, typeof PLANS[Plan]][]).map(([key, p]) => (
+            <button
+              key={key}
+              onClick={() => setSelectedPlan(key)}
+              style={{
+                flex: 1, padding: '12px 10px', borderRadius: 12, cursor: 'pointer',
+                border: selectedPlan === key
+                  ? '2px solid #f59e0b'
+                  : '2px solid var(--border)',
+                background: selectedPlan === key ? 'rgba(245,158,11,0.08)' : 'var(--bg-alt)',
+                textAlign: 'center', transition: 'all 0.15s', fontFamily: 'inherit',
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-sec)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {p.label}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: selectedPlan === key ? '#d97706' : 'var(--text)' }}>
+                {p.price}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-tert)', marginTop: 2 }}>
+                {p.subtext}
+              </div>
+              {key === 'yearly' && (
+                <div style={{
+                  marginTop: 5, fontSize: 10, fontWeight: 700, color: '#16a34a',
+                  background: 'var(--green-soft)', borderRadius: 4, padding: '2px 6px', display: 'inline-block',
+                }}>
+                  BEST VALUE
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+
         {/* Feature list */}
-        <div style={{ marginBottom: 22 }}>
+        <div style={{ marginBottom: 18 }}>
           {FEATURES.map((text) => (
-            <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 9 }}>
+            <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
               <span style={{ flexShrink: 0, marginTop: 1, color: '#16a34a', display: 'flex' }}>
                 <CheckIcon />
               </span>
@@ -108,8 +227,19 @@ export function PremiumGateModal({ freePaperLabel, onClose, onUpgrade }: Premium
           ))}
         </div>
 
+        {/* Error */}
+        {error && (
+          <div style={{
+            marginBottom: 12, padding: '10px 14px', borderRadius: 8,
+            background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.25)',
+            fontSize: 13, color: '#b91c1c',
+          }}>
+            {error}
+          </div>
+        )}
+
         {/* CTA */}
-        {notified ? (
+        {success ? (
           <div style={{
             padding: '13px 0', borderRadius: 10,
             background: 'var(--green-soft)', border: '1px solid rgba(16,185,129,0.25)',
@@ -118,27 +248,41 @@ export function PremiumGateModal({ freePaperLabel, onClose, onUpgrade }: Premium
           }}>
             <span style={{ color: '#16a34a', display: 'flex' }}><CheckIcon /></span>
             <span style={{ fontSize: 14, fontWeight: 700, color: '#15803d' }}>
-              We'll notify you when payments go live!
+              Welcome to Premium! All papers unlocked.
             </span>
           </div>
         ) : (
           <button
+            disabled={loading}
             style={{
               width: '100%', padding: '13px 0',
-              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              background: loading ? 'var(--bg-alt)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
               border: 'none', borderRadius: 10,
-              fontSize: 15, fontWeight: 700, color: 'white',
-              cursor: 'pointer', fontFamily: 'inherit',
-              boxShadow: '0 4px 16px rgba(245,158,11,0.32)',
+              fontSize: 15, fontWeight: 700,
+              color: loading ? 'var(--text-sec)' : 'white',
+              cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+              boxShadow: loading ? 'none' : '0 4px 16px rgba(245,158,11,0.32)',
               marginBottom: 10,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              transition: 'all 0.15s',
             }}
-            onClick={() => { if (onUpgrade) { onUpgrade(); } else { setNotified(true); } }}
+            onClick={() => void handleUpgrade()}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>
-            </svg>
-            {onUpgrade ? 'Upgrade to Premium' : 'Get Early Access'}
+            {loading ? (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1s linear infinite' }}>
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                Processing…
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>
+                </svg>
+                Pay {PLANS[selectedPlan].price} with Razorpay
+              </>
+            )}
           </button>
         )}
 
@@ -153,6 +297,10 @@ export function PremiumGateModal({ freePaperLabel, onClose, onUpgrade }: Premium
         >
           Continue with free plan
         </button>
+
+        <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-tert)', margin: '8px 0 0' }}>
+          Secured by Razorpay · No auto-renewal · Cancel anytime
+        </p>
       </div>
     </div>
   );

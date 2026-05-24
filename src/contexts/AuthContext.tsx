@@ -29,6 +29,7 @@ interface AuthContextValue {
   handleForgotPassword: (email: string) => Promise<void>;
   handleLogout: () => Promise<void>;
   getApiToken: () => Promise<string | null>;
+  refreshSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -122,6 +123,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshSubscription = async (): Promise<void> => {
+    const u = auth.currentUser;
+    if (u) await fetchSubscription(u);
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -139,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       handleForgotPassword,
       handleLogout,
       getApiToken,
+      refreshSubscription,
     }}>
       {children}
     </AuthContext.Provider>

@@ -3986,6 +3986,145 @@ def admin_revoke_premium(body: _RevokePremiumBody):
     return {"status": "revoked", "firebase_uid": body.firebase_uid}
 
 
+# ── Razorpay Payment endpoints ──────────────────────────────────────────────────
+
+import razorpay as _razorpay
+import hmac as _hmac
+
+_RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
+_RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+_PLAN_AMOUNT_PAISE: dict[str, int] = {"monthly": 14900, "yearly": 99900}  # ₹149, ₹999
+_PLAN_DAYS: dict[str, int] = {"monthly": 30, "yearly": 365}
+
+
+def _razorpay_client() -> "_razorpay.Client":
+    return _razorpay.Client(auth=(_RAZORPAY_KEY_ID, _RAZORPAY_KEY_SECRET))
+
+
+class _CreateOrderBody(BaseModel):
+    plan: str  # "monthly" | "yearly"
+
+
+@app.post("/payment/create-order")
+def create_payment_order(body: _CreateOrderBody, user: dict = Depends(get_current_user)):
+    plan = body.plan.lower()
+    if plan not in _PLAN_AMOUNT_PAISE:
+        raise HTTPException(400, f"Invalid plan '{plan}'. Must be 'monthly' or 'yearly'.")
+    if not _RAZORPAY_KEY_ID or not _RAZORPAY_KEY_SECRET:
+        raise HTTPException(503, "Payment gateway not configured.")
+
+    uid = user["uid"]
+    amount_paise = _PLAN_AMOUNT_PAISE[plan]
+    receipt = f"{uid[:10]}-{plan[0]}-{int(time.time())}"
+
+    try:
+        order = _razorpay_client().order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": receipt,
+            "notes": {"plan": plan, "firebase_uid": uid},
+        })
+    except Exception as exc:
+        raise HTTPException(502, f"Order creation failed: {exc}")
+
+    try:
+        supabase.table("payments").insert({
+            "firebase_uid": uid,
+            "razorpay_order_id": order["id"],
+            "amount_paise": amount_paise,
+            "plan": plan,
+            "status": "created",
+        }).execute()
+    except Exception as exc:
+        print(f"WARN payments insert: {exc}")
+
+    return {
+        "order_id": order["id"],
+        "amount": amount_paise,
+        "currency": "INR",
+        "key_id": _RAZORPAY_KEY_ID,
+    }
+
+
+class _VerifyPaymentBody(BaseModel):
+    order_id: str
+    payment_id: str
+    signature: str
+    plan: str
+
+
+@app.post("/payment/verify")
+def verify_payment(body: _VerifyPaymentBody, user: dict = Depends(get_current_user)):
+    # Verify HMAC-SHA256 signature
+    expected = _hmac.new(
+        key=_RAZORPAY_KEY_SECRET.encode("utf-8"),
+        msg=f"{body.order_id}|{body.payment_id}".encode("utf-8"),
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+    if not secrets.compare_digest(expected, body.signature):
+        raise HTTPException(400, "Payment signature verification failed.")
+
+    plan = body.plan.lower()
+    days = _PLAN_DAYS.get(plan, 30)
+    uid = user["uid"]
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+
+    try:
+        supabase.table("user_subscriptions").upsert({
+            "firebase_uid": uid,
+            "plan": plan,
+            "status": "active",
+            "plan_expires_at": expires_at,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }, on_conflict="firebase_uid").execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Subscription update failed: {exc}")
+
+    try:
+        supabase.table("payments").update({
+            "razorpay_payment_id": body.payment_id,
+            "razorpay_signature": body.signature,
+            "status": "paid",
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("razorpay_order_id", body.order_id).execute()
+    except Exception as exc:
+        print(f"WARN payments update: {exc}")
+
+    _subscription_cache.pop(uid, None)
+    return {"status": "success", "plan": plan, "expires_at": expires_at}
+
+
+@app.post("/payment/webhook")
+async def razorpay_webhook(request: Request):
+    """Razorpay webhook — handles async events (payment.captured, payment.failed)."""
+    body_bytes = await request.body()
+    signature = request.headers.get("x-razorpay-signature", "")
+
+    expected = _hmac.new(
+        key=_RAZORPAY_KEY_SECRET.encode("utf-8"),
+        msg=body_bytes,
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+    if not secrets.compare_digest(expected, signature):
+        raise HTTPException(400, "Invalid webhook signature.")
+
+    try:
+        data = json.loads(body_bytes)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON body.")
+
+    event = data.get("event", "")
+
+    if event == "payment.failed":
+        try:
+            order_id = data["payload"]["payment"]["entity"]["order_id"]
+            supabase.table("payments").update({"status": "failed"}).eq("razorpay_order_id", order_id).execute()
+        except Exception as exc:
+            print(f"WARN webhook payment.failed: {exc}")
+
+    return {"status": "ok"}
+
+
 # ── User stats ──────────────────────────────────────────────────────────────────
 
 @app.get("/user/stats")
