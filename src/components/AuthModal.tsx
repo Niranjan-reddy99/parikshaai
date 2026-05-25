@@ -26,6 +26,7 @@ export function AuthModal({ onClose, onGoogleSignIn, onEmailSignIn, onEmailSignU
     try {
       await onGoogleSignIn();
     } catch (e: any) {
+      console.error('[Auth] Google sign-in failed:', e?.code, e?.message);
       setError(friendlyError(e?.code));
       setStatus('error');
     }
@@ -309,7 +310,12 @@ function friendlyError(code?: string): string {
     case 'auth/network-request-failed':
       return 'Network error. Check your connection.';
     case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
       return '';
+    case 'auth/popup-blocked':
+      return 'Popup was blocked by your browser. Please allow popups for this site and try again.';
+    case 'auth/unauthorized-domain':
+      return 'Sign-in is not enabled for this domain yet. Please try again in a few minutes or contact support.';
     default:
       return 'Something went wrong. Please try again.';
   }
