@@ -316,7 +316,7 @@ export function Navbar({
             <path d="M9 22V10l7 4 7-4v12l-7-4z" fill="#5eead4" />
           </svg>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)', lineHeight: 1 }}>ParikshaGPT</div>
+            <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: 0, color: 'var(--text)', lineHeight: 1 }}>ParikshaGPT</div>
           </div>
         </div>
 

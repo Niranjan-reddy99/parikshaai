@@ -950,10 +950,10 @@ body {
   flex-shrink: 0;
 }
 .lp2-brand-name {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--lp-brand-name);
-  letter-spacing: -0.3px;
+  letter-spacing: 0;
 }
 .lp2-brand-dot { color: #14b8a6; }
 .lp2-nav { display: flex; gap: 4px; flex: 1; }

@@ -84,10 +84,7 @@ const FAQ_ITEMS = [
 
 function LogoMark() {
   return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <rect width="28" height="28" rx="7" fill="rgba(20,184,166,0.18)" />
-      <path d="M8 8 L14 13.5 L20 8 L20 20 L14 14.5 L8 20 Z" fill="#14b8a6" />
-    </svg>
+    <img src="/pwa-192x192.png" alt="" width="30" height="30" aria-hidden />
   );
 }
 
@@ -812,7 +809,7 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
         <div className="lp2-footer-inner">
           <div className="lp2-footer-brand">
             <LogoMark />
-            <span className="lp2-brand-name" style={{ fontSize: 14 }}>ParikshaGPT</span>
+            <span className="lp2-brand-name" style={{ fontSize: 13 }}>ParikshaGPT</span>
           </div>
           <p className="lp2-footer-p">
             © {new Date().getFullYear()} ParikshaGPT. Real PYQs, AI intelligence — UPSC, APPSC, TSPSC, SSC and growing.

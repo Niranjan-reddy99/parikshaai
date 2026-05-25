@@ -1746,7 +1746,7 @@ function AppContent() {
           >
             <div
               onClick={() => setView("home")}
-              style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 15, color: "var(--text)", cursor: "pointer", userSelect: "none", flexShrink: 0 }}
+              style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 14, color: "var(--text)", cursor: "pointer", userSelect: "none", flexShrink: 0 }}
             >
               <div style={{
                 width: 30, height: 30, borderRadius: 9,
@@ -1755,7 +1755,7 @@ function AppContent() {
                 color: "white", fontWeight: 800, fontSize: 13,
               }}>P</div>
               <div>
-                <div style={{ lineHeight: 1, letterSpacing: "-0.04em" }}>ParikshaGPT</div>
+                <div style={{ lineHeight: 1, letterSpacing: 0 }}>ParikshaGPT</div>
               </div>
             </div>
 
