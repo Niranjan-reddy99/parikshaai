@@ -1,6 +1,6 @@
-# Pariksha Production Architecture Plan
+# ParikshaGPT Production Architecture Plan
 
-This document defines the recommended production architecture for the current Pariksha repository.
+This document defines the recommended production architecture for the current ParikshaGPT repository.
 
 It is based on the current codebase split:
 - learner frontend

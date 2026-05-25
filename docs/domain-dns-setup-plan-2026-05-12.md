@@ -1,6 +1,6 @@
-# Pariksha Domain And DNS Setup Plan
+# ParikshaGPT Domain And DNS Setup Plan
 
-This document is the domain and DNS plan for the current Pariksha stack.
+This document is the domain and DNS plan for the current ParikshaGPT stack.
 
 
 ## 1. Recommended Domain Purchase
@@ -131,11 +131,11 @@ Avoid splitting public traffic between multiple equivalent app URLs.
 
 ## 10. Suggested Naming Example
 
-If the domain were `pariksha.ai`, use:
-- `app.pariksha.ai`
-- `admin.pariksha.ai`
-- `api.pariksha.ai`
-- `admin-api.pariksha.ai`
+If the domain is `parikshagpt.in`, use:
+- `app.parikshagpt.in`
+- `admin.parikshagpt.in`
+- `api.parikshagpt.in`
+- `admin-api.parikshagpt.in`
 
 
 ## 11. Launch DNS Checklist

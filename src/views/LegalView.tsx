@@ -8,10 +8,10 @@ interface LegalViewProps {
 }
 
 const LAST_UPDATED = 'May 24, 2025';
-const APP_NAME = 'Pariksha AI';
-const COMPANY = 'Pariksha AI';
-const CONTACT_EMAIL = 'support@parikshaai.com';
-const WEBSITE = 'parikshaai.com';
+const APP_NAME = 'ParikshaGPT';
+const COMPANY = 'ParikshaGPT';
+const CONTACT_EMAIL = 'support@parikshagpt.in';
+const WEBSITE = 'parikshagpt.in';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

@@ -1,6 +1,6 @@
 # Product PRD — 2026-05-12
 
-This document describes the current product, feature set, system structure, and operational flows of the Pariksha platform as implemented in this repository.
+This document describes the current product, feature set, system structure, and operational flows of the ParikshaGPT platform as implemented in this repository.
 
 It is meant to serve as:
 - the current product requirements document
@@ -11,7 +11,7 @@ It is meant to serve as:
 
 ## 1. Product Summary
 
-Pariksha is a question-bank and exam-practice platform for government exam preparation.
+ParikshaGPT is a question-bank and exam-practice platform for government exam preparation.
 
 The product has two separate surfaces:
 - a learner-facing app for browsing papers, practicing questions, taking mock exams, reviewing results, and tracking progress
@@ -24,7 +24,7 @@ The platform supports two major content models:
 
 ## 2. Product Vision
 
-Pariksha should help aspirants do three things well:
+ParikshaGPT should help aspirants do three things well:
 - find the right questions quickly
 - practice in a format that feels close to the real exam
 - review performance clearly enough to improve weak areas
@@ -171,7 +171,7 @@ Purpose:
 - introduce the product clearly
 - explain free vs premium
 - show core workflow
-- help a new user understand what Pariksha does
+- help a new user understand what ParikshaGPT does
 
 Current content areas:
 - hero
@@ -676,7 +676,7 @@ These are not yet the core finished product outcomes:
 
 ## 17. Strategic Product Shape
 
-Pariksha currently sits at the intersection of:
+ParikshaGPT currently sits at the intersection of:
 - PYQ question bank
 - exam simulation
 - topic-based revision

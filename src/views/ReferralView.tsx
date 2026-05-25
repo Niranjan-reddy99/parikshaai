@@ -93,13 +93,13 @@ export function ReferralView({ userId, displayName, email }: ReferralViewProps) 
   const [activeTab, setActiveTab] = useState<'overview' | 'milestones'>('overview');
 
   const shareVia = (channel: string) => {
-    const text = `Join me on Pariksha — the best PYQ practice app for UPSC and state exams. Use my code ${code} to get 20% off Pro. ${shareUrl}`;
+    const text = `Join me on ParikshaGPT — the best PYQ practice app for UPSC and state exams. Use my code ${code} to get 20% off Pro. ${shareUrl}`;
     const encodedText = encodeURIComponent(text);
     const encodedUrl = encodeURIComponent(shareUrl);
 
     const urls: Record<string, string> = {
       whatsapp: `https://wa.me/?text=${encodedText}`,
-      telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodeURIComponent(`Use my code ${code} to get 20% off Pro on Pariksha PYQ Practice.`)}`,
+      telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodeURIComponent(`Use my code ${code} to get 20% off Pro on ParikshaGPT PYQ Practice.`)}`,
       twitter: `https://twitter.com/intent/tweet?text=${encodedText}`,
     };
     if (urls[channel]) window.open(urls[channel], '_blank', 'noopener,noreferrer');
@@ -138,7 +138,7 @@ export function ReferralView({ userId, displayName, email }: ReferralViewProps) 
               Study together. Earn together.
             </h1>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.6, maxWidth: 420 }}>
-              Invite friends to Pariksha. You both win — they get 20% off Pro, you earn free Pro days for every successful referral.
+              Invite friends to ParikshaGPT. You both win — they get 20% off Pro, you earn free Pro days for every successful referral.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>

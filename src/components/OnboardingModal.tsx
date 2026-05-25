@@ -43,7 +43,7 @@ export function OnboardingModal({ userName, onComplete }: OnboardingModalProps) 
             Welcome, {firstName}!
           </div>
           <div style={{ fontSize: 13.5, color: 'var(--text-sec)', lineHeight: 1.55 }}>
-            Pariksha helps you master PYQs with AI-powered insights.
+            ParikshaGPT helps you master PYQs with AI-powered insights.
           </div>
         </div>
 

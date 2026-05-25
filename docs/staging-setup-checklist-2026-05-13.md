@@ -1,4 +1,4 @@
-# Pariksha Staging Setup Checklist
+# ParikshaGPT Staging Setup Checklist
 
 This is the concrete staging runbook for the current repository as of 2026-05-13.
 

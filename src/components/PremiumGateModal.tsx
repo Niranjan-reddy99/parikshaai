@@ -67,7 +67,7 @@ export function PremiumGateModal({ freePaperLabel, onClose }: PremiumGateModalPr
           key: key_id,
           amount,
           currency,
-          name: 'Pariksha AI',
+          name: 'ParikshaGPT',
           description: `${PLANS[selectedPlan].label} Premium`,
           order_id,
           prefill: {

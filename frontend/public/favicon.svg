@@ -1,6 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ParikshaGPT">
   <rect width="512" height="512" rx="96" fill="#0d1f1e"/>
-  <polygon points="256,60 440,165 440,347 256,452 72,347 72,165" fill="none" stroke="#2dd4bf" stroke-width="28" stroke-linejoin="round"/>
-  <polygon points="256,140 340,188 340,282 256,330 172,282 172,188" fill="#2dd4bf" opacity="0.25"/>
-  <polygon points="256,185 300,210 300,260 256,285 212,260 212,210" fill="#2dd4bf" opacity="0.7"/>
+  <path d="M96 164 256 72l160 92v184l-160 92L96 348Z" fill="none" stroke="#2dd4bf" stroke-width="28" stroke-linejoin="round"/>
+  <path d="M256 124 371 190v132l-115 66-115-66V190Z" fill="#2dd4bf" opacity=".16"/>
+  <path d="M183 324V182h78c39 0 65 23 65 58s-26 58-65 58h-33v26h-45Zm45-65h28c15 0 25-7 25-19s-10-19-25-19h-28v38Z" fill="#f8fafc"/>
+  <path d="M335 330c-46 0-78-31-78-75 0-45 33-77 80-77 32 0 58 15 69 42l-43 17c-5-11-14-17-27-17-20 0-33 14-33 35 0 22 13 36 34 36 15 0 25-6 29-17h-35v-34h78v16c0 46-29 74-74 74Z" fill="#2dd4bf"/>
+  <circle cx="398" cy="154" r="22" fill="#f59e0b"/>
 </svg>

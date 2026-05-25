@@ -21,8 +21,8 @@ export default defineConfig(({ mode }) => {
               registerType: 'autoUpdate',
               includeAssets: ['icon.svg', 'apple-touch-icon.png'],
               manifest: {
-                name: 'Pariksha — PYQ Intelligence',
-                short_name: 'Pariksha',
+                name: 'ParikshaGPT — PYQ Intelligence',
+                short_name: 'ParikshaGPT',
                 description: 'Practice official PYQs from UPSC, APPSC, TSPSC, SSC and more with AI explanations and pattern intelligence.',
                 theme_color: '#0d1f1e',
                 background_color: '#0d1f1e',

@@ -1755,7 +1755,7 @@ function AppContent() {
                 color: "white", fontWeight: 800, fontSize: 13,
               }}>P</div>
               <div>
-                <div style={{ lineHeight: 1, letterSpacing: "-0.04em" }}>Pariksha</div>
+                <div style={{ lineHeight: 1, letterSpacing: "-0.04em" }}>ParikshaGPT</div>
               </div>
             </div>
 

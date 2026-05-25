@@ -70,14 +70,14 @@ const MARQUEE_ITEMS = [
 ];
 
 const FAQ_ITEMS = [
-  { q: 'Is this only for UPSC aspirants?', a: 'Not at all. Pariksha covers UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB and more. We add new commissions and papers as they\'re released — your subscription includes everything, current and future.' },
+  { q: 'Is this only for UPSC aspirants?', a: 'Not at all. ParikshaGPT covers UPSC, APPSC, TSPSC, SSC, APSLPRB, TSLPRB and more. We add new commissions and papers as they\'re released — your subscription includes everything, current and future.' },
   { q: 'Which exams are currently available?', a: 'UPSC (Prelims GS, CAPF, CDS, NDA), APPSC (Group I, II, AEE, Forest SO, EO, Agriculture Officer), TSPSC (Group I, II, III, AEE, DAO, TPBO), SSC (CGL), APSLPRB (SI Mains), TSLPRB (SI Mains, Prelims), AP High Court and several more. The list keeps growing.' },
   { q: 'Are these real official questions or AI-generated?', a: 'Every question is sourced directly from published official exam papers. We never generate or simulate questions. AI is only used for explanations and pattern tagging — the questions themselves are 100% official.' },
   { q: 'What is "Pattern Intelligence" and why does it matter?', a: 'Each question is tagged with three layers: the question frame (e.g. statement-based, assertion-reason), the examiner\'s trap (e.g. absolute wording, negation), and the cognitive skill you need to solve it. This tells you HOW to approach a question type — not just whether your answer was right or wrong.' },
-  { q: 'How is Pariksha different from other PYQ apps?', a: 'Most PYQ apps show questions and answers. Pariksha adds AI explanations for every question, pattern tags that decode examiner tricks, topic-level accuracy tracking, timed mock tests with the actual paper\'s question mix, and coverage across multiple state commissions — not just UPSC.' },
+  { q: 'How is ParikshaGPT different from other PYQ apps?', a: 'Most PYQ apps show questions and answers. ParikshaGPT adds AI explanations for every question, pattern tags that decode examiner tricks, topic-level accuracy tracking, timed mock tests with the actual paper\'s question mix, and coverage across multiple state commissions — not just UPSC.' },
   { q: 'Will new papers be added during my subscription?', a: 'Yes. Every new official paper we add is immediately available to all subscribers at no extra charge. There are no per-exam fees ever.' },
   { q: 'Is there a free trial?', a: 'Yes — you can explore the app without entering any payment details. Questions you answer during the trial are saved and carry over when you subscribe.' },
-  { q: 'Can I install this as an app on my phone or desktop?', a: 'Yes. Pariksha is a Progressive Web App (PWA). After logging in you\'ll see an "Install App" option. Once installed it opens like a native app, loads faster, and works with poor connectivity. No app store needed.' },
+  { q: 'Can I install this as an app on my phone or desktop?', a: 'Yes. ParikshaGPT is a Progressive Web App (PWA). After logging in you\'ll see an "Install App" option. Once installed it opens like a native app, loads faster, and works with poor connectivity. No app store needed.' },
 ];
 
 // ── SVG Components ──────────────────────────────────────────────────────────
@@ -321,7 +321,7 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
         <div className="lp2-header-inner">
           <a href="#" className="lp2-brand">
             <LogoMark />
-            <span className="lp2-brand-name">Pariksha<span className="lp2-brand-dot">.ai</span></span>
+            <span className="lp2-brand-name">Pariksha<span className="lp2-brand-dot">GPT</span></span>
           </a>
           <nav className="lp2-nav">
             <a href="#features" className="lp2-nav-link">Features</a>
@@ -490,7 +490,7 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
             >
               <div className="lp2-comparison-header">
                 <CheckCircle2 size={16} color="#14b8a6" />
-                <span>What Pariksha enables</span>
+                <span>What ParikshaGPT enables</span>
               </div>
               {SOLUTIONS.map((s, i) => (
                 <div key={i} className="lp2-comparison-item lp2-comparison-item-good">
@@ -508,7 +508,7 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
         <div className="lp2-section-inner">
           <div className="lp2-pattern-grid">
             <div className="lp2-pattern-text">
-              <div className="lp2-eyebrow">Unique to Pariksha</div>
+              <div className="lp2-eyebrow">Unique to ParikshaGPT</div>
               <h2 className="lp2-h2 lp2-h2-left">Pattern Intelligence — know HOW to solve it</h2>
               <p className="lp2-section-p lp2-section-p-left">
                 Every question is classified with three layers of intelligence. Not just "statement-based"
@@ -812,10 +812,10 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
         <div className="lp2-footer-inner">
           <div className="lp2-footer-brand">
             <LogoMark />
-            <span className="lp2-brand-name" style={{ fontSize: 14 }}>Pariksha.ai</span>
+            <span className="lp2-brand-name" style={{ fontSize: 14 }}>ParikshaGPT</span>
           </div>
           <p className="lp2-footer-p">
-            © {new Date().getFullYear()} Pariksha. Real PYQs, AI intelligence — UPSC, APPSC, TSPSC, SSC and growing.
+            © {new Date().getFullYear()} ParikshaGPT. Real PYQs, AI intelligence — UPSC, APPSC, TSPSC, SSC and growing.
           </p>
           <div className="lp2-footer-links">
             <a href="#" className="lp2-footer-link">Privacy</a>

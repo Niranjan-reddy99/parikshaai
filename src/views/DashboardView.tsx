@@ -364,7 +364,7 @@ export function DashboardView({
     ? `${primaryWeakTopic.pct}% accuracy across recent attempts. A short focused set here will give you the fastest improvement signal.`
     : primaryWeakSubject
       ? `${primaryWeakSubject.pct}% accuracy right now. Start here before adding more new topics.`
-      : 'Answer one short practice set so Pariksha can identify your weak and strong areas clearly.';
+      : 'Answer one short practice set so ParikshaGPT can identify your weak and strong areas clearly.';
   const progressTone = overallAccuracy >= BENCHMARK
     ? 'You are above the target benchmark. Keep the rhythm steady.'
     : overallAccuracy >= 50

@@ -1,4 +1,4 @@
-# Pariksha Deployment Checklist And Environment Variables
+# ParikshaGPT Deployment Checklist And Environment Variables
 
 This document is the practical deployment checklist for the current repository.
 

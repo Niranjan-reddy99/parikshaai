@@ -1,8 +1,8 @@
-# Pariksha — PYQ Intelligence Platform
+# ParikshaGPT — PYQ Intelligence Platform
 
 AI-powered exam preparation for UPSC, TSPSC, APPSC, and other Indian PSC exams. Aggregates official PYQ question banks, surfaces topic patterns, and tracks your preparation progress.
 
-**Live:** [parikshaai.vercel.app](https://parikshaai.vercel.app)
+**Live:** [parikshagpt.in](https://parikshagpt.in)
 
 ---
 
@@ -102,8 +102,8 @@ uvicorn main:app --reload --port 8000
 
 | Service | Platform | URL |
 |---|---|---|
-| Student frontend | Vercel | parikshaai.vercel.app |
-| FastAPI backend | Render.com | parikshaai.onrender.com |
+| Student frontend | Vercel | parikshagpt.in |
+| FastAPI backend | Render.com | api.parikshagpt.in |
 | Admin frontend | Localhost only | 127.0.0.1:4001 |
 
 ### Vercel Environment Variables
