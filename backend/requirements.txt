@@ -16,3 +16,4 @@ lxml==5.3.0
 PyJWT==2.10.1
 cryptography==44.0.1
 razorpay==1.4.2
+setuptools>=67.0.0
