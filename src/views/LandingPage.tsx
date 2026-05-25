@@ -809,7 +809,7 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
         <div className="lp2-footer-inner">
           <div className="lp2-footer-brand">
             <LogoMark />
-            <span className="lp2-brand-name" style={{ fontSize: 13 }}>ParikshaGPT</span>
+            <span className="lp2-brand-name" style={{ fontSize: 13 }}>Pariksha<span className="lp2-brand-dot">GPT</span></span>
           </div>
           <p className="lp2-footer-p">
             © {new Date().getFullYear()} ParikshaGPT. Real PYQs, AI intelligence — UPSC, APPSC, TSPSC, SSC and growing.

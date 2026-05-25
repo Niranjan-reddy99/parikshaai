@@ -1748,14 +1748,11 @@ function AppContent() {
               onClick={() => setView("home")}
               style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 14, color: "var(--text)", cursor: "pointer", userSelect: "none", flexShrink: 0 }}
             >
-              <div style={{
-                width: 30, height: 30, borderRadius: 9,
-                background: "linear-gradient(135deg, var(--brand-ink), var(--accent))",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "white", fontWeight: 800, fontSize: 13,
-              }}>P</div>
+              <img src="/pwa-192x192.png" alt="" width="30" height="30" aria-hidden="true" />
               <div>
-                <div style={{ lineHeight: 1, letterSpacing: 0 }}>ParikshaGPT</div>
+                <div style={{ lineHeight: 1, letterSpacing: 0 }}>
+                  Pariksha<span style={{ color: "#14b8a6" }}>GPT</span>
+                </div>
               </div>
             </div>
 

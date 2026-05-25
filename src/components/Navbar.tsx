@@ -311,12 +311,11 @@ export function Navbar({
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 9, flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="8" fill="#0f172a" />
-            <path d="M9 22V10l7 4 7-4v12l-7-4z" fill="#5eead4" />
-          </svg>
+          <img src="/pwa-192x192.png" alt="" width="30" height="30" aria-hidden="true" />
           <div>
-            <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: 0, color: 'var(--text)', lineHeight: 1 }}>ParikshaGPT</div>
+            <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: 0, color: 'var(--text)', lineHeight: 1 }}>
+              Pariksha<span style={{ color: '#14b8a6' }}>GPT</span>
+            </div>
           </div>
         </div>
 
