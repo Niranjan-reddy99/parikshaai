@@ -890,6 +890,7 @@ export default function App() {
   const [shiftLabel, setShiftLabel] = useState('');
   const [expectedCount, setExpectedCount] = useState('');
   const [mode, setMode] = useState<Mode>('auto');
+  const [adminTab, setAdminTab] = useState<'upload' | 'papers' | 'coverage' | 'tools'>('upload');
   const [phase, setPhase] = useState<Phase>('idle');
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('Waiting for the next upload.');
@@ -898,6 +899,8 @@ export default function App() {
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [jobSearch, setJobSearch] = useState('');
+  const [coverageData, setCoverageData] = useState<{exam_name:string;exam_year:number;total_questions:number;verified_answers:number;missing_answers:number;answer_coverage_pct:number;explanations_generated:number;explanation_coverage_pct:number;needs_answer_key:boolean}[]>([]);
+  const [coverageLoading, setCoverageLoading] = useState(false);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [conflict, setConflict] = useState<UploadConflict | null>(null);
   const [reviewTarget, setReviewTarget] = useState<ReviewTarget | null>(null);
@@ -1013,6 +1016,22 @@ export default function App() {
       setDebug(jobError?.message || 'Could not load recent jobs.');
     } finally {
       setJobsLoading(false);
+    }
+  }, []);
+
+  const loadAnswerCoverage = useCallback(async () => {
+    setCoverageLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/answer-coverage`, {
+        headers: await adminHeaders(),
+      });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      const data = await res.json();
+      setCoverageData(Array.isArray(data.papers) ? data.papers : []);
+    } catch {
+      /* silent — panel shows empty state */
+    } finally {
+      setCoverageLoading(false);
     }
   }, []);
 
@@ -1178,6 +1197,7 @@ export default function App() {
   useEffect(() => {
     if (!user || !hasAdminAuth()) return;
     void loadRecentJobs();
+    void loadAnswerCoverage();
     const savedJob = localStorage.getItem(ACTIVE_JOB_KEY);
     if (savedJob) {
       try {
@@ -1192,7 +1212,7 @@ export default function App() {
     return () => {
       clearPolling();
     };
-  }, [clearPolling, loadRecentJobs, pollJob, user]);
+  }, [clearPolling, loadAnswerCoverage, loadRecentJobs, pollJob, user]);
 
   const handleSubmit = useCallback(
     async (options?: { forceReplace?: boolean; replaceExisting?: boolean }) => {
@@ -1620,52 +1640,51 @@ export default function App() {
 
   return (
     <div className="admin-shell">
-      <div className="hero-card">
-        <div>
-          <div className="hero-kicker">Private admin workspace</div>
-          <h1>Pariksha paper upload console</h1>
-          <p className="hero-copy">
-            Upload the paper, then review whether it is actually safe to publish into the learner app.
-            Missing numbers, hidden rows, and editable questions all live in one place here.
-          </p>
+      {/* ── Topbar ── */}
+      <div className="admin-topbar">
+        <div className="admin-brand">
+          <div className="admin-brand-dot" />
+          Pariksha Admin
         </div>
-        <div className="hero-meta">
-          <div className="meta-chip">
-            <Shield size={15} />
-            Admin API: {API_BASE}
-          </div>
-          <div className="meta-chip meta-chip-ok">
-            <CheckCircle2 size={15} />
-            Signed in as {user.email || 'admin user'}
-          </div>
-          <button className="ghost-button hero-signout" onClick={() => void handleAdminSignOut()}>
+        <nav className="admin-nav">
+          {(['upload', 'papers', 'coverage', 'tools'] as const).map(t => (
+            <button
+              key={t}
+              className={`admin-tab ${adminTab === t ? 'admin-tab-active' : ''}`}
+              onClick={() => setAdminTab(t)}
+            >
+              {t === 'upload' ? 'Upload' : t === 'papers' ? 'Papers' : t === 'coverage' ? 'Coverage' : 'Tools'}
+            </button>
+          ))}
+        </nav>
+        <div className="admin-user">
+          <CheckCircle2 size={13} color="#16a34a" />
+          {user.email || 'admin'}
+          {authError && <span style={{ color: '#ef4444', fontSize: 12 }}>{authError}</span>}
+          <button className="ghost-button" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => void handleAdminSignOut()}>
             Sign out
           </button>
-          {authError ? (
-            <div className="meta-chip meta-chip-danger">
-              <AlertCircle size={15} />
-              {authError}
-            </div>
-          ) : null}
         </div>
       </div>
 
-      <div className="workspace-grid">
-        <PatternTagSection visible={true} />
-
-        <section className="panel">
-          <div className="section-header">
-            <div>
-              <div className="section-kicker">Upload</div>
-              <h2>Queue a new paper</h2>
-            </div>
-            {(phase === 'processing' || phase === 'uploading') && (
-              <div className="live-pill">
-                <Loader2 size={14} className="spin" />
-                Live
+      {/* ══ UPLOAD TAB ══════════════════════════════════════════════════ */}
+      {adminTab === 'upload' && (
+        <div className="tab-content">
+          <div className="upload-layout">
+            {/* Left: form */}
+            <section className="panel">
+              <div className="section-header">
+                <div>
+                  <div className="section-kicker">Upload</div>
+                  <h2>Queue a new paper</h2>
+                </div>
+                {(phase === 'processing' || phase === 'uploading') && (
+                  <div className="live-pill">
+                    <Loader2 size={13} className="spin" />
+                    Processing
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
           <div className="mode-grid">
             {MODES.map((entry) => (
@@ -1783,53 +1802,33 @@ export default function App() {
           ) : null}
 
           <div className="action-row">
-              <button className="primary-button" onClick={() => void handleSubmit()} disabled={!canSubmit}>
-              {phase === 'uploading' || phase === 'processing' ? (
-                <>
-                  <Loader2 size={16} className="spin" />
-                  Working...
-                </>
-              ) : (
-                <>
-                  <Upload size={16} />
-                  {mode === 'pattern' ? 'Upload content PDF' : 'Upload paper'}
-                </>
-              )}
+            <button className="primary-button" onClick={() => void handleSubmit()} disabled={!canSubmit}>
+              {phase === 'uploading' || phase === 'processing'
+                ? <><Loader2 size={15} className="spin" />Working…</>
+                : <><Upload size={15} />{mode === 'pattern' ? 'Upload content PDF' : 'Upload paper'}</>}
             </button>
-
             {conflict ? (
               <>
-                <button
-                  className="secondary-button"
-                  onClick={() => void handleSubmit({ forceReplace: true })}
-                >
+                <button className="secondary-button" onClick={() => void handleSubmit({ forceReplace: true })}>
                   {mode === 'pattern' ? 'Retry import' : 'Force replace'}
                 </button>
-                {conflict.existingExamName && mode !== 'pattern' ? (
-                  <button
-                    className="secondary-button"
-                    onClick={() => void handleSubmit({ replaceExisting: true })}
-                  >
+                {conflict.existingExamName && mode !== 'pattern' && (
+                  <button className="secondary-button" onClick={() => void handleSubmit({ replaceExisting: true })}>
                     Replace existing exam
                   </button>
-                ) : null}
+                )}
               </>
             ) : null}
-
-            <button className="ghost-button" onClick={resetForm}>
-              Reset
-            </button>
-            <button
-              className="ghost-button"
-              onClick={() => openReviewFor(examName.trim(), Number(year))}
-              disabled={mode === 'pattern' || !examName.trim() || !year.trim()}
-            >
-              Load review workspace
+            <button className="ghost-button" onClick={resetForm}>Reset</button>
+            <button className="ghost-button" onClick={() => { openReviewFor(examName.trim(), Number(year)); setAdminTab('papers'); }}
+              disabled={mode === 'pattern' || !examName.trim() || !year.trim()}>
+              Open in Papers →
             </button>
           </div>
         </section>
 
-        <aside className="sidebar-stack">
+        {/* Right: status */}
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <section className="panel">
             <div className="section-header">
               <div>
@@ -1838,7 +1837,6 @@ export default function App() {
               </div>
               {activeJob ? <JobBadge status={activeJob.status} /> : null}
             </div>
-
             <div className="progress-wrap">
               <div className="progress-track">
                 <div className="progress-fill" style={{ width: `${progress}%` }} />
@@ -1848,450 +1846,361 @@ export default function App() {
                 <strong>{progress}%</strong>
               </div>
             </div>
-
             <div className="status-list">
               <div className="status-item">
-                <Clock3 size={15} />
+                <Clock3 size={14} />
                 <span>{phase === 'done' ? 'Last upload completed' : phase === 'error' ? 'Needs attention' : 'Standing by'}</span>
               </div>
-              {activeJob ? (
+              {activeJob && (
                 <div className="status-item">
-                  <FileText size={15} />
-                  <span>
-                    {activeJob.exam_name || 'Untitled exam'} {activeJob.exam_year || ''}
-                  </span>
+                  <FileText size={14} />
+                  <span>{activeJob.exam_name || 'Untitled exam'} {activeJob.exam_year || ''}</span>
                 </div>
-              ) : null}
+              )}
             </div>
-
             {debug ? <pre className="debug-card">{debug}</pre> : null}
           </section>
 
           <section className="panel">
             <div className="section-header">
-              <div>
-                <div className="section-kicker">Jobs</div>
-                <h2>Recent uploads</h2>
-              </div>
+              <div><div className="section-kicker">Recent</div><h2>Upload jobs</h2></div>
               <button className="icon-button" onClick={() => void loadRecentJobs()} disabled={jobsLoading}>
-                <RefreshCw size={15} className={jobsLoading ? 'spin' : ''} />
+                <RefreshCw size={14} className={jobsLoading ? 'spin' : ''} />
               </button>
             </div>
-
-            <input
-              type="search"
-              placeholder="Filter by exam name…"
-              value={jobSearch}
-              onChange={e => setJobSearch(e.target.value)}
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                padding: '7px 10px', borderRadius: 8, marginBottom: 10,
-                border: '1px solid var(--border)', background: 'var(--bg-alt)',
-                color: 'var(--text)', fontSize: 13, fontFamily: 'inherit',
-                outline: 'none',
-              }}
-            />
-
+            <input type="search" placeholder="Filter…" value={jobSearch} onChange={e => setJobSearch(e.target.value)}
+              style={{ width: '100%', padding: '7px 10px', borderRadius: 8, marginBottom: 10, border: '1px solid #e5e9f0', background: '#f9fafb', fontSize: 12.5, outline: 'none' }} />
             <div className="job-list">
-              {recentJobs
-                .filter(job =>
-                  !jobSearch.trim() ||
-                  (job.exam_name ?? '').toLowerCase().includes(jobSearch.toLowerCase()) ||
-                  (job.filename  ?? '').toLowerCase().includes(jobSearch.toLowerCase())
-                )
-                .map((job) => (
-                <button
-                  key={job.id}
-                  type="button"
-                  className={`job-card ${job.id === currentJobId ? 'job-card-active' : ''}`}
-                  onClick={() => {
-                    pollJob(job.id);
-                    if (job.paper_id && job.exam_name && job.exam_year) {
-                      openReviewFor(job.exam_name, job.exam_year);
-                    }
-                  }}
-                >
-                  <div className="job-card-top">
-                    <strong>{job.exam_name || job.filename || 'Untitled job'}</strong>
-                    <JobBadge status={job.status} />
-                  </div>
-                  <p>{job.exam_year || 'Year pending'} · {job.filename || 'No filename saved'}</p>
-                  <small>{formatTimestamp(job.updated_at)}</small>
-                </button>
-              ))}
-              {!recentJobs.filter(j =>
-                !jobSearch.trim() ||
-                (j.exam_name ?? '').toLowerCase().includes(jobSearch.toLowerCase()) ||
-                (j.filename  ?? '').toLowerCase().includes(jobSearch.toLowerCase())
-              ).length && !jobsLoading ? (
-                <div className="empty-state">No upload jobs yet.</div>
-              ) : null}
+              {recentJobs.filter(j => !jobSearch.trim() || (j.exam_name ?? '').toLowerCase().includes(jobSearch.toLowerCase()) || (j.filename ?? '').toLowerCase().includes(jobSearch.toLowerCase()))
+                .map(job => (
+                  <button key={job.id} type="button" className={`job-card ${job.id === currentJobId ? 'job-card-active' : ''}`}
+                    onClick={() => { pollJob(job.id); if (job.paper_id && job.exam_name && job.exam_year) { openReviewFor(job.exam_name, job.exam_year); setAdminTab('papers'); } }}>
+                    <div className="job-card-top">
+                      <strong>{job.exam_name || job.filename || 'Untitled job'}</strong>
+                      <JobBadge status={job.status} />
+                    </div>
+                    <p>{job.exam_year || 'Year pending'} · {job.filename || 'No filename'}</p>
+                    <small>{formatTimestamp(job.updated_at)}</small>
+                  </button>
+                ))}
+              {!recentJobs.filter(j => !jobSearch.trim() || (j.exam_name ?? '').toLowerCase().includes(jobSearch.toLowerCase())).length && !jobsLoading
+                ? <div className="empty-state">No upload jobs yet.</div> : null}
             </div>
           </section>
         </aside>
       </div>
+      </div>
+      )}
 
-      <div className="review-grid">
-        <section className="panel review-panel">
-          <div className="section-header">
-            <div>
-              <div className="section-kicker">Publish status</div>
-              <h2>
-                {reviewTarget
-                  ? `${reviewTarget.examName} ${reviewTarget.examYear}`
-                  : 'Choose a paper to review'}
-              </h2>
-            </div>
-            {reviewTarget ? (
-              <button className="icon-button" onClick={() => void loadReviewWorkspace(reviewTarget)} disabled={reviewLoading}>
-                <RefreshCw size={15} className={reviewLoading ? 'spin' : ''} />
-              </button>
-            ) : null}
-          </div>
-
-          {reviewLoading ? (
-            <div className="empty-state">
-              <Loader2 size={18} className="spin" />
-              <div>Loading publish status and question review workspace…</div>
-            </div>
-          ) : reviewTarget && reviewWorkspace.paper ? (
-            <>
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <span>Status</span>
-                  <strong>
-                    <PublishBadge
-                      publishable={reviewWorkspace.paper.publishable}
-                      blocked={reviewWorkspace.paper.blocked}
-                      hiddenCount={reviewWorkspace.paper.hidden_question_count}
-                    />
-                  </strong>
-                </div>
-                <div className="stat-card">
-                  <span>Visible questions</span>
-                  <strong>{reviewWorkspace.paper.visible_question_count}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>Hidden questions</span>
-                  <strong>{reviewWorkspace.paper.hidden_question_count}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>Paper blockers</span>
-                  <strong>{reviewWorkspace.paper.paper_blocker_count}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>Row blockers</span>
-                  <strong>{reviewWorkspace.paper.row_blocker_count}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>Reupload needed</span>
-                  <strong>{reviewWorkspace.paper.reupload_needed ? 'Yes' : 'No'}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>Verified answers</span>
-                  <strong>{reviewWorkspace.paper.verified_answer_count ?? '—'}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>Explanation coverage</span>
-                  <strong>
-                    {reviewWorkspace.paper.explanations
-                      ? `${reviewWorkspace.paper.explanations.eligible_generated}/${reviewWorkspace.paper.explanations.eligible_total}`
-                      : '—'}
-                  </strong>
-                </div>
-              </div>
-
-              <div className="helper-note">
-                {reviewWorkspace.paper.blocked
-                  ? 'This paper is currently blocked from localhost:4000. Fix the missing or broken rows below, then refresh this workspace.'
-                  : reviewWorkspace.paper.hidden_question_count > 0
-                  ? 'This paper can go public, but some rows will stay hidden until you repair them.'
-                  : 'This paper is clean enough for the learner app right now.'}
-              </div>
-
-              {reviewWorkspace.paper.explanations ? (
-                <div className="helper-note">
-                  {reviewWorkspace.paper.explanations.eligible_missing > 0
-                    ? `${reviewWorkspace.paper.explanations.eligible_missing} verified question(s) still need explanations. ${reviewWorkspace.paper.explanations.unverified_or_invalid} question(s) are still unverified or missing a valid answer, so explanation coverage cannot reach 100% yet.`
-                    : reviewWorkspace.paper.explanations.unverified_or_invalid > 0
-                    ? `All verified questions already have explanations. ${reviewWorkspace.paper.explanations.unverified_or_invalid} question(s) are still unverified or missing a valid answer.`
-                    : 'All verified questions already have explanations.'}
-                </div>
-              ) : null}
-
-              <div className="panel-subsection">
-                <div className="section-kicker">Paper actions</div>
-                <div className="field-grid review-action-grid">
-                  <label className="field">
-                    <span>Exam name in frontend</span>
-                    <input
-                      value={renameExamDraft}
-                      onChange={(event) => setRenameExamDraft(event.target.value)}
-                      placeholder="Rename this exam"
-                    />
-                  </label>
-                </div>
-                <div className="action-row">
-                  <button
-                    className="secondary-button"
-                    onClick={() => void handleRenameExam()}
-                    disabled={
-                      renamingExam ||
-                      !reviewTarget ||
-                      !renameExamDraft.trim() ||
-                      renameExamDraft.trim() === reviewTarget.examName
-                    }
-                  >
-                    {renamingExam ? <Loader2 size={16} className="spin" /> : <FilePenLine size={16} />}
-                    Rename exam
+      {/* ══ PAPERS TAB ══════════════════════════════════════════════════ */}
+      {adminTab === 'papers' && (
+        <div className="tab-content">
+          <div className="papers-layout">
+            {/* Left: job list */}
+            <aside className="papers-sidebar">
+              <section className="panel">
+                <div className="section-header">
+                  <div><div className="section-kicker">Jobs</div><h2>Recent uploads</h2></div>
+                  <button className="icon-button" onClick={() => void loadRecentJobs()} disabled={jobsLoading}>
+                    <RefreshCw size={14} className={jobsLoading ? 'spin' : ''} />
                   </button>
-                  <button
-                    className="secondary-button"
-                    onClick={() => void handleGenerateExplanations()}
-                    disabled={generatingExplanations || !reviewTarget}
-                  >
-                    {generatingExplanations ? <Loader2 size={16} className="spin" /> : <FileText size={16} />}
-                    Generate explanations
-                  </button>
-                  <button
-                    className="primary-button"
-                    onClick={() => void handlePublishPaper()}
-                    disabled={publishingPaper || !reviewTarget}
-                  >
-                    {publishingPaper ? <Loader2 size={16} className="spin" /> : <CheckCircle2 size={16} />}
-                    Publish to frontend
-                  </button>
-                  {confirmDeletePaper ? (
-                    <>
-                      <button className="danger-button" onClick={() => void handleDeletePaper(false)} disabled={deletingPaper}>
-                        {deletingPaper ? <Loader2 size={16} className="spin" /> : <Trash size={16} />}
-                        Confirm hide (recoverable)
+                </div>
+                <input type="search" placeholder="Filter…" value={jobSearch} onChange={e => setJobSearch(e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, marginBottom: 10, border: '1px solid #e5e9f0', background: '#f9fafb', fontSize: 12.5, outline: 'none' }} />
+                <div className="job-list">
+                  {recentJobs.filter(j => !jobSearch.trim() || (j.exam_name ?? '').toLowerCase().includes(jobSearch.toLowerCase()) || (j.filename ?? '').toLowerCase().includes(jobSearch.toLowerCase()))
+                    .map(job => (
+                      <button key={job.id} type="button" className={`job-card ${job.id === currentJobId ? 'job-card-active' : ''}`}
+                        onClick={() => { pollJob(job.id); if (job.exam_name && job.exam_year) openReviewFor(job.exam_name, job.exam_year); }}>
+                        <div className="job-card-top">
+                          <strong>{job.exam_name || job.filename || 'Untitled job'}</strong>
+                          <JobBadge status={job.status} />
+                        </div>
+                        <p>{job.exam_year || 'Year pending'} · {job.filename || 'No filename'}</p>
+                        <small>{formatTimestamp(job.updated_at)}</small>
                       </button>
-                      <button className="ghost-button" onClick={() => setConfirmDeletePaper(false)}>Cancel</button>
-                    </>
-                  ) : confirmHardDeletePaper ? (
-                    <>
-                      <button className="danger-button" onClick={() => void handleDeletePaper(true)} disabled={deletingPaper}>
-                        {deletingPaper ? <Loader2 size={16} className="spin" /> : <Trash size={16} />}
-                        Confirm — permanently erase
-                      </button>
-                      <button className="ghost-button" onClick={() => setConfirmHardDeletePaper(false)}>Cancel</button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        className="ghost-button"
-                        style={{ color: 'var(--color-danger, #ef4444)' }}
-                        onClick={() => setConfirmDeletePaper(true)}
-                        disabled={deletingPaper || !reviewTarget}
-                      >
-                        <Trash size={15} /> Hide paper
-                      </button>
-                      <button
-                        className="ghost-button"
-                        style={{ color: 'var(--color-danger, #ef4444)', opacity: 0.7 }}
-                        onClick={() => setConfirmHardDeletePaper(true)}
-                        disabled={deletingPaper || !reviewTarget}
-                        title="Permanently delete from database — cannot be undone"
-                      >
-                        <Trash size={15} /> Permanent delete
-                      </button>
-                    </>
+                    ))}
+                  {!recentJobs.filter(j => !jobSearch.trim() || (j.exam_name ?? '').toLowerCase().includes(jobSearch.toLowerCase())).length && !jobsLoading
+                    ? <div className="empty-state">No upload jobs yet.</div> : null}
+                </div>
+              </section>
+            </aside>
+
+            {/* Right: review workspace */}
+            <div className="papers-main">
+              {/* Paper status + actions */}
+              <section className="panel">
+                <div className="section-header">
+                  <div>
+                    <div className="section-kicker">Publish status</div>
+                    <h2>{reviewTarget ? `${reviewTarget.examName} ${reviewTarget.examYear}` : 'Select a paper'}</h2>
+                  </div>
+                  {reviewTarget && (
+                    <button className="icon-button" onClick={() => void loadReviewWorkspace(reviewTarget)} disabled={reviewLoading}>
+                      <RefreshCw size={14} className={reviewLoading ? 'spin' : ''} />
+                    </button>
                   )}
                 </div>
-              </div>
 
-              {reviewActionMessage ? (
-                <div
-                  className={`alert-card ${
-                    reviewActionTone === 'success' ? 'alert-success' : 'alert-danger'
-                  } compact-alert`}
-                >
-                  {reviewActionTone === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                  <div>
-                    <strong>{reviewActionTone === 'success' ? 'Done' : 'Action failed'}</strong>
-                    <p>{reviewActionMessage}</p>
-                  </div>
-                </div>
-              ) : null}
+                {reviewLoading ? (
+                  <div className="empty-state"><Loader2 size={16} className="spin" /><span>Loading workspace…</span></div>
+                ) : reviewTarget && reviewWorkspace.paper ? (
+                  <>
+                    <div className="stats-grid">
+                      <div className="stat-card"><span>Status</span><strong><PublishBadge publishable={reviewWorkspace.paper.publishable} blocked={reviewWorkspace.paper.blocked} hiddenCount={reviewWorkspace.paper.hidden_question_count} /></strong></div>
+                      <div className="stat-card"><span>Visible</span><strong>{reviewWorkspace.paper.visible_question_count}</strong></div>
+                      <div className="stat-card"><span>Hidden</span><strong>{reviewWorkspace.paper.hidden_question_count}</strong></div>
+                      <div className="stat-card"><span>Blockers</span><strong>{reviewWorkspace.paper.paper_blocker_count + reviewWorkspace.paper.row_blocker_count}</strong></div>
+                      <div className="stat-card"><span>Answers</span><strong>{reviewWorkspace.paper.verified_answer_count ?? '—'}</strong></div>
+                      <div className="stat-card"><span>Explanations</span><strong>{reviewWorkspace.paper.explanations ? `${reviewWorkspace.paper.explanations.eligible_generated}/${reviewWorkspace.paper.explanations.eligible_total}` : '—'}</strong></div>
+                      <div className="stat-card"><span>Reupload</span><strong>{reviewWorkspace.paper.reupload_needed ? 'Yes' : 'No'}</strong></div>
+                    </div>
 
-              {reviewWarning ? (
-                <div className="alert-card alert-warn compact-alert">
-                  <AlertCircle size={16} />
-                  <div>
-                    <strong>Note</strong>
-                    <p>{reviewWarning}</p>
-                  </div>
-                </div>
-              ) : null}
-              {reviewError ? (
-                <div className="alert-card alert-danger compact-alert">
-                  <AlertCircle size={16} />
-                  <div>
-                    <strong>Review error</strong>
-                    <p>{reviewError}</p>
-                  </div>
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <div className="empty-state">
-              Select a recent job or click <strong>Load review workspace</strong> after entering the exam.
-            </div>
-          )}
-        </section>
+                    <div className="helper-note">
+                      {reviewWorkspace.paper.blocked
+                        ? 'Blocked — fix missing or broken rows below before publishing.'
+                        : reviewWorkspace.paper.hidden_question_count > 0
+                        ? 'Publishable with some hidden rows. Repair them to improve coverage.'
+                        : 'Clean — safe to publish to the learner app.'}
+                    </div>
 
-        <section className="panel review-panel">
-          <div className="section-header">
-            <div>
-              <div className="section-kicker">Missing questions</div>
-              <h2>Exact missing numbers</h2>
-            </div>
-          </div>
-
-          {missingItems.length ? (
-            <div className="missing-list">
-              {missingItems.map((item) => (
-                <div key={`${item.exam_name}-${item.exam_year}-${item.question_number}`} className="missing-card">
-                  <div>
-                    <strong>Q{item.question_number}</strong>
-                    <p>{item.reasons.join(', ') || item.issue_type}</p>
-                  </div>
-                  <button
-                    className="secondary-button"
-                    onClick={() => void createPlaceholderForMissing(item)}
-                    disabled={creatingQuestionNumber === item.question_number}
-                  >
-                    {creatingQuestionNumber === item.question_number ? (
-                      <>
-                        <Loader2 size={15} className="spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={15} />
-                        Create editable placeholder
-                      </>
-                    )}
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">No missing question numbers detected for this paper.</div>
-          )}
-        </section>
-      </div>
-
-      <div className="review-grid">
-        <section className="panel review-panel">
-          <div className="section-header">
-            <div>
-              <div className="section-kicker">Repair queue</div>
-              <h2>Rows that need attention</h2>
-            </div>
-          </div>
-
-          {reviewWorkspace.repairItems.length ? (
-            <div className="repair-list">
-              {reviewWorkspace.repairItems.map((item, index) => (
-                <div key={`${item.question_id || 'missing'}-${item.question_number || index}`} className="repair-card">
-                  <div className="repair-card-top">
-                    <strong>Q{item.question_number ?? '?'}</strong>
-                    <span className={`badge ${item.publish_blocker === 'paper' ? 'badge-danger' : 'badge-warn'}`}>
-                      {item.issue_type}
-                    </span>
-                  </div>
-                  <p>{item.reasons.join(', ') || item.repair_path}</p>
-                  <div className="repair-meta">
-                    <span>{item.publish_blocker === 'paper' ? 'Blocks the paper' : 'Blocks this row'}</span>
-                    <span>{item.priority}</span>
-                  </div>
-                  <div className="repair-actions">
-                    {item.question_id ? (
-                      <button className="ghost-button" onClick={() => void openQuestionEditor(String(item.question_id))}>
-                        <FilePenLine size={15} />
-                        Edit question
-                      </button>
-                    ) : typeof item.question_number === 'number' ? (
-                      <button
-                        className="ghost-button"
-                        onClick={() => void createPlaceholderForMissing(item)}
-                        disabled={creatingQuestionNumber === item.question_number}
-                      >
-                        <Plus size={15} />
-                        Add placeholder
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">No repair queue items for this paper.</div>
-          )}
-        </section>
-
-        <section className="panel review-panel">
-          <div className="section-header">
-            <div>
-              <div className="section-kicker">Question bank</div>
-              <h2>Edit existing questions</h2>
-            </div>
-            <label className="search-input admin-search">
-              <Search size={15} />
-              <input
-                value={questionSearch}
-                onChange={(event) => setQuestionSearch(event.target.value)}
-                placeholder="Search by number, text, subject, topic..."
-              />
-            </label>
-          </div>
-
-          {filteredQuestions.length ? (
-            <div className="question-list">
-              {filteredQuestions.map((question) => (
-                <div key={question.id} className="question-row">
-                  <div className="question-row-main">
-                    <div className="question-row-header">
-                      <strong>Q{question.question_number ?? '?'}</strong>
-                      <div className="question-badges">
-                        <span className="badge badge-blue">{question.subject}</span>
-                        <span className="badge badge-warn">{question.difficulty}</span>
-                        {question.needs_review ? <span className="badge badge-danger">Needs review</span> : null}
+                    <div className="panel-subsection">
+                      <div className="section-kicker" style={{ marginBottom: 10 }}>Actions</div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        <label className="field" style={{ flex: '1 1 180px' }}>
+                          <span>Rename exam</span>
+                          <input value={renameExamDraft} onChange={e => setRenameExamDraft(e.target.value)} placeholder="Exam name in frontend" />
+                        </label>
+                        <button className="secondary-button" onClick={() => void handleRenameExam()}
+                          disabled={renamingExam || !reviewTarget || !renameExamDraft.trim() || renameExamDraft.trim() === reviewTarget.examName}>
+                          {renamingExam ? <Loader2 size={14} className="spin" /> : <FilePenLine size={14} />} Rename
+                        </button>
+                      </div>
+                      <div className="action-row">
+                        <button className="secondary-button" onClick={() => void handleGenerateExplanations()} disabled={generatingExplanations || !reviewTarget}>
+                          {generatingExplanations ? <Loader2 size={14} className="spin" /> : <FileText size={14} />} Generate explanations
+                        </button>
+                        <button className="primary-button" onClick={() => void handlePublishPaper()} disabled={publishingPaper || !reviewTarget}>
+                          {publishingPaper ? <Loader2 size={14} className="spin" /> : <CheckCircle2 size={14} />} Publish to frontend
+                        </button>
+                        {confirmDeletePaper ? (
+                          <>
+                            <button className="danger-button" onClick={() => void handleDeletePaper(false)} disabled={deletingPaper}>
+                              {deletingPaper ? <Loader2 size={14} className="spin" /> : <Trash size={14} />} Confirm hide
+                            </button>
+                            <button className="ghost-button" onClick={() => setConfirmDeletePaper(false)}>Cancel</button>
+                          </>
+                        ) : confirmHardDeletePaper ? (
+                          <>
+                            <button className="danger-button" onClick={() => void handleDeletePaper(true)} disabled={deletingPaper}>
+                              {deletingPaper ? <Loader2 size={14} className="spin" /> : <Trash size={14} />} Confirm erase
+                            </button>
+                            <button className="ghost-button" onClick={() => setConfirmHardDeletePaper(false)}>Cancel</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="ghost-button" style={{ color: '#ef4444' }} onClick={() => setConfirmDeletePaper(true)} disabled={deletingPaper || !reviewTarget}>
+                              <Trash size={14} /> Hide paper
+                            </button>
+                            <button className="ghost-button" style={{ color: '#ef4444', opacity: 0.7 }} onClick={() => setConfirmHardDeletePaper(true)} disabled={deletingPaper || !reviewTarget} title="Permanently delete — cannot be undone">
+                              <Trash size={14} /> Permanent delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <p>{question.question_text}</p>
-                    <small>{question.topic}{question.subtopic ? ` · ${question.subtopic}` : ''}</small>
-                  </div>
-                  <button className="primary-button small-button" onClick={() => void openQuestionEditor(question.id)}>
-                    <FilePenLine size={15} />
-                    Edit
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">No questions loaded yet for this paper.</div>
-          )}
-        </section>
-      </div>
 
-      {editorQuestion ? (
+                    {reviewActionMessage && (
+                      <div className={`alert-card compact-alert ${reviewActionTone === 'success' ? 'alert-success' : 'alert-danger'}`}>
+                        {reviewActionTone === 'success' ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+                        <div><strong>{reviewActionTone === 'success' ? 'Done' : 'Failed'}</strong><p>{reviewActionMessage}</p></div>
+                      </div>
+                    )}
+                    {reviewWarning && <div className="alert-card alert-warn compact-alert"><AlertCircle size={15} /><div><strong>Note</strong><p>{reviewWarning}</p></div></div>}
+                    {reviewError && <div className="alert-card alert-danger compact-alert"><AlertCircle size={15} /><div><strong>Error</strong><p>{reviewError}</p></div></div>}
+                  </>
+                ) : (
+                  <div className="empty-state">Select a job from the left to load the review workspace.</div>
+                )}
+              </section>
+
+              {/* Missing + Repair side by side */}
+              {reviewTarget && reviewWorkspace.paper && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <section className="panel">
+                    <div className="section-header">
+                      <div><div className="section-kicker">Missing</div><h2>Question gaps</h2></div>
+                    </div>
+                    {missingItems.length ? (
+                      <div className="missing-list">
+                        {missingItems.map(item => (
+                          <div key={`${item.exam_name}-${item.exam_year}-${item.question_number}`} className="missing-card">
+                            <div><strong>Q{item.question_number}</strong><p>{item.reasons.join(', ') || item.issue_type}</p></div>
+                            <button className="secondary-button" onClick={() => void createPlaceholderForMissing(item)} disabled={creatingQuestionNumber === item.question_number}>
+                              {creatingQuestionNumber === item.question_number ? <><Loader2 size={13} className="spin" />Creating…</> : <><Plus size={13} />Placeholder</>}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <div className="empty-state">No missing question numbers.</div>}
+                  </section>
+
+                  <section className="panel">
+                    <div className="section-header">
+                      <div><div className="section-kicker">Repair queue</div><h2>Rows needing attention</h2></div>
+                    </div>
+                    {reviewWorkspace.repairItems.length ? (
+                      <div className="repair-list">
+                        {reviewWorkspace.repairItems.map((item, i) => (
+                          <div key={`${item.question_id || 'missing'}-${item.question_number || i}`} className="repair-card">
+                            <div className="repair-card-top">
+                              <strong>Q{item.question_number ?? '?'}</strong>
+                              <span className={`badge ${item.publish_blocker === 'paper' ? 'badge-danger' : 'badge-warn'}`}>{item.issue_type}</span>
+                            </div>
+                            <p>{item.reasons.join(', ') || item.repair_path}</p>
+                            <div className="repair-meta"><span>{item.publish_blocker === 'paper' ? 'Blocks paper' : 'Blocks row'}</span><span>{item.priority}</span></div>
+                            <div className="repair-actions">
+                              {item.question_id
+                                ? <button className="ghost-button" onClick={() => void openQuestionEditor(String(item.question_id))}><FilePenLine size={13} />Edit</button>
+                                : typeof item.question_number === 'number'
+                                ? <button className="ghost-button" onClick={() => void createPlaceholderForMissing(item)} disabled={creatingQuestionNumber === item.question_number}><Plus size={13} />Placeholder</button>
+                                : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <div className="empty-state">No repair items.</div>}
+                  </section>
+                </div>
+              )}
+
+              {/* Question bank */}
+              {reviewTarget && (
+                <section className="panel">
+                  <div className="section-header">
+                    <div><div className="section-kicker">Question bank</div><h2>Edit questions</h2></div>
+                    <label className="search-input admin-search">
+                      <Search size={14} />
+                      <input value={questionSearch} onChange={e => setQuestionSearch(e.target.value)} placeholder="Search by number, text, subject…" />
+                    </label>
+                  </div>
+                  {filteredQuestions.length ? (
+                    <div className="question-list">
+                      {filteredQuestions.map(q => (
+                        <div key={q.id} className="question-row">
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                              <strong>Q{q.question_number ?? '?'}</strong>
+                              <span className="badge badge-blue">{q.subject}</span>
+                              <span className="badge badge-warn">{q.difficulty}</span>
+                              {q.needs_review && <span className="badge badge-danger">Review</span>}
+                            </div>
+                            <p style={{ margin: 0, fontSize: 13, color: '#374151', lineHeight: 1.4 }}>{q.question_text}</p>
+                            <small style={{ color: '#9ca3af', fontSize: 11.5 }}>{q.topic}{q.subtopic ? ` · ${q.subtopic}` : ''}</small>
+                          </div>
+                          <button className="secondary-button" style={{ flexShrink: 0 }} onClick={() => void openQuestionEditor(q.id)}>
+                            <FilePenLine size={13} />Edit
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <div className="empty-state">No questions loaded for this paper.</div>}
+                </section>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ COVERAGE TAB ════════════════════════════════════════════════ */}
+      {adminTab === 'coverage' && (
+        <div className="tab-content">
+          <section className="panel">
+            <div className="section-header">
+              <div><div className="section-kicker">Diagnostics</div><h2>Answer key coverage — all papers</h2></div>
+              <button className="icon-button" onClick={() => void loadAnswerCoverage()} disabled={coverageLoading}>
+                <RefreshCw size={14} className={coverageLoading ? 'spin' : ''} />
+              </button>
+            </div>
+            {coverageLoading ? (
+              <div className="empty-state"><Loader2 size={16} className="spin" /><span>Loading…</span></div>
+            ) : coverageData.length === 0 ? (
+              <div className="empty-state">No papers found.</div>
+            ) : (
+              <table className="coverage-table">
+                <thead>
+                  <tr>
+                    <th>Exam</th>
+                    <th>Year</th>
+                    <th>Questions</th>
+                    <th>Answer key</th>
+                    <th>Explanations</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {coverageData.map(p => {
+                    const noKey = p.needs_answer_key;
+                    const partial = !noKey && p.missing_answers > 0;
+                    const statusColor = noKey ? '#ef4444' : partial ? '#f59e0b' : '#16a34a';
+                    const statusLabel = noKey ? 'No key' : partial ? `${p.missing_answers} missing` : 'Complete';
+                    const answerPct = p.answer_coverage_pct;
+                    const explPct = p.explanation_coverage_pct;
+                    return (
+                      <tr key={`${p.exam_name}::${p.exam_year}`} onClick={() => { openReviewFor(p.exam_name, p.exam_year); setAdminTab('papers'); }} style={{ cursor: 'pointer' }}>
+                        <td style={{ fontWeight: 500, color: '#111827', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.exam_name}</td>
+                        <td style={{ color: '#6b7280' }}>{p.exam_year}</td>
+                        <td style={{ color: '#6b7280' }}>{p.total_questions}</td>
+                        <td style={{ minWidth: 140 }}>
+                          <div className="coverage-bar-wrap">
+                            <div className="coverage-bar">
+                              <div className="coverage-bar-fill" style={{ width: `${answerPct}%`, background: noKey ? '#ef4444' : partial ? '#f59e0b' : '#16a34a' }} />
+                            </div>
+                            <span style={{ fontSize: 11.5, color: '#6b7280', minWidth: 36, textAlign: 'right' }}>{p.verified_answers}/{p.total_questions}</span>
+                          </div>
+                        </td>
+                        <td style={{ minWidth: 140 }}>
+                          <div className="coverage-bar-wrap">
+                            <div className="coverage-bar">
+                              <div className="coverage-bar-fill" style={{ width: `${explPct}%`, background: explPct >= 80 ? '#16a34a' : explPct >= 40 ? '#f59e0b' : '#ef4444' }} />
+                            </div>
+                            <span style={{ fontSize: 11.5, color: '#6b7280', minWidth: 36, textAlign: 'right' }}>{p.explanations_generated}/{p.verified_answers}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: statusColor, background: statusColor + '18', padding: '3px 8px', borderRadius: 99, whiteSpace: 'nowrap' }}>
+                            {statusLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* ══ TOOLS TAB ═══════════════════════════════════════════════════ */}
+      {adminTab === 'tools' && (
+        <div className="tab-content">
+          <PatternTagSection visible={true} />
+        </div>
+      )}
+
+      {editorQuestion && (
         <QuestionEditorModal
           question={editorQuestion}
           onClose={() => setEditorQuestion(null)}
           onSaved={handleQuestionSaved}
           onDeleted={(deletedId) => {
             setEditorQuestion(null);
-            setReviewWorkspace((prev) => ({
-              ...prev,
-              questions: prev.questions.filter((q) => q.id !== deletedId),
-            }));
+            setReviewWorkspace(prev => ({ ...prev, questions: prev.questions.filter(q => q.id !== deletedId) }));
             if (reviewTarget) void loadReviewWorkspace(reviewTarget);
           }}
         />
-      ) : null}
+      )}
     </div>
   );
 }

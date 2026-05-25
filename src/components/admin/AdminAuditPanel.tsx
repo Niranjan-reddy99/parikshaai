@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, EyeOff, Image as ImageIcon, Info, LayoutGrid, RefreshCw, ShieldAlert, Tag, UploadCloud, Wrench } from 'lucide-react';
+import { CheckCircle2, EyeOff, Image as ImageIcon, Info, LayoutGrid, RefreshCw, ShieldAlert, Tag, UploadCloud, Wrench, Zap } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { API_BASE, adminHeaders } from '../../lib/adminApi';
 import { C } from '../../lib/tokens';
@@ -143,6 +143,120 @@ function PatternTagPanel() {
       {status?.error && (
         <div style={{ marginTop: 8, fontSize: 11, color: C.danger }}>Error: {status.error}</div>
       )}
+    </div>
+  );
+}
+
+function FixStaleExplanationsPanel({ examName, year }: { examName?: string; year?: number }) {
+  const [state, setState] = useState<'idle' | 'checking' | 'running' | 'done' | 'error'>('idle');
+  const [result, setResult] = useState<{ stale_found?: number; stale_deleted?: number; regenerated?: number; exams_processed?: number } | null>(null);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+
+  const handleDryRun = async () => {
+    setState('checking');
+    setResult(null);
+    setErrMsg(null);
+    try {
+      const params = new URLSearchParams({ dry_run: 'true' });
+      if (examName) params.set('exam_name', examName);
+      const res = await fetch(`${API_BASE}/admin/explanations/fix-stale?${params}`, {
+        method: 'POST', headers: adminHeaders(),
+      });
+      const data = await res.json();
+      setResult(data);
+      setState('idle');
+    } catch (e) {
+      setErrMsg(String(e));
+      setState('error');
+    }
+  };
+
+  const handleFix = async () => {
+    setState('running');
+    setResult(null);
+    setErrMsg(null);
+    try {
+      const params = new URLSearchParams();
+      if (examName) params.set('exam_name', examName);
+      const res = await fetch(`${API_BASE}/admin/explanations/fix-stale?${params}`, {
+        method: 'POST', headers: adminHeaders(),
+      });
+      const data = await res.json();
+      setResult(data);
+      setState('done');
+    } catch (e) {
+      setErrMsg(String(e));
+      setState('error');
+    }
+  };
+
+  const staleCount = result?.stale_found ?? result?.stale_deleted;
+
+  return (
+    <div style={{
+      marginTop: 16,
+      padding: '16px 20px',
+      background: 'rgba(245,158,11,0.06)',
+      borderRadius: 14,
+      border: '1px solid rgba(245,158,11,0.2)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Zap size={16} color="#f59e0b" />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Fix Stale Explanations</div>
+            <div style={{ fontSize: 11, color: C.textSec, marginTop: 2 }}>
+              Deletes explanations generated when answers were unverified, then regenerates them with verified answers.
+              {staleCount !== undefined && (
+                <span style={{ color: '#f59e0b', fontWeight: 700 }}> {staleCount} stale found.</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {state === 'done' && (
+            <span style={{ fontSize: 12, color: C.success, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckCircle2 size={13} />
+              {result?.stale_deleted} deleted · {result?.regenerated} regenerated ({result?.exams_processed} exam{result?.exams_processed === 1 ? '' : 's'})
+            </span>
+          )}
+          {state === 'error' && (
+            <span style={{ fontSize: 12, color: C.danger }}>{errMsg}</span>
+          )}
+
+          <button
+            onClick={handleDryRun}
+            disabled={state === 'checking' || state === 'running'}
+            style={{
+              padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              fontFamily: 'inherit', cursor: state === 'checking' || state === 'running' ? 'not-allowed' : 'pointer',
+              background: C.surface, color: C.text, border: `1px solid ${C.border}`,
+              opacity: state === 'checking' || state === 'running' ? 0.6 : 1,
+            }}
+          >
+            {state === 'checking' ? 'Checking…' : 'Dry Run'}
+          </button>
+
+          <button
+            onClick={handleFix}
+            disabled={state === 'checking' || state === 'running'}
+            style={{
+              padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              fontFamily: 'inherit', cursor: state === 'checking' || state === 'running' ? 'not-allowed' : 'pointer',
+              background: '#f59e0b', color: '#000',
+              border: 'none',
+              opacity: state === 'checking' || state === 'running' ? 0.6 : 1,
+            }}
+          >
+            {state === 'running' ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> Fixing…
+              </span>
+            ) : 'Fix Stale'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -513,6 +627,7 @@ export function AdminAuditPanel({
       </div>
 
       <PatternTagPanel />
+      <FixStaleExplanationsPanel examName={examName} year={year} />
 
       <AnimatePresence>
         {uploadIntent && (

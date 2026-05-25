@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { C } from '../../lib/tokens';
 
@@ -24,6 +25,12 @@ export function ExamDetailHeader({
   availablePaperCount,
   onBack,
 }: ExamDetailHeaderProps) {
+  // Keep the last non-zero count so the header never flashes "0 questions"
+  // during a mid-navigation cache-key transition.
+  const stableCount = useRef(0);
+  if (!examLoading && examQuestionCount > 0) stableCount.current = examQuestionCount;
+  const displayCount = stableCount.current || examQuestionCount;
+
   return (
     <div className="glass-panel" style={{ borderRadius: 24, padding: '24px 22px', marginBottom: 24, border: `1px solid ${C.borderHover}` }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
@@ -43,7 +50,9 @@ export function ExamDetailHeader({
             {selectedCommission} <span style={{ opacity: 0.35 }}>—</span> {selectedExamType}
           </h1>
           <p style={{ fontSize: 13, color: C.textSec, fontFamily: "'DM Mono', monospace" }}>
-            {examLoading ? 'Loading questions...' : `${examQuestionCount} questions · ${selectedYear} · ${selectedExamName}`}
+            {examLoading
+              ? `${selectedYear} · ${selectedExamName}${displayCount ? ` · ${displayCount} questions` : ' · Loading...'}`
+              : `${examQuestionCount} questions · ${selectedYear} · ${selectedExamName}`}
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>

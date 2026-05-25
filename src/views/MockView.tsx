@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { type ExamSession } from '../types';
 import { MockQuestionPalette } from './mock/MockQuestionPalette';
 import { MockQuestionPanel } from './mock/MockQuestionPanel';
@@ -96,6 +96,8 @@ function SubmitConfirmModal({
 
 export function MockView({ examSession, setExamSession, examTimer, finishExam, loadMoreQuestions, loadingMoreQuestions }: MockViewProps) {
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const mobileStripRef = useRef<HTMLDivElement>(null);
+  const mobileActiveBtnRef = useRef<HTMLButtonElement>(null);
 
   const currentQuestion = examSession.questions[examSession.currentIndex];
   const answered = getMockAnsweredCount(examSession.answers);
@@ -108,6 +110,14 @@ export function MockView({ examSession, setExamSession, examTimer, finishExam, l
 
   const goTo = (i: number) =>
     setExamSession({ ...examSession, currentIndex: i });
+
+  // Keep active question centred in mobile horizontal strip
+  useEffect(() => {
+    const btn = mobileActiveBtnRef.current;
+    const strip = mobileStripRef.current;
+    if (!btn || !strip) return;
+    strip.scrollTo({ left: btn.offsetLeft - strip.offsetWidth / 2 + btn.offsetWidth / 2, behavior: 'smooth' });
+  }, [examSession.currentIndex]);
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -130,6 +140,31 @@ export function MockView({ examSession, setExamSession, examTimer, finishExam, l
         hasMore={!!examSession.hasMore}
         onSubmit={() => setShowSubmitConfirm(true)}
       />
+
+      {/* Mobile-only horizontal question number strip */}
+      <div className="practice-mobile-strip" ref={mobileStripRef}>
+        {Array.from({ length: loaded }).map((_, index) => {
+          const isCurrent = examSession.currentIndex === index;
+          const isAnswered = !!examSession.answers[index];
+          return (
+            <button
+              key={index}
+              ref={isCurrent ? mobileActiveBtnRef : undefined}
+              onClick={() => goTo(index)}
+              style={{
+                flexShrink: 0, width: 32, height: 32, borderRadius: 6,
+                fontSize: 11, fontFamily: "'DM Mono', monospace", cursor: 'pointer',
+                transition: 'all 0.15s',
+                border: isCurrent ? '2px solid #2563eb' : '1px solid var(--border)',
+                background: isCurrent ? '#2563eb' : isAnswered ? 'rgba(52,211,153,0.12)' : 'var(--bg-alt)',
+                color: isCurrent ? '#fff' : isAnswered ? '#34D399' : 'var(--text-sec)',
+              }}
+            >
+              {index + 1}
+            </button>
+          );
+        })}
+      </div>
 
       <div className="mock-layout">
         <div className="mock-main-column">

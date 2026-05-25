@@ -87,7 +87,7 @@ export function CommissionView({
         <div style={{ position: 'absolute', right: -20, top: -20, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', right: 50, bottom: -30, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', pointerEvents: 'none' }} />
 
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, position: 'relative', zIndex: 1 }}>
+        <div className="commission-header-inner" style={{ display: 'flex', alignItems: 'flex-start', gap: 14, position: 'relative', zIndex: 1 }}>
           <button
             onClick={() => setView('home')}
             style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', flexShrink: 0, marginTop: 2 }}
@@ -102,7 +102,7 @@ export function CommissionView({
               {COMMISSION_FULL_NAMES[selectedCommission] || selectedCommission}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+          <div className="commission-header-stats" style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
             {[
               { value: totalQs >= 1000 ? `${(totalQs / 1000).toFixed(1)}k` : totalQs, label: 'Questions' },
               { value: allYears.length, label: 'Years' },

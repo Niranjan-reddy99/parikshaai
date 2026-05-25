@@ -256,22 +256,25 @@ function SubjectPills({ subjects, selected, onChange }: {
   subjects: string[]; selected: string; onChange: (s: string) => void;
 }) {
   return (
-    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 18 }}>
+    <div style={{
+      display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, marginBottom: 18,
+      scrollbarWidth: 'none', msOverflowStyle: 'none',
+    }}>
       {['All', ...subjects].map(s => {
         const active = s === selected;
-        const { bg, text, dot } = getSubjectStyle(s);
+        const { text, dot } = getSubjectStyle(s);
         return (
           <button
             key={s}
             onClick={() => onChange(s)}
             style={{
-              padding: '5px 13px', fontSize: 12.5,
-              fontWeight: active ? 700 : 500,
-              color: active ? text : 'var(--text-sec)',
-              background: active ? bg : 'var(--bg)',
-              border: `1.5px solid ${active ? dot + '60' : 'var(--border)'}`,
+              padding: '5px 14px', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0,
+              fontWeight: active ? 600 : 400,
+              color: active ? (s === 'All' ? '#fff' : text) : 'var(--text-sec)',
+              background: active ? (s === 'All' ? '#1e293b' : dot + '22') : 'transparent',
+              border: active ? `1.5px solid ${s === 'All' ? '#1e293b' : dot + '55'}` : '1.5px solid var(--border)',
               borderRadius: 99, cursor: 'pointer', fontFamily: 'inherit',
-              transition: 'all 0.12s',
+              transition: 'all 0.14s',
             }}
           >
             {s}
@@ -437,18 +440,18 @@ export function FeedView({ subjects, exams = [], startPractice, startTopicPracti
       arr.push(item);
       map.set(item.subject, arr);
     }
-    // Sort topics within each subject
+    // Topics within each subject always sorted by question count
     for (const [, arr] of map) {
-      arr.sort(sortMode === 'az'
-        ? (a, b) => a.topic.localeCompare(b.topic)
-        : (a, b) => b.count - a.count || b.yearCount - a.yearCount
-      );
+      arr.sort((a, b) => b.count - a.count || b.yearCount - a.yearCount);
     }
-    // Sort subjects by total question count descending
-    return Array.from(map.entries())
+    const groups = Array.from(map.entries())
       .map(([subject, topics]) => ({ subject, topics, totalQs: topics.reduce((s, t) => s + t.count, 0) }))
-      .filter(g => filterSubject === 'All' || g.subject === filterSubject)
-      .sort((a, b) => b.totalQs - a.totalQs);
+      .filter(g => filterSubject === 'All' || g.subject === filterSubject);
+    // sortMode controls the visible subject group order
+    return groups.sort(sortMode === 'az'
+      ? (a, b) => a.subject.localeCompare(b.subject)
+      : (a, b) => b.totalQs - a.totalQs
+    );
   }, [allTopics, filterSubject, sortMode]);
 
 
@@ -513,15 +516,16 @@ export function FeedView({ subjects, exams = [], startPractice, startTopicPracti
   }, [examMap, selectedExam]);
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
-    padding: '9px 20px', fontSize: 13.5,
-    fontWeight: active ? 700 : 500,
-    color: active ? '#2563eb' : 'var(--text-sec)',
-    background: 'none',
-    borderTop: 'none', borderLeft: 'none', borderRight: 'none',
-    borderBottom: `2px solid ${active ? '#2563eb' : 'transparent'}`,
+    padding: '6px 18px', fontSize: 13,
+    fontWeight: active ? 600 : 400,
+    color: active ? 'var(--text)' : 'var(--text-tert)',
+    background: active ? 'var(--bg)' : 'transparent',
+    border: 'none',
+    borderRadius: 7,
     cursor: 'pointer', fontFamily: 'inherit',
-    transition: 'color 0.1s, border-color 0.1s',
+    transition: 'all 0.15s',
     whiteSpace: 'nowrap' as const,
+    boxShadow: active ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
   });
 
   function renderByExam() {
@@ -620,21 +624,26 @@ export function FeedView({ subjects, exams = [], startPractice, startTopicPracti
   return (
     <div className="feed-shell" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', color: 'var(--text)', letterSpacing: '-0.3px' }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 2px', color: 'var(--text)', letterSpacing: '-0.2px' }}>
           PYQ Feed
         </h1>
-        <p style={{ fontSize: 13, color: 'var(--text-sec)', margin: 0 }}>
+        <p style={{ fontSize: 12.5, color: 'var(--text-tert)', margin: 0 }}>
           Browse topics and patterns from previous year questions.
         </p>
       </div>
 
-      <div className="feed-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 22 }}>
-        <button style={tabStyle(tab === 'by-topic')} onClick={() => { setTab('by-topic'); setFilterSubject('All'); }}>
-          By Topic
-        </button>
-        <button style={tabStyle(tab === 'by-exam')} onClick={() => { setTab('by-exam'); setSelectedCommission(null); setSelectedExam(null); setExamSubject('All'); }}>
-          By Exam
-        </button>
+      <div className="feed-tabs" style={{ display: 'flex', marginBottom: 24 }}>
+        <div style={{
+          display: 'inline-flex', background: 'var(--bg-alt)', borderRadius: 10,
+          padding: 3, gap: 2, border: '1px solid var(--border)',
+        }}>
+          <button style={tabStyle(tab === 'by-topic')} onClick={() => { setTab('by-topic'); setFilterSubject('All'); }}>
+            By Topic
+          </button>
+          <button style={tabStyle(tab === 'by-exam')} onClick={() => { setTab('by-exam'); setSelectedCommission(null); setSelectedExam(null); setExamSubject('All'); }}>
+            By Exam
+          </button>
+        </div>
       </div>
 
       {subjects.length === 0 ? (
@@ -646,19 +655,23 @@ export function FeedView({ subjects, exams = [], startPractice, startTopicPracti
           {/* Toolbar */}
           <div className="feed-toolbar" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
             <SubjectPills subjects={subjectNames} selected={filterSubject} onChange={setFilterSubject} />
-            <div style={{ display: 'flex', gap: 6, flexShrink: 0, paddingTop: 2 }}>
+            <div style={{
+              display: 'inline-flex', background: 'var(--bg-alt)', borderRadius: 8,
+              padding: 2, gap: 2, border: '1px solid var(--border)', flexShrink: 0,
+            }}>
               {(['count', 'az'] as SortMode[]).map(m => (
                 <button
                   key={m}
                   onClick={() => setSortMode(m)}
                   style={{
-                    padding: '5px 11px', fontSize: 11.5,
-                    fontWeight: sortMode === m ? 700 : 500,
-                    color: sortMode === m ? '#2563eb' : 'var(--text-tert)',
-                    background: sortMode === m ? 'var(--blue-soft)' : 'var(--bg)',
-                    border: `1px solid ${sortMode === m ? '#2563eb40' : 'var(--border)'}`,
-                    borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
-                    transition: 'all 0.12s',
+                    padding: '4px 11px', fontSize: 11.5,
+                    fontWeight: sortMode === m ? 600 : 400,
+                    color: sortMode === m ? 'var(--text)' : 'var(--text-tert)',
+                    background: sortMode === m ? 'var(--bg)' : 'transparent',
+                    border: 'none', borderRadius: 6,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'all 0.14s',
+                    boxShadow: sortMode === m ? '0 1px 3px rgba(0,0,0,0.07)' : 'none',
                   }}
                 >
                   {m === 'count' ? 'Most Questions' : 'A–Z'}

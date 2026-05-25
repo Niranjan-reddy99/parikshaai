@@ -1759,6 +1759,8 @@ def _attach_image_fallbacks_for_unusable_rows(
         print(f"[img-fallback] Could not open PDF: {exc}")
         return questions
 
+    from extractor.universal_extractor import _find_figure_rect
+
     uploaded_by_key: dict[tuple[int, int | None], str] = {}
     try:
         for q in candidates:
@@ -1773,8 +1775,25 @@ def _attach_image_fallbacks_for_unusable_rows(
                 continue
 
             page = doc[page_idx]
-            clip = _find_question_fallback_rect(page, qn)
-            mat = fitz.Matrix(180 / 72, 180 / 72)
+
+            # 1. Find the question's own region on the page
+            q_region = _find_question_fallback_rect(page, qn)
+            if q_region and q_region.get_area() > 5_000:
+                # 2. Look for a figure embedded within that region
+                fig_in_region = _find_figure_rect(page, clip=q_region)
+                if fig_in_region and fig_in_region.get_area() > 5_000:
+                    clip = fig_in_region   # just the figure — most precise
+                    dpi = 200
+                else:
+                    clip = q_region        # full question region
+                    dpi = 180
+            else:
+                # No region anchor — try page-level figure, then full page
+                fig_page = _find_figure_rect(page)
+                clip = fig_page if (fig_page and fig_page.get_area() > 5_000) else None
+                dpi = 180
+
+            mat = fitz.Matrix(dpi / 72, dpi / 72)
             pix = page.get_pixmap(matrix=mat, clip=clip) if clip else page.get_pixmap(matrix=mat)
             path = f"{safe_exam}/{exam_year}/fallback_q{qn or 'x'}_p{page_idx + 1}.png"
             supabase_client.storage.from_(bucket).upload(
@@ -3426,12 +3445,15 @@ def generate_explanations_bulk(exam_name: str, exam_year: int, job_id: Optional[
         print("  ℹ️  No questions found for this exam+year")
         return {"generated": 0, "skipped": 0}
 
-    # Find which ones already have explanations
+    # Find which ones already have valid (non-stale) explanations
     try:
         ids = [q["id"] for q in all_qs]
-        # Supabase IN filter — fetch existing explanation question_ids
-        existing_res = sb.table("explanations").select("question_id").in_("question_id", ids).execute()
-        existing_ids = {row["question_id"] for row in (existing_res.data or [])}
+        existing_res = sb.table("explanations").select("question_id, source").in_("question_id", ids).execute()
+        # Exclude stale "unverified-answer" explanations — they'll be regenerated with clean source
+        existing_ids = {
+            row["question_id"] for row in (existing_res.data or [])
+            if "unverified-answer" not in str(row.get("source") or "")
+        }
     except Exception:
         existing_ids = set()
 

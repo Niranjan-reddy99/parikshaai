@@ -352,6 +352,14 @@ function AppContent() {
     getStats("")
   );
 
+  // Open upgrade modal if user clicked a pricing CTA on the landing page before logging in
+  useEffect(() => {
+    if (user && sessionStorage.getItem('pendingUpgrade') === '1') {
+      sessionStorage.removeItem('pendingUpgrade');
+      setShowPremiumModal(true);
+    }
+  }, [user, setShowPremiumModal]);
+
   // Reload stats + bookmarks when user changes; show onboarding for new users
   useEffect(() => {
     if (!user) {
@@ -401,12 +409,18 @@ function AppContent() {
         });
         if (!res.ok) return;
         const serverStats = await res.json();
-        if (
-          !cancelled &&
-          serverStats.totalAnswered > localStats.totalAnswered
-        ) {
+        if (!cancelled && serverStats.totalAnswered > localStats.totalAnswered) {
           // Prefer server stats only when they have more data (cross-device)
           setUserStats({ ...localStats, ...serverStats });
+        }
+        // If server confirms prior activity, mark onboarded and dismiss any
+        // lingering modal (handles users whose local stats were cleared).
+        if (!cancelled && serverStats.totalAnswered > 0) {
+          const onboardKey = `pyq_onboarded_${user.uid}`;
+          if (!localStorage.getItem(onboardKey)) {
+            try { localStorage.setItem(onboardKey, "1"); } catch { /* ignore */ }
+            setShowOnboarding(false);
+          }
         }
       } catch {
         // Keep local fallback silently.
@@ -1433,12 +1447,18 @@ function AppContent() {
       commissionMap[commission]?.[et] ?? commissionMap[commission]?.[examType];
     const latestYear =
       preferredYear ?? info?.years[0] ?? new Date().getFullYear();
+
+    // Use cached manifest to set paperId synchronously — avoids the async
+    // cache-key flip that causes a double loading flash on revisits.
+    const cachedManifest = examPaperManifestCache[`${examName}::${latestYear}`];
+    const firstPaper = cachedManifest?.papers?.[0];
+
     setSelectedCommission(commission);
     setSelectedExamName(examName);
     setSelectedExamType(examType);
     setSelectedYear(latestYear);
-    setSelectedPaperId(null);
-    setSelectedShiftLabel(null);
+    setSelectedPaperId(firstPaper?.paper_id ?? null);
+    setSelectedShiftLabel(firstPaper?.shift_label ?? null);
     setBrowsePickerOpen(false);
     setFilterSubject("All");
     setSearchQuery("");
@@ -1622,6 +1642,7 @@ function AppContent() {
       <>
         <LandingPage
           onLogin={handleLogin}
+          onUpgrade={() => { sessionStorage.setItem('pendingUpgrade', '1'); handleLogin(); }}
           catalogSummary={catalogSummary}
           feedSummary={feedSummary}
         />
@@ -2183,6 +2204,8 @@ function AppContent() {
                       stats={userStats}
                       commissionMap={commissionMap}
                       handleLogout={handleLogout}
+                      isPremium={isPremium}
+                      onUpgrade={() => setShowPremiumModal(true)}
                     />
                   </Suspense>
                 )}

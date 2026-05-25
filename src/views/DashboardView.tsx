@@ -23,6 +23,28 @@ const BENCHMARK = 70;
 
 type Tab = 'overview' | 'strengths' | 'topic' | 'patterns' | 'test-analysis';
 
+const PATTERN_META: Record<string, { label: string; desc: string }> = {
+  'STATEMENT-BASED':       { label: 'Statement Analysis',    desc: 'True/false statements — identify which are correct' },
+  'ASSERTION-REASON':      { label: 'Assertion-Reason',      desc: 'Does the reason correctly explain the assertion?' },
+  'MATCH-THE-FOLLOWING':   { label: 'Match the Following',   desc: 'Pair items from two columns correctly' },
+  'RANKING-ORDER':         { label: 'Ranking & Ordering',    desc: 'Arrange items in chronological or logical sequence' },
+  'CODING-DECODING':       { label: 'Coding & Decoding',     desc: 'Letter or number substitution pattern questions' },
+  'FILL-IN-THE-BLANK':     { label: 'Fill in the Blank',     desc: 'Complete the sentence or data with the right term' },
+  'ARITHMETIC-CALCULATION':{ label: 'Arithmetic',            desc: 'Numerical computation and quantitative reasoning' },
+  'FACTUAL-RECALL':        { label: 'Factual Recall',        desc: 'Direct knowledge — dates, names, facts, definitions' },
+  'COMPREHENSION':         { label: 'Reading Comprehension', desc: 'Questions derived from a given passage' },
+  'MAP-BASED':             { label: 'Map-Based',             desc: 'Identify locations, rivers, boundaries on a map' },
+  'DIAGRAM-BASED':         { label: 'Diagram / Chart',       desc: 'Interpret data from charts, graphs, or diagrams' },
+};
+
+function patternMeta(rawTag: string) {
+  const key = (rawTag ?? '').toUpperCase().replace(/\s+/g, '-');
+  return PATTERN_META[key] ?? {
+    label: rawTag.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    desc: 'Question pattern accuracy',
+  };
+}
+
 function parseAttemptTimeToSeconds(value: string): number {
   const raw = (value || '').trim().toLowerCase();
   if (!raw) return 0;
@@ -767,31 +789,35 @@ export function DashboardView({
                   <p style={{ fontSize: 12, color: 'var(--text-tert)', marginBottom: 14, lineHeight: 1.6 }}>
                     Where you struggle by question style — not just subject.
                   </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {activePatternList.map((item) => {
-                      const label = (item as any).pattern_tag ?? (item as any).pattern;
-                      const pct   = (item as any).accuracy    ?? (item as any).pct ?? 0;
+                      const rawTag = (item as any).pattern_tag ?? (item as any).pattern ?? '';
+                      const { label, desc } = patternMeta(rawTag);
+                      const pct   = (item as any).accuracy ?? (item as any).pct ?? 0;
                       const { correct, total } = item as any;
                       const color = pct >= 70 ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#ef4444';
                       const isWeak = pct < BENCHMARK;
                       return (
-                        <div key={label} style={{ padding: '12px 14px', background: isWeak ? 'rgba(239,68,68,0.04)' : 'var(--bg-alt)', border: `1px solid ${isWeak ? 'rgba(239,68,68,0.2)' : 'var(--border)'}`, borderRadius: 10 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ padding: '3px 8px', background: 'rgba(124,111,255,0.12)', color: '#7c6fff', fontSize: 10, fontWeight: 700, borderRadius: 6, textTransform: 'uppercase' }}>{label}</span>
-                              {isWeak && <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 600 }}>needs work</span>}
+                        <div key={rawTag} style={{ padding: '13px 16px', background: isWeak ? 'rgba(239,68,68,0.03)' : 'var(--bg-alt)', border: `1px solid ${isWeak ? 'rgba(239,68,68,0.18)' : 'var(--border)'}`, borderRadius: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                            <div>
+                              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{label}</div>
+                              <div style={{ fontSize: 11.5, color: 'var(--text-tert)' }}>{desc}</div>
                             </div>
-                            <span style={{ fontSize: 13, fontWeight: 800, color }}>{pct}%</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 12 }}>
+                              {isWeak && <span style={{ fontSize: 10, fontWeight: 600, color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: '2px 7px', borderRadius: 99 }}>needs work</span>}
+                              <span style={{ fontSize: 14, fontWeight: 800, color }}>{pct}%</span>
+                            </div>
                           </div>
-                          <div style={{ height: 5, background: 'var(--bg-canvas)', borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
-                            <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99 }} />
+                          <div style={{ height: 4, background: 'var(--bg-canvas)', borderRadius: 99, overflow: 'hidden', marginBottom: 7 }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99, transition: 'width 0.4s ease' }} />
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 11.5, color: 'var(--text-tert)' }}>{correct}/{total} correct</span>
+                            <span style={{ fontSize: 11.5, color: 'var(--text-tert)' }}>{correct}/{total} answered correctly</span>
                             {isWeak && (
-                              <button onClick={() => setView('home')}
+                              <button onClick={() => setView('browse')}
                                 style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', background: 'var(--blue-soft)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                                Practice this →
+                                Practice →
                               </button>
                             )}
                           </div>
@@ -855,7 +881,7 @@ export function DashboardView({
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Next best move</div>
                     <div style={{ fontSize: 13, color: 'var(--text-sec)', lineHeight: 1.7 }}>
                       {p0 && p0pct < BENCHMARK
-                        ? <>Your weakest pattern is <strong style={{ color: '#7c6fff' }}>{p0.pattern_tag ?? p0.pattern}</strong> at {p0pct}% accuracy. Slow down on these question types in your next session.</>
+                        ? <>Your weakest question type is <strong style={{ color: '#7c6fff' }}>{patternMeta(p0.pattern_tag ?? p0.pattern ?? '').label}</strong> at {p0pct}% accuracy. Slow down on these question types in your next session.</>
                         : t0
                           ? <>Focus on <strong style={{ color: 'var(--text)' }}>{t0.topic}</strong> ({t0.subject}) — {t0.accuracy ?? t0.pct}% accuracy, your clearest gain opportunity.</>
                           : 'Keep practicing to surface deeper pattern-level insights.'}

@@ -1581,13 +1581,22 @@ def _propagate_di_images(questions: list[dict]) -> list[dict]:
 # IMAGE UPLOAD — uploads page images for has_image questions to Supabase Storage
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _find_figure_rect(page: fitz.Page) -> Optional[fitz.Rect]:
+def _find_figure_rect(
+    page: fitz.Page,
+    clip: Optional[fitz.Rect] = None,
+) -> Optional[fitz.Rect]:
     """
     Detect the bounding box of the chart/graph/figure on a PDF page.
 
+    When `clip` is provided, only images/vectors that fall within (or
+    substantially overlap) that region are considered — this lets callers
+    search for the figure that belongs to a specific question rather than
+    any figure anywhere on the page.
+
     Strategy 1 — raster images (fast, high precision):
       Most Indian exam charts are embedded PNG/JPEG raster images.
-      Filters: area >= 20,000 pt², <= 85% of page, aspect ratio >= 0.4.
+      Filters: area >= 20,000 pt² (or >= 8,000 when searching inside a clip),
+               <= 85% of page, aspect ratio >= 0.4.
 
     Strategy 2 — vector drawing clusters (fallback for dice/geometry/spatial):
       Dice, cube nets, geometry figures are drawn as vector paths.
@@ -1597,7 +1606,7 @@ def _find_figure_rect(page: fitz.Page) -> Optional[fitz.Rect]:
       Requires >= 4 such shapes within a 250pt radius to qualify as a figure.
 
     Returns union rect padded 20pt, clipped to page.
-    Returns None if nothing qualifies → caller falls back to full page.
+    Returns None if nothing qualifies → caller falls back to question-region or full page.
     """
     pr        = page.rect
     page_area = pr.get_area()
@@ -1611,12 +1620,24 @@ def _find_figure_rect(page: fitz.Page) -> Optional[fitz.Rect]:
             min(pr.x1, x1 + PAD), min(pr.y1, y1 + PAD),
         )
 
+    def _in_clip(r: fitz.Rect) -> bool:
+        if clip is None:
+            return True
+        inter = r & clip
+        if inter.is_empty:
+            return False
+        # Accept if ≥50% of the image overlaps the clip region
+        return inter.get_area() >= r.get_area() * 0.50
+
     # ── Strategy 1: raster images ─────────────────────────────────────────────
-    MIN_RASTER_AREA = 20_000
+    # Lower area threshold when searching within a question region (smaller area)
+    MIN_RASTER_AREA = 8_000 if clip else 20_000
     candidate: list[fitz.Rect] = []
     for img_info in page.get_images(full=True):
         xref = img_info[0]
         for rect in page.get_image_rects(xref):
+            if not _in_clip(rect):
+                continue
             area = rect.get_area()
             if area < MIN_RASTER_AREA:
                 continue
@@ -1630,29 +1651,29 @@ def _find_figure_rect(page: fitz.Page) -> Optional[fitz.Rect]:
         return _union_rect(candidate)
 
     # ── Strategy 2: vector drawing clusters (dice/geometry/spatial) ───────────
-    # Collect small-to-medium shapes; exclude full-width borders and thin lines.
-    max_shape_w = pr.width * 0.60   # nothing wider than 60% of page
+    max_shape_w = pr.width * 0.60
     shapes: list[fitz.Rect] = []
     for d in page.get_drawings():
         r = fitz.Rect(d["rect"])
         if r.is_empty or r.is_infinite:
             continue
+        if not _in_clip(r):
+            continue
         area = r.get_area()
-        if area < 200 or area > 15_000:      # skip tiny marks and large borders
+        if area < 200 or area > 15_000:
             continue
-        if r.width > max_shape_w:            # skip full-width rules / text-box borders
+        if r.width > max_shape_w:
             continue
-        if r.height < 30:                    # skip thin horizontal lines
+        if r.height < 30:
             continue
         shapes.append(r)
 
     if len(shapes) < 4:
         return None
 
-    # Find the densest cluster: for each shape, count neighbours within 250pt.
     CLUSTER_RADIUS = 250
     best_group: list[fitz.Rect] = []
-    for i, anchor in enumerate(shapes):
+    for anchor in shapes:
         cx = (anchor.x0 + anchor.x1) / 2
         cy = (anchor.y0 + anchor.y1) / 2
         group = [
@@ -1667,7 +1688,6 @@ def _find_figure_rect(page: fitz.Page) -> Optional[fitz.Rect]:
         return None
 
     cluster_rect = _union_rect(best_group)
-    # Sanity check: cluster must not cover more than 70% of the page
     if cluster_rect.get_area() > page_area * 0.70:
         return None
 
@@ -1724,76 +1744,96 @@ def _upload_page_images(
 ) -> list[dict]:
     """
     For every question with has_image=True, crop the source page to just the
-    chart/graph/figure area and upload to Supabase Storage.
+    figure/diagram that belongs to THAT SPECIFIC QUESTION and upload to Storage.
 
-    Cropping strategy:
-      • PyMuPDF detects embedded images + large vector drawings → crop to their
-        bounding box (±20pt padding).
-      • If nothing detected (rare) → full page at 150 DPI as fallback.
+    Per-question cropping strategy (in priority order):
+      1. Find the question's bounding region on the page (question-number anchor).
+      2. Within that region, look for embedded raster images or vector figures.
+      3. If a figure is found inside the region → crop to that figure rect.
+      4. If no figure inside the region → crop to the question region itself.
+      5. If no question region found → search for any figure anywhere on the page.
+      6. Last resort: full page at 150 DPI.
 
-    Bucket must exist with public access. Path: {exam}/{year}/figure_p{n}.png
+    Each question gets its own upload path so multiple image questions on the
+    same page never share the same URL.
+
+    Bucket: question-images  (must exist with public access)
+    Path:   {exam}/{year}/q{number}_p{page}.png
     """
     image_qs = [q for q in questions if q.get("has_image") and q.get("_page_idx") is not None]
     if not image_qs:
         return questions
 
-    page_to_qs: dict[int, list[dict]] = {}
-    for q in image_qs:
-        page_to_qs.setdefault(int(q["_page_idx"]), []).append(q)
-
-    print(f"[img-upload] {len(image_qs)} image questions across {len(page_to_qs)} pages — cropping & uploading...")
+    print(f"[img-upload] {len(image_qs)} image questions — cropping per-question & uploading...")
     safe_exam = re.sub(r'[^a-zA-Z0-9_-]', '_', exam_name.strip())
     bucket = "question-images"
 
+    # Cache open pages so we don't re-open the PDF for every question
+    url_cache: dict[str, str] = {}   # path → url (avoid duplicate uploads for identical crops)
+
     try:
         doc = fitz.open(pdf_path)
-        for page_idx, qs in sorted(page_to_qs.items()):
+        for q in image_qs:
+            page_idx = int(q["_page_idx"])
+            qn = q.get("question_number")
+            qn_safe = qn if isinstance(qn, int) and qn > 0 else "x"
+            path = f"{safe_exam}/{exam_year}/q{qn_safe}_p{page_idx + 1}.png"
+
+            # Reuse if already uploaded (e.g. DI group questions sharing a chart)
+            if path in url_cache:
+                q["image_url"] = url_cache[path]
+                continue
+
             try:
                 page = doc[page_idx]
 
-                # Try to crop to just the figure
-                fig_rect = _find_figure_rect(page)
-                if fig_rect and fig_rect.get_area() > 5_000:
-                    mat = fitz.Matrix(200 / 72, 200 / 72)
-                    pix = page.get_pixmap(matrix=mat, clip=fig_rect)
-                    suffix = f"figure_p{page_idx + 1}"
-                    print(f"  [img-upload] p{page_idx + 1} cropped to {fig_rect.width:.0f}×{fig_rect.height:.0f}pt")
-                else:
-                    fallback_rect = None
-                    fallback_qn = None
-                    if len(qs) == 1:
-                        qn = qs[0].get("question_number")
-                        if isinstance(qn, int) and qn > 0:
-                            fallback_qn = qn
-                            fallback_rect = _find_question_crop_rect(page, qn)
-                    if fallback_rect and fallback_rect.get_area() > 5_000:
-                        mat = fitz.Matrix(180 / 72, 180 / 72)
-                        pix = page.get_pixmap(matrix=mat, clip=fallback_rect)
-                        suffix = f"q{fallback_qn}_p{page_idx + 1}"
-                        print(
-                            f"  [img-upload] p{page_idx + 1} no figure box detected — "
-                            f"question crop fallback for Q{fallback_qn}"
-                        )
-                    else:
-                        # Final fallback: full page at lower DPI
-                        mat = fitz.Matrix(150 / 72, 150 / 72)
-                        pix = page.get_pixmap(matrix=mat)
-                        suffix = f"page_{page_idx + 1}"
-                        print(f"  [img-upload] p{page_idx + 1} no figure detected — full page fallback")
+                # Step 1: find the question's own region on the page
+                q_region = _find_question_crop_rect(page, qn if isinstance(qn, int) else None)
 
+                if q_region and q_region.get_area() > 5_000:
+                    # Step 2: look for a figure embedded within the question region
+                    fig_in_region = _find_figure_rect(page, clip=q_region)
+                    if fig_in_region and fig_in_region.get_area() > 5_000:
+                        # Best case: crop to just the figure inside the question region
+                        clip_rect = fig_in_region
+                        dpi = 200
+                        print(f"  [img-upload] Q{qn_safe} p{page_idx+1} → figure within region "
+                              f"{clip_rect.width:.0f}×{clip_rect.height:.0f}pt")
+                    else:
+                        # No embedded figure detected — show the question region (includes text + diagram)
+                        clip_rect = q_region
+                        dpi = 180
+                        print(f"  [img-upload] Q{qn_safe} p{page_idx+1} → question region crop "
+                              f"{clip_rect.width:.0f}×{clip_rect.height:.0f}pt")
+                else:
+                    # Step 3: no question-region anchor — try whole-page figure detection
+                    fig_page = _find_figure_rect(page)
+                    if fig_page and fig_page.get_area() > 5_000:
+                        clip_rect = fig_page
+                        dpi = 200
+                        print(f"  [img-upload] Q{qn_safe} p{page_idx+1} → page-level figure "
+                              f"{clip_rect.width:.0f}×{clip_rect.height:.0f}pt")
+                    else:
+                        # Step 4: last resort — full page
+                        clip_rect = None
+                        dpi = 150
+                        print(f"  [img-upload] Q{qn_safe} p{page_idx+1} → full page fallback")
+
+                mat = fitz.Matrix(dpi / 72, dpi / 72)
+                pix = page.get_pixmap(matrix=mat, clip=clip_rect) if clip_rect else page.get_pixmap(matrix=mat)
                 png_bytes = pix.tobytes("png")
-                path = f"{safe_exam}/{exam_year}/{suffix}.png"
                 supabase_client.storage.from_(bucket).upload(
                     path=path,
                     file=png_bytes,
                     file_options={"content-type": "image/png", "upsert": "true"},
                 )
                 url = supabase_client.storage.from_(bucket).get_public_url(path)
-                for q in qs:
-                    q["image_url"] = url
-                print(f"  [img-upload] p{page_idx + 1} → {url[:70]}...")
+                url_cache[path] = url
+                q["image_url"] = url
+
             except Exception as e:
-                print(f"  [img-upload] p{page_idx + 1} failed: {e}")
+                print(f"  [img-upload] Q{qn_safe} p{page_idx+1} failed: {e}")
+
         doc.close()
     except Exception as e:
         print(f"[img-upload] Could not open PDF for image rendering: {e}")

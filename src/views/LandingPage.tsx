@@ -8,6 +8,7 @@ import type { CatalogSummary, FeedSummary } from '../types';
 
 interface LandingPageProps {
   onLogin: () => void;
+  onUpgrade: () => void;
   catalogSummary: CatalogSummary | null;
   feedSummary: FeedSummary | null;
 }
@@ -294,7 +295,7 @@ function FaqList() {
 
 // ── Main component ──────────────────────────────────────────────────────────
 
-export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
+export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageProps) {
   const totalQuestions = catalogSummary?.total_questions ?? 9736;
   const commissionMap = catalogSummary?.commission_map ?? {};
 
@@ -708,7 +709,7 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
                 <span className="lp2-plan-amount">499</span>
               </div>
               <div className="lp2-plan-per">₹83 / month · billed once</div>
-              <button className="lp2-plan-cta lp2-plan-cta-ghost" onClick={onLogin}>Get started</button>
+              <button className="lp2-plan-cta lp2-plan-cta-ghost" onClick={onUpgrade}>Get started</button>
               <div className="lp2-plan-divider" />
               <ul className="lp2-plan-features">
                 {PRICING_FEATURES.map((f, i) => (
@@ -729,7 +730,7 @@ export function LandingPage({ onLogin, catalogSummary }: LandingPageProps) {
                 <span className="lp2-plan-amount">899</span>
               </div>
               <div className="lp2-plan-per">₹75 / month · billed once a year</div>
-              <button className="lp2-plan-cta lp2-plan-cta-primary" onClick={onLogin}>
+              <button className="lp2-plan-cta lp2-plan-cta-primary" onClick={onUpgrade}>
                 Get best value <ArrowRight size={15} />
               </button>
               <div className="lp2-plan-divider lp2-plan-divider-white" />

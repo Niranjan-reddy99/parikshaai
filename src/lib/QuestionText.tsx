@@ -355,7 +355,7 @@ interface QuestionTextProps {
 export function QuestionText({ text, hasImage, imageUrl, style }: QuestionTextProps) {
   const imageBlock = hasImage ? <ImageBlock url={imageUrl} /> : null;
 
-  // 1. Match-the-following — never show image block; the HTML table IS the content.
+  // 1. Match-the-following — image block omitted; the rendered table IS the content.
   const matchData = parseMatch(text);
   if (matchData) {
     return (
@@ -376,7 +376,6 @@ export function QuestionText({ text, hasImage, imageUrl, style }: QuestionTextPr
           <p style={{ ...defaultTextStyle, ...style, marginBottom: 10 }}>{intro}</p>
         )}
         <PipeTable rows={tableRows} />
-        {imageBlock}
       </div>
     );
   }

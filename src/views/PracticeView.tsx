@@ -61,12 +61,26 @@ export function PracticeView({
   // SECTION: State Management
   // =========================
   const activeQRef = useRef<HTMLButtonElement>(null);
+  const mobileStripRef = useRef<HTMLDivElement>(null);
+  const mobileActiveBtnRef = useRef<HTMLButtonElement>(null);
 
   // =========================
   // SECTION: Effects
   // =========================
   useEffect(() => {
     activeQRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [practiceIndex]);
+
+  // Keep active question visible in mobile horizontal strip
+  useEffect(() => {
+    const btn = mobileActiveBtnRef.current;
+    const strip = mobileStripRef.current;
+    if (!btn || !strip) return;
+    const btnLeft = btn.offsetLeft;
+    const btnWidth = btn.offsetWidth;
+    const stripWidth = strip.offsetWidth;
+    const target = btnLeft - stripWidth / 2 + btnWidth / 2;
+    strip.scrollTo({ left: target, behavior: 'smooth' });
   }, [practiceIndex]);
 
   // =========================
@@ -146,6 +160,32 @@ export function PracticeView({
           onBack={() => setView(backView)}
           startPractice={startPractice}
         />
+
+        {/* Mobile-only horizontal question number strip */}
+        {practiceQueue.length > 0 && (
+          <div className="practice-mobile-strip" ref={mobileStripRef}>
+            {Array.from({ length: practiceQueue.length }).map((_, index) => {
+              const ans = sessionAnswers[index];
+              const isActive = index === practiceIndex;
+              let bg = 'var(--bg-alt)';
+              let color = 'var(--text-sec)';
+              let border = '1px solid var(--border)';
+              if (isActive) { bg = '#2563eb'; color = '#fff'; border = '1px solid #2563eb'; }
+              else if (ans?.correct) { bg = 'rgba(52,211,153,0.12)'; color = '#34D399'; border = '1px solid rgba(52,211,153,0.25)'; }
+              else if (ans && !ans.correct) { bg = 'rgba(248,113,113,0.12)'; color = '#F43F5E'; border = '1px solid rgba(248,113,113,0.25)'; }
+              return (
+                <button
+                  key={index}
+                  ref={isActive ? mobileActiveBtnRef : undefined}
+                  onClick={() => jumpToPracticeQuestion(index)}
+                  style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 6, background: bg, border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontFamily: "'DM Mono', monospace", color, cursor: 'pointer', transition: 'all 0.15s' }}
+                >
+                  {index + 1}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <PracticeQuestionCard
           question={currentQuestion}

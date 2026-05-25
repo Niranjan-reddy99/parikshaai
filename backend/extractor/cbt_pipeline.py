@@ -2209,30 +2209,15 @@ def process_cbt_job_background(
                     q.setdefault("shift_label", shift.shift_label)
                     q.setdefault("test_date",   shift.test_date)
                     q.setdefault("test_time",   shift.test_time)
-                # Upload full-page images for figure questions (options are also figures)
+                # Upload per-question cropped images (question region includes all 4 option figures)
                 image_qs = [q for q in merged if q.get("has_image") and q.get("_page_idx") is not None]
                 if image_qs:
                     _upd(error=f"Uploading images for {len(image_qs)} figure question(s)...")
-                    safe_exam = re.sub(r'[^a-zA-Z0-9_-]', '_', exam_name.strip())
                     try:
-                        doc_img = fitz.open(pdf_path)
-                        uploaded_pages: dict[int, str] = {}
-                        for q in image_qs:
-                            pidx = int(q["_page_idx"])
-                            if pidx not in uploaded_pages:
-                                # Full page at 150 DPI so student sees question figure + all 4 option figures
-                                pix = doc_img[pidx].get_pixmap(matrix=fitz.Matrix(150/72, 150/72))
-                                path = f"{safe_exam}/{exam_year}/aphc_fig_p{pidx+1}.png"
-                                sb.storage.from_("question-images").upload(
-                                    path=path,
-                                    file=pix.tobytes("png"),
-                                    file_options={"content-type": "image/png", "upsert": "true"},
-                                )
-                                url = sb.storage.from_("question-images").get_public_url(path)
-                                uploaded_pages[pidx] = url
-                            q["image_url"] = uploaded_pages[pidx]
-                        doc_img.close()
-                        print(f"  [aphc-img] Uploaded {len(uploaded_pages)} page image(s)")
+                        from extractor.universal_extractor import _upload_page_images, _propagate_di_images  # type: ignore
+                        merged = _upload_page_images(merged, pdf_path, exam_name, exam_year, sb)
+                        merged = _propagate_di_images(merged)
+                        print(f"  [aphc-img] Uploaded {len(image_qs)} question image(s)")
                     except Exception as _img_err:
                         print(f"  [aphc-img] Image upload failed: {_img_err}")
             else:

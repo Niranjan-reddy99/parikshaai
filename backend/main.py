@@ -4843,11 +4843,14 @@ def admin_upload_pdf(
                 print(f"[job {_ak_job[:8]}] crashed: {exc}")
             elif _ak_map:
                 try:
-                    from pipeline import inject_answers as _inject
+                    from pipeline import inject_answers as _inject, generate_explanations_bulk as _gen_expl
                     _inject(_ak_map, _ak_exam, _ak_year)
                     print(f"[job {_ak_job[:8]}] Post-job answer key injection complete")
+                    # Generate explanations for newly-answered questions so no user ever waits.
+                    _gen_expl(_ak_exam, _ak_year)
+                    print(f"[job {_ak_job[:8]}] Post-job explanation generation complete")
                 except Exception as _e:
-                    print(f"[job {_ak_job[:8]}] Post-job inject_answers failed: {_e}")
+                    print(f"[job {_ak_job[:8]}] Post-job inject_answers/explanations failed: {_e}")
             _invalidate_meta_cache()
             # Auto-tag pattern intelligence for all questions in this new paper.
             if not exc:
@@ -5037,11 +5040,26 @@ def admin_inject_answers(
             raise HTTPException(422, "Could not extract any answers from the PDF. Check the format.")
         result = inject_answers(answer_map, exam_name.strip(), exam_year)
         _invalidate_meta_cache()
+
+        # Kick off explanation generation for newly-answered questions in background.
+        # Without this, every user who opens the paper triggers slow on-demand AI generation.
+        _exam = exam_name.strip()
+        _year = exam_year
+        def _bg_generate():
+            try:
+                from pipeline import generate_explanations_bulk
+                generate_explanations_bulk(_exam, _year)
+            except Exception as _e:
+                print(f"[WARN] Background explanation generation failed for {_exam} {_year}: {_e}")
+        import threading
+        threading.Thread(target=_bg_generate, daemon=True).start()
+
         return {
             "status": "ok",
             "answers_parsed": len(answer_map),
             "questions_updated": result["updated"],
             "exam": f"{exam_name} {exam_year}",
+            "note": "Explanation generation started in background — will be ready in ~1 min.",
         }
     except HTTPException:
         raise
@@ -6541,6 +6559,76 @@ def admin_delete_explanations(
         raise HTTPException(500, "Error")
 
 
+@app.post("/admin/explanations/fix-stale", dependencies=[Depends(verify_admin)])
+def admin_fix_stale_explanations(
+    exam_name: Optional[str] = Query(None, description="Limit to one exam (optional — omit to fix all)"),
+    dry_run: bool = Query(False),
+):
+    """
+    Find all explanations with 'unverified-answer' in source where the question now has
+    needs_review=False (answer verified). Delete them so generate_explanations_bulk
+    regenerates them with a clean source label. Optionally regenerate immediately.
+    """
+    try:
+        # Find all stale explanations: source contains 'unverified-answer'
+        # We can't filter by source in Supabase easily, so fetch in chunks and filter in Python
+        q_filter = supabase.table("questions").select("id, exam_name, exam_year, needs_review")
+        if exam_name:
+            q_filter = q_filter.eq("exam_name", exam_name)
+        q_filter = q_filter.eq("is_active", True).eq("needs_review", False)
+        qs_res = q_filter.execute()
+        verified_ids = [r["id"] for r in (qs_res.data or [])]
+
+        if not verified_ids:
+            return {"stale_found": 0, "message": "No verified questions found"}
+
+        stale_ids: list[str] = []
+        for i in range(0, len(verified_ids), 50):
+            chunk = verified_ids[i:i+50]
+            er = supabase.table("explanations").select("question_id, source").in_("question_id", chunk).execute()
+            for row in (er.data or []):
+                if "unverified-answer" in str(row.get("source") or ""):
+                    stale_ids.append(row["question_id"])
+
+        if dry_run:
+            return {"stale_found": len(stale_ids), "dry_run": True, "message": f"Would delete {len(stale_ids)} stale explanations"}
+
+        deleted = 0
+        for i in range(0, len(stale_ids), 50):
+            chunk = stale_ids[i:i+50]
+            supabase.table("explanations").delete().in_("question_id", chunk).execute()
+            deleted += len(chunk)
+
+        # Now regenerate for all affected exams
+        exam_years: set[tuple] = set()
+        for r in (qs_res.data or []):
+            if r["id"] in set(stale_ids):
+                exam_years.add((r["exam_name"], r["exam_year"]))
+
+        regenerated_total = 0
+        errors_total = 0
+        try:
+            from pipeline import generate_explanations_bulk
+            for en, ey in exam_years:
+                result = generate_explanations_bulk(en, ey)
+                regenerated_total += result.get("generated", 0)
+                errors_total += result.get("errors", 0)
+        except Exception as re:
+            print(f"[WARN] Regeneration failed: {re}")
+
+        _invalidate_meta_cache()
+        return {
+            "stale_deleted": deleted,
+            "exams_processed": len(exam_years),
+            "regenerated": regenerated_total,
+            "errors": errors_total,
+            "message": f"Deleted {deleted} stale explanations across {len(exam_years)} exam(s). Regenerated {regenerated_total}.",
+        }
+    except Exception as e:
+        print(f"[ERROR] fix-stale-explanations: {e}")
+        raise HTTPException(500, str(e))
+
+
 @app.get("/admin/cost-log", dependencies=[Depends(verify_admin)])
 def admin_cost_log():
     """Return the full cost history from cache/cost_log.json."""
@@ -6944,6 +7032,79 @@ if _APP_ROLE == "public":
         if not getattr(r, "path", "").startswith("/admin")
     ]
     app.openapi_schema = None  # Reset cached OpenAPI schema so docs are correct
+
+@app.get("/admin/answer-coverage", dependencies=[Depends(verify_admin)])
+def admin_answer_coverage():
+    """
+    Returns every distinct exam_name + exam_year with:
+      - total active questions
+      - questions with a valid answer (A/B/C/D, not needs_review)
+      - questions missing a valid answer
+      - explanation coverage for verified questions
+    Sorted: no-answer papers first, then by exam_name + year.
+    """
+    try:
+        sb = get_supabase()
+        rows = sb.table("questions").select(
+            "exam_name, exam_year, correct_answer, needs_review"
+        ).eq("is_active", True).execute().data or []
+
+        # Group by exam
+        from collections import defaultdict
+        exam_map: dict = defaultdict(lambda: {"total": 0, "verified": 0, "missing": 0})
+        for r in rows:
+            key = (r["exam_name"], int(r.get("exam_year") or 0))
+            exam_map[key]["total"] += 1
+            ans = str(r.get("correct_answer") or "").strip().upper()
+            if ans in {"A", "B", "C", "D"} and not bool(r.get("needs_review")):
+                exam_map[key]["verified"] += 1
+            else:
+                exam_map[key]["missing"] += 1
+
+        # Explanation counts per exam
+        expl_rows = sb.table("explanations").select("question_id").execute().data or []
+        expl_qids = {e["question_id"] for e in expl_rows}
+        q_id_rows = sb.table("questions").select(
+            "id, exam_name, exam_year, correct_answer, needs_review"
+        ).eq("is_active", True).execute().data or []
+        expl_per_exam: dict = defaultdict(int)
+        for r in q_id_rows:
+            key = (r["exam_name"], int(r.get("exam_year") or 0))
+            ans = str(r.get("correct_answer") or "").strip().upper()
+            if ans in {"A", "B", "C", "D"} and not bool(r.get("needs_review")):
+                if r["id"] in expl_qids:
+                    expl_per_exam[key] += 1
+
+        papers = []
+        for (exam_name, exam_year), counts in exam_map.items():
+            verified = counts["verified"]
+            missing = counts["missing"]
+            total = counts["total"]
+            expl_count = expl_per_exam.get((exam_name, exam_year), 0)
+            papers.append({
+                "exam_name": exam_name,
+                "exam_year": exam_year,
+                "total_questions": total,
+                "verified_answers": verified,
+                "missing_answers": missing,
+                "answer_coverage_pct": round(verified / max(total, 1) * 100, 1),
+                "explanations_generated": expl_count,
+                "explanation_coverage_pct": round(expl_count / max(verified, 1) * 100, 1) if verified else 0,
+                "has_answer_key": missing == 0 or verified > 0,
+                "needs_answer_key": verified == 0,
+            })
+
+        papers.sort(key=lambda p: (
+            not p["needs_answer_key"],   # no-answer papers first
+            p["missing_answers"] == 0,   # partial-answer before fully covered
+            p["exam_name"],
+            p["exam_year"],
+        ))
+        return {"papers": papers, "total": len(papers)}
+    except Exception as e:
+        print(f"[ERROR] answer-coverage: {e}")
+        raise HTTPException(500, "Could not compute answer coverage")
+
 
 # ── Run ──────────────────────────────────────────────────
 if __name__ == "__main__":

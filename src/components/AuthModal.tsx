@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 
 interface AuthModalProps {
   onClose: () => void;
@@ -76,7 +76,7 @@ export function AuthModal({ onClose, onGoogleSignIn, onEmailSignIn, onEmailSignU
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+        padding: 16, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)',
       }}
       onClick={onClose}
     >
@@ -88,25 +88,25 @@ export function AuthModal({ onClose, onGoogleSignIn, onEmailSignIn, onEmailSignU
         onClick={e => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: 400,
-          background: '#0f172a',
-          border: '1px solid rgba(255,255,255,0.1)',
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
           borderRadius: 20,
           padding: 28,
-          boxShadow: '0 32px 80px rgba(0,0,0,0.7)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.03em' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>
               {showForgot ? 'Reset password' : tab === 'signin' ? 'Welcome back' : 'Create account'}
             </div>
             {!showForgot && (
-              <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 3 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-tert)', marginTop: 4 }}>
                 {tab === 'signin' ? "Don't have an account? " : 'Already have an account? '}
                 <span
                   onClick={() => { switchTab(tab === 'signin' ? 'signup' : 'signin'); setShowForgot(false); }}
-                  style={{ color: '#3b82f6', cursor: 'pointer', fontWeight: 600 }}
+                  style={{ color: '#2563eb', cursor: 'pointer', fontWeight: 600 }}
                 >
                   {tab === 'signin' ? 'Sign up' : 'Sign in'}
                 </span>
@@ -115,20 +115,23 @@ export function AuthModal({ onClose, onGoogleSignIn, onEmailSignIn, onEmailSignU
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: 4, lineHeight: 0 }}
+            style={{
+              background: 'var(--bg-alt)', border: '1px solid var(--border)',
+              cursor: 'pointer', color: 'var(--text-tert)', padding: 6, lineHeight: 0,
+              borderRadius: 8, flexShrink: 0, marginLeft: 12,
+            }}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
         {showForgot ? (
-          /* ── Forgot password ── */
           <>
             {status === 'reset_sent' ? (
               <div style={{ textAlign: 'center', padding: '16px 0' }}>
                 <div style={{ fontSize: 28, marginBottom: 10 }}>📬</div>
-                <div style={{ color: '#22c55e', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Reset email sent!</div>
-                <div style={{ color: '#64748b', fontSize: 12.5 }}>Check your inbox and follow the link.</div>
+                <div style={{ color: '#16a34a', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Reset email sent!</div>
+                <div style={{ color: 'var(--text-sec)', fontSize: 13 }}>Check your inbox and follow the link.</div>
                 <button
                   onClick={() => { setShowForgot(false); setStatus('idle'); setError(''); }}
                   style={linkBtnStyle}
@@ -138,7 +141,7 @@ export function AuthModal({ onClose, onGoogleSignIn, onEmailSignIn, onEmailSignU
               </div>
             ) : (
               <>
-                <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+                <p style={{ color: 'var(--text-sec)', fontSize: 13.5, marginBottom: 16, lineHeight: 1.55 }}>
                   Enter your email and we'll send a password reset link.
                 </p>
                 <input
@@ -160,7 +163,6 @@ export function AuthModal({ onClose, onGoogleSignIn, onEmailSignIn, onEmailSignU
             )}
           </>
         ) : (
-          /* ── Main auth form ── */
           <>
             {/* Google button */}
             <button onClick={handleGoogle} disabled={isLoading} style={googleBtnStyle}>
@@ -175,9 +177,9 @@ export function AuthModal({ onClose, onGoogleSignIn, onEmailSignIn, onEmailSignU
 
             {/* Divider */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
-              <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-              <span style={{ fontSize: 11.5, color: '#475569', fontWeight: 600 }}>OR</span>
-              <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              <span style={{ fontSize: 11.5, color: 'var(--text-tert)', fontWeight: 600, letterSpacing: '0.04em' }}>OR</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
             </div>
 
             {/* Fields */}
@@ -219,10 +221,10 @@ export function AuthModal({ onClose, onGoogleSignIn, onEmailSignIn, onEmailSignU
             </div>
 
             {tab === 'signin' && (
-              <div style={{ textAlign: 'right', marginTop: 6 }}>
+              <div style={{ textAlign: 'right', marginTop: 8 }}>
                 <span
                   onClick={() => { setShowForgot(true); setError(''); setStatus('idle'); setForgotEmail(email); }}
-                  style={{ fontSize: 12, color: '#64748b', cursor: 'pointer' }}
+                  style={{ fontSize: 12.5, color: 'var(--text-tert)', cursor: 'pointer' }}
                 >
                   Forgot password?
                 </span>
@@ -250,41 +252,43 @@ export function AuthModal({ onClose, onGoogleSignIn, onEmailSignIn, onEmailSignU
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
   padding: '11px 14px', borderRadius: 10,
-  border: '1px solid rgba(255,255,255,0.1)',
-  background: 'rgba(255,255,255,0.05)',
-  color: '#f1f5f9', fontSize: 13.5,
+  border: '1px solid var(--border)',
+  background: 'var(--bg-alt)',
+  color: 'var(--text)', fontSize: 13.5,
   fontFamily: 'inherit', outline: 'none',
 };
 
 const primaryBtnStyle = (disabled: boolean): React.CSSProperties => ({
   width: '100%', padding: '12px', borderRadius: 11, border: 'none',
-  background: disabled ? '#1e3a5f' : '#2563eb',
-  color: disabled ? '#475569' : '#fff',
+  background: disabled ? 'rgba(37,99,235,0.5)' : '#2563eb',
+  color: '#fff',
   fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
   cursor: disabled ? 'not-allowed' : 'pointer',
   transition: 'background 0.15s',
+  opacity: disabled ? 0.7 : 1,
 });
 
 const googleBtnStyle: React.CSSProperties = {
   width: '100%', padding: '11px 16px', borderRadius: 11,
-  border: '1px solid rgba(255,255,255,0.12)',
-  background: 'rgba(255,255,255,0.06)',
-  color: '#f1f5f9', fontSize: 13.5, fontWeight: 600,
+  border: '1px solid var(--border)',
+  background: 'var(--bg-alt)',
+  color: 'var(--text)', fontSize: 13.5, fontWeight: 600,
   fontFamily: 'inherit', cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+  transition: 'background 0.15s',
 };
 
 const errorStyle: React.CSSProperties = {
-  fontSize: 12.5, color: '#f87171',
-  background: 'rgba(248,113,113,0.08)',
-  border: '1px solid rgba(248,113,113,0.2)',
+  fontSize: 12.5, color: '#dc2626',
+  background: 'rgba(220,38,38,0.06)',
+  border: '1px solid rgba(220,38,38,0.18)',
   borderRadius: 8, padding: '8px 12px',
 };
 
 const linkBtnStyle: React.CSSProperties = {
   display: 'block', width: '100%', marginTop: 14,
   background: 'none', border: 'none', cursor: 'pointer',
-  color: '#3b82f6', fontSize: 13, fontWeight: 600,
+  color: '#2563eb', fontSize: 13, fontWeight: 600,
   fontFamily: 'inherit', textAlign: 'center',
 };
 

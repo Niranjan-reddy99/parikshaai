@@ -131,11 +131,12 @@ interface NavItemDef {
   badge?: { text: string; color: string; bg: string };
   onClick: () => void;
   isActive: boolean;
+  locked?: boolean;
 }
 
 export function Navbar({
   user, view, xp,
-  setView, openQuestionBankHome, openPatternPractice, handleLogout,
+  setView, openQuestionBankHome, openPatternPractice: _openPatternPractice, handleLogout,
   mode = 'sidebar',
   onNavigate,
   theme = 'light',
@@ -229,9 +230,10 @@ export function Navbar({
       onClick: () => setView('bookmarks'),
     },
     {
-      id: 'pattern', icon: 'pulse', label: 'Pattern Practice', isActive: view === 'pattern-practice',
-      badge: { text: 'BETA', color: 'var(--blue)', bg: 'var(--blue-soft)' },
-      onClick: openPatternPractice,
+      id: 'pattern', icon: 'pulse', label: 'Pattern Practice', isActive: false,
+      badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
+      onClick: () => {},
+      locked: true,
     },
   ];
 
@@ -259,17 +261,22 @@ export function Navbar({
 
   function renderItem(item: NavItemDef) {
     const active = item.isActive;
-    const hovered = hoveredItem === item.id;
+    const hovered = hoveredItem === item.id && !item.locked;
     return (
       <div
         key={item.id}
         onClick={() => {
+          if (item.locked) return;
           item.onClick();
           onNavigate?.();
         }}
         onMouseEnter={() => setHoveredItem(item.id)}
         onMouseLeave={() => setHoveredItem(null)}
-        style={navItemStyle(active, hovered)}
+        style={{
+          ...navItemStyle(active, hovered),
+          ...(item.locked ? { opacity: 0.45, cursor: 'default', pointerEvents: 'none' } : {}),
+        }}
+        title={item.locked ? 'Coming soon' : undefined}
       >
         <span style={{ width: 15, height: 15, flexShrink: 0, color: active ? '#2563eb' : 'currentColor' }}>
           <NavIcon name={item.icon} />

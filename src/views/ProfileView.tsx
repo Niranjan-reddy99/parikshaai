@@ -8,6 +8,8 @@ interface ProfileViewProps {
   stats: UserStats;
   commissionMap: CommissionMap;
   handleLogout: () => void;
+  isPremium: boolean;
+  onUpgrade: () => void;
 }
 
 const COMMISSION_LABELS: Record<string, string> = {
@@ -102,7 +104,7 @@ function SettingRow({
   );
 }
 
-export function ProfileView({ user, stats, commissionMap, handleLogout }: ProfileViewProps) {
+export function ProfileView({ user, stats, commissionMap, handleLogout, isPremium, onUpgrade }: ProfileViewProps) {
   const { level, levelName, xpNext } = xpToLevel(stats.xp);
   const xpProgress = Math.min(100, Math.round((stats.xp / xpNext) * 100));
   const [expandedRow, setExpandedRow] = useState<ExpandedRow>(null);
@@ -419,26 +421,68 @@ export function ProfileView({ user, stats, commissionMap, handleLogout }: Profil
       {/* ── Subscription section ─────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 24, marginTop: 24 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Subscription</div>
-        <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 10, background: 'var(--warn-soft)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
-            👑
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Free Plan</span>
-              <span style={{ padding: '2px 8px', background: 'var(--green-soft)', color: 'var(--green)', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>Active</span>
-            </div>
-            <div style={{ fontSize: 12.5, color: 'var(--text-sec)' }}>All PYQ features included · Unlimited practice</div>
-          </div>
-          <button style={{
-            padding: '8px 16px', background: 'var(--bg)',
-            border: '1.5px solid #2563eb', borderRadius: 8,
-            fontSize: 13, fontWeight: 600, color: '#2563eb',
-            cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+        {isPremium ? (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.10), rgba(217,119,6,0.06))',
+            border: '1.5px solid rgba(245,158,11,0.35)',
+            borderRadius: 12, padding: '18px 20px',
+            display: 'flex', alignItems: 'center', gap: 14,
           }}>
-            Upgrade Plan
-          </button>
-        </div>
+            <div style={{ width: 42, height: 42, borderRadius: 10, background: 'linear-gradient(135deg,#f59e0b,#d97706)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, boxShadow: '0 4px 12px rgba(245,158,11,0.28)' }}>
+              👑
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Premium</span>
+                <span style={{ padding: '2px 8px', background: 'rgba(245,158,11,0.15)', color: '#d97706', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>Active</span>
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-sec)' }}>All papers unlocked · Full access across every commission</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: 'var(--bg-alt)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+                🔓
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Free Plan</span>
+                  <span style={{ padding: '2px 8px', background: 'var(--green-soft)', color: 'var(--green)', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>Active</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-sec)' }}>One paper per commission · Upgrade to unlock everything</div>
+              </div>
+              <button
+                onClick={onUpgrade}
+                style={{
+                  padding: '9px 18px',
+                  background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+                  border: 'none', borderRadius: 8,
+                  fontSize: 13, fontWeight: 700, color: 'white',
+                  cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                  boxShadow: '0 4px 14px rgba(245,158,11,0.30)',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="currentColor" stroke="none"/>
+                </svg>
+                Upgrade Plan
+              </button>
+            </div>
+            {/* Mini feature teaser */}
+            <div style={{ borderTop: '1px solid var(--border)', padding: '12px 20px', background: 'var(--bg-alt)', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+              {['All years 2015→present', 'Every commission', 'AI explanations instantly', 'Full leaderboard'].map(f => (
+                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--text-sec)' }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  {f}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Subject performance ───────────────────────────────────────────────────── */}

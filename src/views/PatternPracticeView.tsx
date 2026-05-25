@@ -56,6 +56,8 @@ export function PatternPracticeView({ setView, backView = 'home' as View, adminT
   const [sessionAnswers, setSessionAnswers] = useState<(SessionAnswer | null)[]>([]);
   const [showScore, setShowScore] = useState(false);
   const activeQRef = useRef<HTMLButtonElement>(null);
+  const patternMobileStripRef = useRef<HTMLDivElement>(null);
+  const patternMobileActiveBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/pattern-books`)
@@ -83,6 +85,13 @@ export function PatternPracticeView({ setView, backView = 'home' as View, adminT
 
   useEffect(() => {
     activeQRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [index]);
+
+  useEffect(() => {
+    const btn = patternMobileActiveBtnRef.current;
+    const strip = patternMobileStripRef.current;
+    if (!btn || !strip) return;
+    strip.scrollTo({ left: btn.offsetLeft - strip.offsetWidth / 2 + btn.offsetWidth / 2, behavior: 'smooth' });
   }, [index]);
 
   const startQuiz = useCallback(async (book: PatternBook) => {
@@ -239,7 +248,29 @@ export function PatternPracticeView({ setView, backView = 'home' as View, adminT
     const s = optionStyles[optionState('', q)]; // placeholder
 
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 20, alignItems: 'start' }}>
+      <>
+      {/* Mobile-only horizontal question strip */}
+      <div className="practice-mobile-strip" ref={patternMobileStripRef}>
+        {filteredQuestions.map((_, i) => {
+          const ans = sessionAnswers[i];
+          const isActive = i === index;
+          let bg = 'var(--bg-alt)', color = 'var(--text-sec)', border = '1px solid var(--border)';
+          if (isActive) { bg = '#2563eb'; color = '#fff'; border = '1px solid #2563eb'; }
+          else if (ans?.correct === true)  { bg = 'rgba(52,211,153,0.12)'; color = '#34D399'; border = '1px solid rgba(52,211,153,0.25)'; }
+          else if (ans?.correct === false) { bg = 'rgba(248,113,113,0.12)'; color = '#F43F5E'; border = '1px solid rgba(248,113,113,0.25)'; }
+          else if (ans)                    { bg = 'rgba(251,191,36,0.12)';  color = '#f59e0b'; border = '1px solid rgba(251,191,36,0.25)'; }
+          return (
+            <button key={i} ref={isActive ? patternMobileActiveBtnRef : undefined} onClick={() => jump(i)}
+              style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 6, background: bg, border,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontFamily: "'DM Mono', monospace", color, cursor: 'pointer', transition: 'all 0.15s' }}>
+              {i + 1}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="pattern-quiz-layout">
         <div>
           {/* Focus bar */}
           <div className="glass-panel" style={{ borderRadius: 16, padding: '14px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -397,8 +428,8 @@ export function PatternPracticeView({ setView, backView = 'home' as View, adminT
           </div>
         </div>
 
-        {/* Side panel */}
-        <div className="glass-panel" style={{ borderRadius: 16, padding: '24px 20px', position: 'sticky', top: 0 }}>
+        {/* Side panel — hidden on mobile, replaced by horizontal strip above */}
+        <div className="pattern-quiz-sidebar glass-panel" style={{ borderRadius: 16, padding: '24px 20px', position: 'sticky', top: 0 }}>
           <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em',
             color: C.textTert, marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
             <span>Questions</span><span>{index + 1}/{filteredQuestions.length}</span>
@@ -443,6 +474,7 @@ export function PatternPracticeView({ setView, backView = 'home' as View, adminT
           })()}
         </div>
       </div>
+      </>
     );
   }
 

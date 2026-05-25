@@ -1780,6 +1780,11 @@ body {
   top: 18px;
 }
 
+/* Mobile question number strip — hidden on desktop */
+.practice-mobile-strip {
+  display: none;
+}
+
 .exam-detail-shell {
   max-width: 1040px;
   margin: 0 auto;
@@ -2225,9 +2230,26 @@ body {
     grid-template-columns: 1fr;
   }
 
+  /* Hide full sidebar on mobile — navigator is in the horizontal strip instead */
   .practice-sidebar-card,
   .mock-sidebar-card {
-    position: static;
+    display: none;
+  }
+
+  /* Horizontal scrolling question number strip shown only on mobile */
+  .practice-mobile-strip {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+    overflow-x: auto;
+    padding: 8px 2px 10px;
+    margin-bottom: 4px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-behavior: smooth;
+  }
+  .practice-mobile-strip::-webkit-scrollbar {
+    display: none;
   }
 
   .dashboard-main-grid,
@@ -2797,5 +2819,110 @@ body {
 @media (max-width: 480px) {
   .badges-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── PatternPracticeView quiz layout ────────────────────────────────────── */
+.pattern-quiz-layout {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ── Mobile overrides (≤ 1023px) ─────────────────────────────────────────
+   Applied on top of the existing 1023px block to avoid duplication.       */
+@media (max-width: 1023px) {
+  /* PatternPractice: collapse sidebar, show horizontal strip */
+  .pattern-quiz-layout {
+    grid-template-columns: 1fr;
+  }
+  .pattern-quiz-sidebar {
+    display: none;
+  }
+
+  /* CommissionView: wrap stats below title on mobile */
+  .commission-header-inner {
+    flex-wrap: wrap;
+  }
+  .commission-header-stats {
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+  .commission-header-stats > div {
+    padding: 6px 10px !important;
+  }
+}
+
+/* ── Extra-small phones (≤ 480px) ────────────────────────────────────────  */
+@media (max-width: 480px) {
+  /* Tighter content padding */
+  .app-content-inner {
+    padding-inline: 12px !important;
+  }
+
+  /* Landing page lp2 hero: smaller font + tighter padding */
+  .lp2-hero {
+    padding: 80px 12px 48px !important;
+  }
+  .lp2-hero-inner {
+    padding: 80px 12px 48px !important;
+    gap: 32px;
+  }
+  .lp2-h1 {
+    font-size: clamp(28px, 9vw, 44px) !important;
+  }
+  .lp2-section-inner {
+    padding: 0 12px !important;
+  }
+  .lp2-pricing-card {
+    padding: 22px 16px !important;
+  }
+
+  /* Commission header: hide stat boxes at very small sizes to prevent overflow */
+  .commission-header-stats {
+    display: none !important;
+  }
+
+  /* Home quick grid: 2 items per row already at 640px, keep it */
+
+  /* ExamDetail mode cards: reduce padding on very small phones */
+  .exam-mode-grid > div {
+    padding: 20px 16px !important;
+    min-height: 160px !important;
+  }
+
+  /* Dashboard stats: already 1-col at 720px — keep */
+
+  /* Results score grid: 3-col already set at 640px — good */
+
+  /* Profile stats: 2-col already at 640px */
+
+  /* Leaderboard podium: already 1-col at 900px */
+
+  /* Focus bar on practice: reduce padding */
+  .practice-question-card {
+    padding: 16px 12px !important;
+  }
+
+  /* Bottom nav: no border-radius on 480px since already 640px has radius */
+  .mobile-bottom-nav {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    border-radius: 0 !important;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Onboarding modal: full width */
+  .onboarding-modal {
+    margin: 0;
+    border-radius: 0;
+    min-height: 100dvh;
+  }
+
+  /* Feed: question cards tighter */
+  .feed-q-card {
+    padding: 14px 12px !important;
   }
 }
