@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import {
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   GoogleAuthProvider,
   onAuthStateChanged,
   signOut,
@@ -74,15 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Handle redirect result when returning from Google OAuth
-    getRedirectResult(auth).then((result) => {
-      if (result?.user) {
-        setShowAuthModal(false);
-      }
-    }).catch(() => {
-      // ignore redirect errors (e.g. user cancelled)
-    });
-
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setAuthLoading(false);
@@ -99,11 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleLogin = () => setShowAuthModal(true);
 
   const handleGoogleSignIn = async () => {
-    // Use redirect instead of popup to avoid Cross-Origin-Opener-Policy issues
-    // (Google's OAuth page sets COOP: same-origin which blocks window.closed)
-    await signInWithRedirect(auth, new GoogleAuthProvider());
-    // Note: setShowAuthModal(false) is handled in getRedirectResult above,
-    // since this function navigates away and the page reloads on return.
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+    setShowAuthModal(false);
   };
 
   const handleEmailSignIn = async (email: string, password: string) => {
