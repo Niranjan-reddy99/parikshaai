@@ -458,7 +458,12 @@ function AppContent() {
   // While unauthenticated on "home", keep URL as "/" (the clean landing page URL).
   // When user logs in, this effect re-runs (user is in deps) and transitions to /home.
   useEffect(() => {
-    if (!user && view === "home") return;
+    if (!user && view === "home") {
+      if (window.location.pathname !== "/") {
+        window.history.replaceState({ view }, "", "/");
+      }
+      return;
+    }
     const path = buildViewPath(view, selectedCommission, selectedExamName, selectedYear, selectedExamType);
     const current = window.location.pathname;
     if (current === path) { prevViewRef.current = view; return; }
