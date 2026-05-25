@@ -115,6 +115,17 @@ html[data-theme="dark"] .app-topbar {
   background: rgba(15, 23, 42, 0.82);
 }
 
+html[data-theme="dark"] .nav-drawer-surface {
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.8);
+}
+
+html[data-theme="dark"] .mobile-bottom-nav {
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 45px -28px rgba(0, 0, 0, 0.6);
+}
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html, body {
