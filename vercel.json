@@ -10,7 +10,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/__/auth/handler", "destination": "/api/firebase-auth-handler" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
