@@ -441,33 +441,36 @@ function AppContent() {
     setMobileNavOpen(false);
   }, [view]);
 
-  // ── Hash Router ─────────────────────────────────────────────────────────────
+  // ── History Router ───────────────────────────────────────────────────────────
   const prevViewRef = useRef<View>(view);
 
-  const buildViewHash = (
+  const buildViewPath = (
     v: View, comm: string, examName: string, year: number, examType: string
   ): string => {
     if (v === "commission" && comm)
-      return `#/commission/${encodeURIComponent(comm)}`;
+      return `/commission/${encodeURIComponent(comm)}`;
     if (v === "exam-detail" && comm && examName && year)
-      return `#/exam-detail/${encodeURIComponent(comm)}/${encodeURIComponent(examName)}/${year}/${encodeURIComponent(examType)}`;
-    return `#/${v}`;
+      return `/exam-detail/${encodeURIComponent(comm)}/${encodeURIComponent(examName)}/${year}/${encodeURIComponent(examType)}`;
+    return `/${v}`;
   };
 
-  // Sync URL on view / param changes
+  // Sync URL on view / param changes.
+  // While unauthenticated on "home", keep URL as "/" (the clean landing page URL).
+  // When user logs in, this effect re-runs (user is in deps) and transitions to /home.
   useEffect(() => {
-    const hash = buildViewHash(view, selectedCommission, selectedExamName, selectedYear, selectedExamType);
-    const current = window.location.hash || "#/home";
-    if (current === hash) { prevViewRef.current = view; return; }
+    if (!user && view === "home") return;
+    const path = buildViewPath(view, selectedCommission, selectedExamName, selectedYear, selectedExamType);
+    const current = window.location.pathname;
+    if (current === path) { prevViewRef.current = view; return; }
     const viewChanged = prevViewRef.current !== view;
     prevViewRef.current = view;
     if (viewChanged) {
-      window.history.pushState({ view }, "", hash);
+      window.history.pushState({ view }, "", path);
     } else {
-      window.history.replaceState({ view }, "", hash);
+      window.history.replaceState({ view }, "", path);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, selectedCommission, selectedExamName, selectedYear, selectedExamType]);
+  }, [view, selectedCommission, selectedExamName, selectedYear, selectedExamType, user]);
 
   // Restore view on browser back/forward
   useEffect(() => {
@@ -475,8 +478,8 @@ function AppContent() {
       "home", "browse", "dashboard", "feed", "bookmarks",
       "badges", "leaderboard", "profile", "pattern-practice", "referral",
     ]);
-    const restoreFromHash = (hash: string) => {
-      const parts = hash.replace(/^#\/?/, "").split("/").map(s => {
+    const restoreFromPath = (pathname: string) => {
+      const parts = pathname.replace(/^\//, "").split("/").map(s => {
         try { return decodeURIComponent(s); } catch { return s; }
       });
       const vName = parts[0] || "home";
@@ -495,24 +498,22 @@ function AppContent() {
         setView("home");
       }
     };
-    const handlePopState = () => restoreFromHash(window.location.hash);
+    const handlePopState = () => restoreFromPath(window.location.pathname);
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // On mount: restore from URL hash if present, otherwise set canonical URL
+  // On mount: restore view from URL path if navigated directly to a deep link.
+  // Root path "/" is left untouched — landing page renders there for unauthenticated users.
   useEffect(() => {
-    const hash = window.location.hash;
-    if (!hash || hash === "#" || hash === "#/") {
-      window.history.replaceState({ view: "home" }, "", "#/home");
-      return;
-    }
+    const pathname = window.location.pathname;
+    if (pathname === "/" || pathname === "") return;
     const SIMPLE_VIEWS = new Set([
       "home", "browse", "dashboard", "feed", "bookmarks",
       "badges", "leaderboard", "profile", "pattern-practice", "referral",
     ]);
-    const parts = hash.replace(/^#\/?/, "").split("/").map(s => {
+    const parts = pathname.replace(/^\//, "").split("/").map(s => {
       try { return decodeURIComponent(s); } catch { return s; }
     });
     const vName = parts[0] || "home";
