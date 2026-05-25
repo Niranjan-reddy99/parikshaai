@@ -41,11 +41,13 @@ export const firebaseConfig = {
     import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
     fallbackFirebaseConfig.apiKey,
   ),
-  authDomain: pickRuntimeValue(
-    runtimeConfig?.VITE_FIREBASE_AUTH_DOMAIN,
-    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined,
-    fallbackFirebaseConfig.authDomain,
-  ),
+  authDomain: (typeof window !== 'undefined' && (window.location.hostname === 'parikshagpt.in' || window.location.hostname === 'www.parikshagpt.in'))
+    ? 'parikshagpt.in'
+    : pickRuntimeValue(
+        runtimeConfig?.VITE_FIREBASE_AUTH_DOMAIN,
+        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined,
+        fallbackFirebaseConfig.authDomain,
+      ),
   projectId: pickRuntimeValue(
     runtimeConfig?.VITE_FIREBASE_PROJECT_ID,
     import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined,
