@@ -3,9 +3,9 @@
   "outputDirectory": "dist",
   "headers": [
     {
-      "source": "/__/auth/(.*)",
+      "source": "/__/auth/:path*",
       "headers": [
-        { "key": "Cross-Origin-Opener-Policy", "value": "unsafe-none" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
         { "key": "Cross-Origin-Embedder-Policy", "value": "unsafe-none" },
         { "key": "Service-Worker-Allowed", "value": "/" }
       ]
@@ -13,7 +13,7 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Cross-Origin-Opener-Policy", "value": "unsafe-none" }
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" }
       ]
     }
   ],
