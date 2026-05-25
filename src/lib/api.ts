@@ -26,7 +26,17 @@ const runtimeApiUrl =
     ? window.__APP_CONFIG__?.VITE_API_URL
     : undefined;
 
+// Auto-detect the correct API URL from the current hostname.
+// This ensures the correct backend is used even when the service worker
+// serves a cached JS bundle that predates the VITE_API_URL env var being set.
+const PRODUCTION_HOSTS = ['parikshagpt.in', 'www.parikshagpt.in', 'parikshaai.vercel.app'];
+const hostnameApiUrl =
+  typeof window !== 'undefined' && PRODUCTION_HOSTS.includes(window.location.hostname)
+    ? 'https://api.parikshagpt.in'
+    : undefined;
+
 export const API_BASE =
   runtimeApiUrl?.replace(/\/$/, '') ||
   (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ||
+  hostnameApiUrl ||
   'http://localhost:8000';
