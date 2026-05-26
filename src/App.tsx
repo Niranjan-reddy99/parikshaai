@@ -409,9 +409,16 @@ function AppContent() {
         });
         if (!res.ok) return;
         const serverStats = await res.json();
-        if (!cancelled && serverStats.totalAnswered > localStats.totalAnswered) {
-          // Prefer server stats only when they have more data (cross-device)
-          setUserStats({ ...localStats, ...serverStats });
+        if (!cancelled) {
+          const serverHasMoreData = serverStats.totalAnswered > localStats.totalAnswered;
+          const serverHasMoreHistory = (serverStats.recentAttempts?.length || 0) > (localStats.recentAttempts?.length || 0);
+          
+          if (serverHasMoreData || serverHasMoreHistory) {
+            // Prefer server stats only when they have more data (cross-device)
+            const merged = { ...localStats, ...serverStats };
+            setUserStats(merged);
+            try { localStorage.setItem(`pyq_stats_${user.uid}`, JSON.stringify(merged)); } catch {}
+          }
         }
         // If server confirms prior activity, mark onboarded and dismiss any
         // lingering modal (handles users whose local stats were cleared).

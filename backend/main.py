@@ -4131,24 +4131,67 @@ async def razorpay_webhook(request: Request):
 
 @app.get("/user/stats")
 def get_user_stats(user: dict = Depends(get_current_user)):
-    """Return cached Supabase stats, falling back to Firestore if cache is cold."""
+    """Return cached Supabase stats and fetch recent attempts."""
     uid = user["uid"]
+    stats_data = {
+        "bySubject": {},
+        "streak": 0,
+        "lastActiveDate": "",
+        "xp": 0,
+        "totalAnswered": 0,
+        "dailyActivity": {},
+        "recentAttempts": [],
+    }
     try:
         row = supabase.table("user_stats_cache").select("*").eq("firebase_uid", uid).maybe_single().execute()
         if row.data:
             d = row.data
-            return {
+            stats_data.update({
                 "bySubject": d.get("by_subject") or {},
                 "streak": d.get("streak", 0),
                 "lastActiveDate": str(d.get("last_active") or ""),
                 "xp": d.get("xp", 0),
                 "totalAnswered": d.get("total_answered", 0),
                 "dailyActivity": d.get("daily_activity") or {},
-            }
-    except Exception:
+            })
+    except Exception as e:
+        print(f"WARN /user/stats cache fetch failed: {e}")
         pass
-    # Cache miss — fall back to Firestore progress endpoint data
-    return {"bySubject": {}, "streak": 0, "lastActiveDate": "", "xp": 0, "totalAnswered": 0, "dailyActivity": {}}
+
+    try:
+        attempts_res = supabase.table("user_attempts")\
+            .select("is_correct, time_taken_s, subject, topic, subtopic, pattern_tag, attempted_at, questions!inner(question_text)")\
+            .eq("firebase_uid", uid)\
+            .order("attempted_at", desc=True)\
+            .limit(20)\
+            .execute()
+        
+        if attempts_res.data:
+            recent = []
+            for a in attempts_res.data:
+                secs = a.get("time_taken_s") or 0
+                time_str = f"{secs // 60}m {secs % 60}s" if secs >= 60 else f"{secs}s"
+                q_text = ""
+                if a.get("questions") and isinstance(a["questions"], dict):
+                    q_text = str(a.get("questions", {}).get("question_text", ""))[:90]
+                elif a.get("questions") and isinstance(a["questions"], list) and len(a["questions"]) > 0:
+                    q_text = str(a["questions"][0].get("question_text", ""))[:90]
+                
+                recent.append({
+                    "q": q_text,
+                    "correct": bool(a.get("is_correct")),
+                    "subject": str(a.get("subject") or ""),
+                    "topic": str(a.get("topic") or ""),
+                    "subtopic": a.get("subtopic"),
+                    "pattern_tag": a.get("pattern_tag"),
+                    "time": time_str
+                })
+            stats_data["recentAttempts"] = recent
+    except Exception as e:
+        print(f"WARN /user/stats attempts fetch failed: {e}")
+        pass
+
+    return stats_data
 
 
 @app.post("/user/sync-local")
