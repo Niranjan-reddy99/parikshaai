@@ -31,6 +31,7 @@ import { QuestionModal } from "./components/QuestionModal";
 import { FlagQuestionModal } from "./components/FlagQuestionModal";
 import { PremiumGateModal } from "./components/PremiumGateModal";
 import { ToastProvider } from "./components/Toast";
+import { ComingSoonModal } from "./components/ComingSoonModal";
 
 import { DashboardView } from "./views/DashboardView";
 import { HomeView } from "./views/HomeView";
@@ -227,6 +228,7 @@ function AppContent() {
     typeof window !== "undefined" ? window.innerWidth < 1024 : false
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [showComingSoon, setShowComingSoon] = useState(false);
 
   // ── Theme State ──────────────────────────────────────────────────────────────
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -1687,14 +1689,14 @@ function AppContent() {
       label: "Bank",
       icon: "bank" as const,
       active: view === "browse",
-      onClick: () => window.alert('Coming Soon!'),
+      onClick: () => setShowComingSoon(true),
     },
     {
       id: "feed",
       label: "Feed",
       icon: "feed" as const,
       active: view === "feed" || view === "pattern-practice",
-      onClick: () => window.alert('Coming Soon!'),
+      onClick: () => setShowComingSoon(true),
     },
     {
       id: "progress",
@@ -1715,6 +1717,7 @@ function AppContent() {
   return (
     <ToastProvider>
       <div className="app-shell" style={{ display: "flex", flexDirection: "column", height: "100vh", minHeight: "100vh", overflow: "hidden", color: "var(--text)" }}>
+        {showComingSoon && <ComingSoonModal onClose={() => setShowComingSoon(false)} />}
         {editQuestion && (
           <EditQuestionModal
             question={editQuestion}
@@ -1869,6 +1872,7 @@ function AppContent() {
                 openExam={openExam}
                 openPatternPractice={() => setView("pattern-practice")}
                 handleLogout={handleLogout}
+                onComingSoon={() => setShowComingSoon(true)}
                 mode="drawer"
                 onNavigate={() => setMobileNavOpen(false)}
                 theme={theme}
@@ -1901,6 +1905,7 @@ function AppContent() {
               openExam={openExam}
               openPatternPractice={() => setView("pattern-practice")}
               handleLogout={handleLogout}
+              onComingSoon={() => setShowComingSoon(true)}
               theme={theme}
               toggleTheme={toggleTheme}
             />

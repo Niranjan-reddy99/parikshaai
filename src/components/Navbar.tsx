@@ -23,6 +23,7 @@ interface NavbarProps {
   openQuestionBankHome: () => void;
   openCommission: (c: string) => void;
   openExam: (examName: string, commission: string, examType: string) => void;
+  onComingSoon: () => void;
   openPatternPractice: () => void;
   handleLogout: () => void;
   mode?: 'sidebar' | 'drawer';
@@ -137,6 +138,7 @@ interface NavItemDef {
 export function Navbar({
   user, view, xp,
   setView, openQuestionBankHome, openPatternPractice: _openPatternPractice, handleLogout,
+  onComingSoon,
   mode = 'sidebar',
   onNavigate,
   theme = 'light',
@@ -224,7 +226,7 @@ export function Navbar({
     {
       id: 'browse', icon: 'search', label: 'Question Bank', isActive: view === 'browse',
       badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
-      onClick: () => window.alert('Coming Soon!'),
+      onClick: () => onComingSoon(),
     },
     {
       id: 'bookmarks', icon: 'bookmark', label: 'Bookmarks', isActive: view === 'bookmarks',
@@ -233,7 +235,7 @@ export function Navbar({
     {
       id: 'pattern', icon: 'pulse', label: 'Pattern Practice', isActive: false,
       badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
-      onClick: () => {},
+      onClick: () => onComingSoon(),
       locked: true,
     },
   ];
@@ -253,12 +255,12 @@ export function Navbar({
     {
       id: 'feed', icon: 'feed', label: 'PYQ Feed', isActive: view === 'feed',
       badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
-      onClick: () => window.alert('Coming Soon!'),
+      onClick: () => onComingSoon(),
     },
     {
       id: 'referral', icon: 'users', label: 'Refer & Earn', isActive: view === 'referral',
       badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
-      onClick: () => window.alert('Coming Soon!'),
+      onClick: () => onComingSoon(),
     },
   ];
 
