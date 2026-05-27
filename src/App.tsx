@@ -1517,17 +1517,10 @@ function AppContent() {
   const isLocked = (examName: string, year: number, commission?: string): boolean => {
     if (isPremium) return false;
     if (!year) return false; // topic practice uses year=0, never locked
-    // Find the ExamInfo for this exam to get the full year list
-    let examInfo = commission ? commissionMap[commission]?.[examName] : null;
-    if (!examInfo) {
-      // No commission given — search all commissions
-      for (const comm of Object.values(commissionMap)) {
-        if (comm[examName]) { examInfo = comm[examName]; break; }
-      }
-    }
-    if (!examInfo?.years?.length) return false;
-    const maxYear = Math.max(...examInfo.years);
-    return year < maxYear;
+    
+    // Only UPSC CSE Prelims GS Paper 1 2026 is free
+    const isFreePaper = examName.toLowerCase() === "prelims gs paper 1" && year === 2026;
+    return !isFreePaper;
   };
 
   useEffect(() => {
@@ -1694,14 +1687,14 @@ function AppContent() {
       label: "Bank",
       icon: "bank" as const,
       active: view === "browse",
-      onClick: openQuestionBankHome,
+      onClick: () => window.alert('Coming Soon!'),
     },
     {
       id: "feed",
       label: "Feed",
       icon: "feed" as const,
       active: view === "feed" || view === "pattern-practice",
-      onClick: () => setView("feed"),
+      onClick: () => window.alert('Coming Soon!'),
     },
     {
       id: "progress",

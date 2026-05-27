@@ -702,10 +702,9 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
               transition={{ duration: 0.5, delay: 0.1 }}>
               <div className="lp2-plan-label">6 Months</div>
               <div className="lp2-plan-price">
-                <span className="lp2-plan-currency">₹</span>
-                <span className="lp2-plan-amount">499</span>
+                <span className="lp2-plan-amount" style={{ fontSize: '24px' }}>Coming soon</span>
               </div>
-              <div className="lp2-plan-per">₹83 / month · billed once</div>
+              <div className="lp2-plan-per">Pricing will be revealed shortly</div>
               <button className="lp2-plan-cta lp2-plan-cta-ghost" onClick={onUpgrade}>Get started</button>
               <div className="lp2-plan-divider" />
               <ul className="lp2-plan-features">
@@ -720,13 +719,12 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
             <motion.div className="lp2-pricing-card lp2-pricing-card-featured"
               initial={{ opacity: 0, y: 28 }} animate={pricingInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.2 }}>
-              <div className="lp2-plan-best-badge">Best Value · Save ₹99</div>
+              <div className="lp2-plan-best-badge">Best Value</div>
               <div className="lp2-plan-label lp2-plan-label-white">Annual</div>
               <div className="lp2-plan-price">
-                <span className="lp2-plan-currency">₹</span>
-                <span className="lp2-plan-amount">899</span>
+                <span className="lp2-plan-amount" style={{ fontSize: '24px' }}>Coming soon</span>
               </div>
-              <div className="lp2-plan-per">₹75 / month · billed once a year</div>
+              <div className="lp2-plan-per">Pricing will be revealed shortly</div>
               <button className="lp2-plan-cta lp2-plan-cta-primary" onClick={onUpgrade}>
                 Get best value <ArrowRight size={15} />
               </button>
@@ -737,10 +735,6 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
                     <CheckCircle2 size={13} color="#2dd4bf" style={{ flexShrink: 0 }} />{f}
                   </li>
                 ))}
-                <li className="lp2-plan-feature lp2-plan-feature-white">
-                  <CheckCircle2 size={13} color="#2dd4bf" style={{ flexShrink: 0 }} />
-                  <strong>Save ₹99 vs 6-month plan</strong>
-                </li>
               </ul>
             </motion.div>
           </div>

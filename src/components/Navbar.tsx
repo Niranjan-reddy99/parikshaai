@@ -223,7 +223,8 @@ export function Navbar({
     },
     {
       id: 'browse', icon: 'search', label: 'Question Bank', isActive: view === 'browse',
-      onClick: openQuestionBankHome,
+      badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
+      onClick: () => window.alert('Coming Soon!'),
     },
     {
       id: 'bookmarks', icon: 'bookmark', label: 'Bookmarks', isActive: view === 'bookmarks',
@@ -251,11 +252,13 @@ export function Navbar({
   const communityItems: NavItemDef[] = [
     {
       id: 'feed', icon: 'feed', label: 'PYQ Feed', isActive: view === 'feed',
-      onClick: () => setView('feed'),
+      badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
+      onClick: () => window.alert('Coming Soon!'),
     },
     {
       id: 'referral', icon: 'users', label: 'Refer & Earn', isActive: view === 'referral',
-      onClick: () => setView('referral'),
+      badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
+      onClick: () => window.alert('Coming Soon!'),
     },
   ];
 

@@ -546,6 +546,8 @@ def _question_supported_columns() -> set[str]:
         "structural_status", "answer_status", "explanation_status",
         "tagging_status", "review_required", "confidence_score",
         "public_visibility", "practice_ready", "primary_issue_code", "issue_codes",
+        "pattern_tag", "trap_tag", "skill_tag", "question_style",
+        "pattern_confidence", "pattern_reason", "solve_hint",
     }
     try:
         data = supabase.table("questions").select("*").limit(1).execute().data or []
@@ -3894,29 +3896,13 @@ def _get_subscription_cached(firebase_uid: str) -> dict:
 
 
 def _get_free_papers_set() -> frozenset:
-    """Return a frozenset of (exam_name_lower, year) pairs free for all authenticated users.
-    One paper per commission = first exam type in catalog + its latest year (mirrors frontend logic)."""
+    """Return a frozenset of (exam_name_lower, year) pairs free for all authenticated users."""
     global _free_papers_cache, _free_papers_cache_ts
     now = time.time()
     if _free_papers_cache is not None and (now - _free_papers_cache_ts) < _FREE_PAPERS_CACHE_TTL:
         return _free_papers_cache
     try:
-        snapshot = _get_public_meta_snapshot()
-        commission_map: dict = snapshot["catalog"].get("commission_map", {})
-        free_set: set[tuple[str, int]] = set()
-        for exams in commission_map.values():
-            if not exams:
-                continue
-            first_key = next(iter(exams), None)
-            if not first_key:
-                continue
-            info = exams[first_key]
-            years = info.get("years") or []
-            full_name = str(info.get("fullName") or "").strip()
-            if not full_name or not years:
-                continue
-            free_set.add((full_name.lower(), max(years)))
-        _free_papers_cache = frozenset(free_set)
+        _free_papers_cache = frozenset([("prelims gs paper 1", 2026)])
         _free_papers_cache_ts = now
         return _free_papers_cache
     except Exception as exc:
