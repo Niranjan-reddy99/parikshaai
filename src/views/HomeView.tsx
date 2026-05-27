@@ -533,8 +533,6 @@ export function HomeView({
             })}
           </div>
         </div>
-        </div>
-        </div>
       </div>
 
       {/* ── RIGHT: sticky sidebar ──────────────────────────────────────── */}
