@@ -2792,11 +2792,14 @@ async def get_exam_outline(
 
 @app.get("/meta/exam-papers")
 async def get_exam_papers(
+    response: Response,
     exam_name: str = Query(...),
     exam_year: int = Query(...),
 ):
     try:
-        return _build_exam_paper_manifest(normalize_exam_name(exam_name), exam_year)
+        manifest = _build_exam_paper_manifest(normalize_exam_name(exam_name), exam_year)
+        response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
+        return manifest
     except Exception as e:
         print(f"[ERROR] Exam papers error: {e}")
         raise HTTPException(500, "Exam papers error")
