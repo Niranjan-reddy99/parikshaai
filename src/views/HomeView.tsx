@@ -151,7 +151,7 @@ function GoalsModal({ dailyGoal, examYear, onSave, onClose }: {
 
 export function HomeView({
   commissionMap, openCommission,
-  startPractice,
+  startPractice, openExam,
   setView, openQuestionBankHome, openFeedWithSubject,
   stats, userDisplayName, userId,
 }: HomeViewProps) {
