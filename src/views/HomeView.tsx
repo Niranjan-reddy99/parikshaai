@@ -259,7 +259,7 @@ export function HomeView({
   const dateLabel = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div className="home-layout" style={{ fontFamily: 'var(--font-sans)' }}>
+    <div style={{ position: 'relative', minHeight: '100%' }}>
       {showGoals && (
         <GoalsModal
           dailyGoal={dailyGoal}
@@ -268,6 +268,49 @@ export function HomeView({
           onClose={() => setShowGoals(false)}
         />
       )}
+
+      {/* ── Phased Rollout Overlay ── */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 10,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '12vh',
+      }}>
+        <div style={{
+          background: 'var(--bg)', border: '1px solid var(--border)',
+          borderRadius: 20, padding: 32, textAlign: 'center',
+          boxShadow: '0 24px 48px -12px rgba(0,0,0,0.2)',
+          maxWidth: 400,
+        }}>
+          <div style={{
+            display: 'inline-flex', padding: '4px 12px', borderRadius: 20,
+            background: 'rgba(37,99,235,0.1)', color: '#2563eb',
+            fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
+            marginBottom: 16
+          }}>
+            Early Access
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginBottom: 8, lineHeight: 1.3 }}>
+            UPSC — PRELIMS GS PAPER 1
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--text-tert)', marginBottom: 24, lineHeight: 1.5 }}>
+            100 questions · 2026 · UPSC PRELIMS GS PAPER 1<br/><br/>
+            We are planning a phased rollout. For now, we have opened up early access to this exam.
+          </p>
+          <button
+            onClick={() => openExam("UPSC PRELIMS GS PAPER 1", "UPSC", "PRELIMS GS PAPER 1", 2026)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              width: '100%', padding: '12px 0', borderRadius: 12, border: 'none',
+              background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
+            }}
+          >
+            Access Exam <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="home-layout" style={{ fontFamily: 'var(--font-sans)', filter: 'blur(6px)', opacity: 0.5, pointerEvents: 'none', userSelect: 'none' }}>
 
       {/* ── LEFT: main content ─────────────────────────────────────────── */}
       <div className="home-main-column">
@@ -351,50 +394,7 @@ export function HomeView({
           </div>
         </div>
 
-        {/* ── Phased Rollout Overlay ── */}
-        <div style={{ position: 'relative' }}>
-          {/* Banner Overlay */}
-          <div style={{
-            position: 'absolute', inset: 0, zIndex: 10,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60,
-          }}>
-            <div style={{
-              background: 'var(--bg)', border: '1px solid var(--border)',
-              borderRadius: 20, padding: 32, textAlign: 'center',
-              boxShadow: '0 24px 48px -12px rgba(0,0,0,0.2)',
-              maxWidth: 400,
-            }}>
-              <div style={{
-                display: 'inline-flex', padding: '4px 12px', borderRadius: 20,
-                background: 'rgba(37,99,235,0.1)', color: '#2563eb',
-                fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
-                marginBottom: 16
-              }}>
-                Early Access
-              </div>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginBottom: 8, lineHeight: 1.3 }}>
-                UPSC — PRELIMS GS PAPER 1
-              </h2>
-              <p style={{ fontSize: 13, color: 'var(--text-tert)', marginBottom: 24, lineHeight: 1.5 }}>
-                100 questions · 2026 · UPSC PRELIMS GS PAPER 1<br/><br/>
-                We are planning a phased rollout. For now, we have opened up early access to this exam.
-              </p>
-              <button
-                onClick={() => openExam("UPSC PRELIMS GS PAPER 1", "UPSC", "PRELIMS GS PAPER 1", 2026)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  width: '100%', padding: '12px 0', borderRadius: 12, border: 'none',
-                  background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
-                }}
-              >
-                Access Exam <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
 
-          <div style={{ filter: 'blur(6px)', opacity: 0.5, pointerEvents: 'none', userSelect: 'none' }}>
         {/* ── Practice Library ── */}
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
