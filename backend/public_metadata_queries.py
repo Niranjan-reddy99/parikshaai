@@ -343,6 +343,13 @@ def stream_public_exam_page(
             query = query.eq("shift_label", shift_label)
         if difficulty:
             query = query.eq("difficulty", difficulty)
+            
+        if publishable_paper_ids is not None:
+            paper_ids_list = list(publishable_paper_ids)
+            if not paper_ids_list:
+                query = query.in_("paper_id", ["__EMPTY__"])
+            elif len(paper_ids_list) <= 200:
+                query = query.in_("paper_id", paper_ids_list)
 
         query = (
             _apply_public_question_order(

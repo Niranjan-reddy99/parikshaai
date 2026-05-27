@@ -1,16 +1,18 @@
 from supabase import create_client
 import os
-import requests
+import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# We can directly invoke the python endpoint logic since we are in the backend folder
-from main import get_explanation
+async def main():
+    try:
+        from config import supabase
+        res = supabase.table("jobs").select("*").ilike("exam_name", "%tspsc aee%").execute()
+        for j in res.data:
+            print(f"Job: {j['exam_name']} {j['exam_year']}, paper_id: {j.get('paper_id')}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
 
-try:
-    res = get_explanation("5f84bb00-bd69-4520-9c56-67df2a60c82f", _current_user={"uid": "test", "premium": True})
-    print(f"Result: {res}")
-except Exception as e:
-    print(f"Error: {e}")
-
+asyncio.run(main())

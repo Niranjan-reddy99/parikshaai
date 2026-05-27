@@ -4157,6 +4157,39 @@ def get_user_stats(user: dict = Depends(get_current_user)):
                 "totalAnswered": d.get("total_answered", 0),
                 "dailyActivity": d.get("daily_activity") or {},
             })
+        else:
+            # Reconstruct from user_attempts if cache doesn't exist
+            all_attempts = supabase.table("user_attempts").select("is_correct, subject, attempted_at").eq("firebase_uid", uid).execute().data or []
+            if all_attempts:
+                by_subj = {}
+                daily = {}
+                xp = 0
+                last_active = ""
+                for a in all_attempts:
+                    subj = a.get("subject") or "General"
+                    if subj not in by_subj:
+                        by_subj[subj] = {"correct": 0, "incorrect": 0, "total": 0}
+                    by_subj[subj]["total"] += 1
+                    if a.get("is_correct"):
+                        by_subj[subj]["correct"] += 1
+                        xp += 10
+                    else:
+                        by_subj[subj]["incorrect"] += 1
+                        xp += 2
+                    ts = str(a.get("attempted_at") or "")
+                    if ts:
+                        d_str = ts[:10]
+                        daily[d_str] = daily.get(d_str, 0) + 1
+                        if ts > last_active:
+                            last_active = ts
+
+                stats_data.update({
+                    "bySubject": by_subj,
+                    "xp": xp,
+                    "totalAnswered": len(all_attempts),
+                    "dailyActivity": daily,
+                    "lastActiveDate": last_active[:10] if last_active else "",
+                })
     except Exception as e:
         print(f"WARN /user/stats cache fetch failed: {e}")
         pass
@@ -4550,9 +4583,22 @@ def admin_tag_patterns_all(limit: int = 12000, force: bool = False):
         import io
         import traceback as _tb
         import sys as _sys
-        from auto_tag_patterns import run as _tag_run
         from datetime import datetime, timezone
         from pathlib import Path as _Path
+        
+        _scripts_dir = str(_Path(__file__).parent / "scripts")
+        if _scripts_dir not in _sys.path:
+            _sys.path.append(_scripts_dir)
+            
+        try:
+            from auto_tag_patterns import run as _tag_run
+        except Exception as e:
+            _bulk_tag_job.update({
+                "running": False,
+                "error": f"Import failed: {e}",
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+            })
+            return
 
         # Route all print() output from the tagger to a log file so the background
         # thread never writes to uvicorn's non-blocking stdout (which raises EAGAIN/
@@ -4758,9 +4804,11 @@ def admin_upload_pdf(
                     ak_tmp.write(ak_content)
                     ak_tmp_path = ak_tmp.name
                 try:
-                    from extractor.answer_key_parser import parse_answer_key
-                    answer_key_map = parse_answer_key(ak_tmp_path, expected_count=expected_count)
-                    print(f"[upload] Answer key parsed: {len(answer_key_map)} answers")
+                    from extractor.answer_key_parser import parse_answer_key_multiset
+                    multi_key = parse_answer_key_multiset(ak_tmp_path, expected_count=expected_count)
+                    target_series = series.strip().upper() if series else "A"
+                    answer_key_map = multi_key.get(target_series, multi_key.get("A", {}))
+                    print(f"[upload] Answer key parsed for Set {target_series}: {len(answer_key_map)} answers")
                 except Exception as e:
                     print(f"[upload] Answer key parse failed: {e}")
                 finally:

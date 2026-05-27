@@ -454,6 +454,7 @@ function AppContent() {
   const buildViewPath = (
     v: View, comm: string, examName: string, year: number, examType: string
   ): string => {
+    if (v === "home") return "/";
     if (v === "commission" && comm)
       return `/commission/${encodeURIComponent(comm)}`;
     if (v === "exam-detail" && comm && examName && year)

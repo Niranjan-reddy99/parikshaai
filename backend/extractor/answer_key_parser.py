@@ -92,8 +92,10 @@ def _extract_pdf_text(pdf_path: str) -> str:
 
 
 def _score_coverage(result: dict[int, str], expected: int) -> float:
-    if not result or not expected:
+    if not result:
         return 0.0
+    if not expected or expected <= 0:
+        expected = max((n for n in result.keys() if isinstance(n, int)), default=150)
     covered = sum(1 for n in range(1, expected + 1) if n in result)
     return covered / expected
 

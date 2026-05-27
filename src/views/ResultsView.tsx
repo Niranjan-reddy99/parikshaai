@@ -19,6 +19,7 @@ import {
   DELETED_QUESTION_NOTE,
   MULTIPLE_ANSWERS_NOTE,
 } from './practice/practiceUtils';
+import { useAuth } from '../contexts/AuthContext';
 import { type ExamSession, type View } from '../types';
 
 interface ResultsViewProps {
@@ -47,6 +48,7 @@ function accBg(c: number, t: number) {
 
 export function ResultsView({ examSession, examTimer, startMockExam, setExamSession, loadMoreResults, setView }: ResultsViewProps) {
   const { questions: qs, answers, examName, year, duration } = examSession;
+  const { getApiToken } = useAuth();
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [explanations, setExplanations] = useState<Record<string, string>>({});
   const [loadingExp, setLoadingExp] = useState<Set<string>>(new Set());
@@ -57,14 +59,17 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
     setVisibleCount((prev) => Math.min(Math.max(prev, 20), qs.length || 20));
   }, [qs.length, examName, year]);
 
-  const fetchBatchExplanations = async (questionIds: string[]) => {
+  const fetchBatchExplanations = async (questionIds: string[], token: string | null) => {
     const merged: Record<string, string> = {};
     for (let i = 0; i < questionIds.length; i += 50) {
       const chunk = questionIds.slice(i, i + 50);
       if (!chunk.length) continue;
       const res = await fetch(`${API_BASE}/explanations/batch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ question_ids: chunk }),
       });
       if (!res.ok) continue;
@@ -87,9 +92,10 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
       .map(q => q.id!);
     if (!work.length) return;
     void (async () => {
+      const token = await getApiToken();
       let cached: Record<string, string> = {};
       try {
-        cached = await fetchBatchExplanations(work);
+        cached = await fetchBatchExplanations(work, token);
         if (Object.keys(cached).length) {
           setExplanations(prev => ({ ...prev, ...cached }));
         }
@@ -104,7 +110,9 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
         const id = missing[i++];
         setLoadingExp(prev => new Set(prev).add(id));
         try {
-          const res = await fetch(`${API_BASE}/explanation/${id}`);
+          const res = await fetch(`${API_BASE}/explanation/${id}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
           if (res.ok) {
             const d = await res.json();
             const source = (d.source || '').toString();
@@ -181,7 +189,10 @@ export function ResultsView({ examSession, examTimer, startMockExam, setExamSess
     if (!qId || loadingExp.has(qId)) return;
     setLoadingExp(prev => new Set(prev).add(qId));
     try {
-      const res = await fetch(`${API_BASE}/explanation/${qId}`);
+      const token = await getApiToken();
+      const res = await fetch(`${API_BASE}/explanation/${qId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (res.ok) {
         const d = await res.json();
         const source = (d.source || '').toString();

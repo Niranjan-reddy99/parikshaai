@@ -432,6 +432,7 @@ UNIVERSAL_PROMPT = """1. Extract EVERY exam question visible on the page.
 8. If no questions are found, return [].
 
 ### 📖 EXTRACTION RULES:
+- CRITICAL: The `question_number` MUST exactly match the printed number on the PDF page (e.g., if the question starts with '54.', `question_number` must be 54). Do not renumber the questions sequentially!
 - Preserve mathematical symbols and technical notation exactly as printed: %, +, -, ×, ÷, =, <, >, ≤, ≥, √, π, °;₹, ratios, fractions, exponents.
 - Format multi-statement questions (1, 2, 3...) inside question_text.
 
