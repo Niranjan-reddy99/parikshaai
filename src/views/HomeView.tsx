@@ -663,5 +663,6 @@ export function HomeView({
 
       </div>
     </div>
+    </div>
   );
 }
