@@ -64,7 +64,7 @@ export function ExamDetailView({
         examQuestionCount={examQuestionCount}
         selectedPaperLabel={selectedPaperLabel}
         availablePaperCount={availablePapers.length}
-        onBack={() => setView('commission')}
+        onBack={() => setView('home')}
       />
 
       <ExamDetailControls

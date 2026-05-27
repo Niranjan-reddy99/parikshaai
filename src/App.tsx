@@ -1519,7 +1519,7 @@ function AppContent() {
     if (!year) return false; // topic practice uses year=0, never locked
     
     // Only UPSC CSE Prelims GS Paper 1 2026 is free
-    const isFreePaper = examName.toLowerCase() === "prelims gs paper 1" && year === 2026;
+    const isFreePaper = examName.toLowerCase().includes("prelims gs paper 1") && year === 2026;
     return !isFreePaper;
   };
 
