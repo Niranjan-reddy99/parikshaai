@@ -1290,7 +1290,16 @@ function AppContent() {
   const finishExam = async () => {
     if (!examSession) return;
 
-    let finalSession = { ...examSession, isFinished: true };
+    let finalQs = examSession.questions;
+    if (examSession.hasMore || finalQs.length < examSession.totalCount) {
+      const allQs = await loadAllExamQuestions(examSession.examName, examSession.year, {
+        paperId: examSession.paperId,
+        shiftLabel: examSession.shiftLabel,
+      });
+      if (allQs.length > 0) finalQs = allQs;
+    }
+
+    let finalSession = { ...examSession, questions: finalQs, isFinished: true, hasMore: false };
 
     // Batch-fetch correct answers (stripped from bulk load for security)
     const ids = finalSession.questions.map(q => q.id).filter(Boolean);
@@ -1329,6 +1338,12 @@ function AppContent() {
     }
 
     void persistMockAttempts(finalSession);
+    const sessionId = ++mockPrefetchSessionRef.current;
+    warmQuestionExplanations(finalSession.questions, {
+      sessionId,
+      onHydrate: (questionId, explanation) =>
+        updateExamSessionQuestion(questionId, { explanation }),
+    });
     setExamSession(finalSession);
     setView("results");
   };
