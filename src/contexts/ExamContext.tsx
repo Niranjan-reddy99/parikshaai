@@ -690,39 +690,31 @@ export function ExamProvider({ children }: { children: ReactNode }) {
       shiftLabel?: string | null;
     }
   ): Promise<Question[]> => {
-    let current =
-      filters?.subject || filters?.topic || filters?.subtopic
-        ? await fetchExamChunk(examName, year, {
-            pageSize: 20,
-            reset: true,
-            ...filters,
-          })
-        : await loadExamQuestions(examName, year, false, filters);
-    const key = buildQuestionSetKey(examName, year, {
-      ...filters,
-      paperId:
-        filters?.paperId !== undefined
-          ? filters.paperId
-          : examName === selectedExamName && year === selectedYear
-          ? selectedPaperId
-          : null,
-      shiftLabel:
-        filters?.shiftLabel !== undefined
-          ? filters.shiftLabel
-          : examName === selectedExamName && year === selectedYear
-          ? selectedShiftLabel
-          : null,
-    });
-
+    let allQuestions: Question[] = [];
+    let hasMore = true;
+    let offset = 0;
     let guard = 0;
-    while (
-      examPageStateRef.current[key]?.hasMore &&
-      guard < 100
-    ) {
-      current = await loadMoreExamQuestions(examName, year, 25, filters);
+
+    while (hasMore && guard < 100) {
+      const page = await requestExamPage(examName, year, {
+        ...filters,
+        pageSize: 50,
+        offset,
+      });
+      allQuestions = [...allQuestions, ...page.rows];
+      hasMore = page.hasMore;
+      offset += page.rows.length;
+      if (page.rows.length === 0) break;
       guard += 1;
     }
-    return current;
+    
+    // De-duplicate just in case
+    const seen = new Set();
+    return allQuestions.filter(q => {
+      if (seen.has(q.id)) return false;
+      seen.add(q.id);
+      return true;
+    });
   };
 
   // ── Paginated fetch (used by BrowseView) ──────────────────────────────────
@@ -738,6 +730,7 @@ export function ExamProvider({ children }: { children: ReactNode }) {
       subtopic?: string;
       paperId?: string | null;
       shiftLabel?: string | null;
+      offset?: number;
     }
   ): Promise<{
     rows: Question[];
@@ -756,6 +749,7 @@ export function ExamProvider({ children }: { children: ReactNode }) {
     if (opts?.paperId) params.set('paper_id', opts.paperId);
     if (opts?.shiftLabel) params.set('shift_label', opts.shiftLabel);
     if (opts?.cursor) params.set('cursor', opts.cursor);
+    if (opts?.offset !== undefined) params.set('offset', String(opts.offset));
 
     let token = await getApiToken();
     let res = await fetch(`${API_BASE}/questions?${params}`, {
