@@ -549,6 +549,8 @@ export function ExamProvider({ children }: { children: ReactNode }) {
       if (resolvedPaperId) params.set('paper_id', resolvedPaperId);
       if (resolvedShiftLabel) params.set('shift_label', resolvedShiftLabel);
       params.set('limit', String(pageSize));
+      const offset = reset ? 0 : (examCache[key]?.length || 0);
+      params.set('offset', String(offset));
       if (nextCursor) params.set('cursor', nextCursor);
 
       let token = await getApiToken();
