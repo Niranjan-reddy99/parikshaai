@@ -711,13 +711,9 @@ export function ExamProvider({ children }: { children: ReactNode }) {
           ? selectedShiftLabel
           : null,
     });
-    const targetCount =
-      examOutlineCache[key]?.total_count ||
-      examPageStateRef.current[key]?.totalCount ||
-      current.length;
+
     let guard = 0;
     while (
-      current.length < targetCount &&
       examPageStateRef.current[key]?.hasMore &&
       guard < 100
     ) {
