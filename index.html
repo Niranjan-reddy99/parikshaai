@@ -174,7 +174,43 @@
     </script>
   </head>
   <body>
-    <div id="root" translate="no"></div>
+    <div id="root" translate="no">
+      <style>
+        body { margin: 0; background-color: #0d1f1e; }
+        .initial-loader-wrapper {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          width: 100vw;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          color: white;
+        }
+        .initial-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          border-top-color: #10b981;
+          animation: spin 1s ease-in-out infinite;
+          margin-bottom: 20px;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        .initial-text {
+          font-size: 15px;
+          font-weight: 500;
+          letter-spacing: 0.5px;
+          color: #9ca3af;
+        }
+      </style>
+      <div class="initial-loader-wrapper">
+        <div class="initial-spinner"></div>
+        <div class="initial-text">Loading ParikshaGPT...</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
