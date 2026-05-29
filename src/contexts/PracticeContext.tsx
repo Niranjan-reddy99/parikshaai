@@ -197,7 +197,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
       });
       if (res.status === 401) {
         try {
-          const { auth } = await import('../lib/firebase');
+          const { auth } = await import('../firebase');
           token = await auth.currentUser?.getIdToken(true) ?? null;
         } catch {
           token = null;
