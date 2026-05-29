@@ -189,12 +189,24 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
   const fetchQuestionAnswerMeta = async (
     questionId: string
   ): Promise<{ answer: string; answers: string[]; answerStatus?: string } | null> => {
-    const token = await getApiToken();
+    let token = await getApiToken();
     try {
-      const res = await fetch(`${API_BASE}/questions/${questionId}`, {
+      let res = await fetch(`${API_BASE}/questions/${questionId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: AbortSignal.timeout(10000),
       });
+      if (res.status === 401) {
+        try {
+          const { auth } = await import('../lib/firebase');
+          token = await auth.currentUser?.getIdToken(true) ?? null;
+        } catch {
+          token = null;
+        }
+        res = await fetch(`${API_BASE}/questions/${questionId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: AbortSignal.timeout(10000),
+        });
+      }
       if (!res.ok) return null;
       const data = await res.json();
       const rawAnswers = Array.isArray(data.correct_answers)

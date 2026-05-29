@@ -1106,6 +1106,14 @@ function AppContent() {
               answerStatus: questionAtAnswerTime.answerStatus,
             }
           : (await fetchQuestionAnswerMeta(questionId)) || null;
+
+      if (!hasKnownAnswer && !answerMeta) {
+        setPracticeSelectedOption(null);
+        setPracticeAnswerLoading(false);
+        setGlobalError("Network timeout. Please check your connection and try again.");
+        return;
+      }
+
       if (answerMeta) {
         updatePracticeQuestion(questionId, answerMeta);
       }
