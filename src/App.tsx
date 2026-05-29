@@ -1946,10 +1946,7 @@ function AppContent() {
                     setView={setView}
                     openCommission={openCommission}
                     startPractice={startPractice}
-                    onOpenFeed={(subject) => {
-                      setFeedInitialSubject(subject || 'All');
-                      setView("feed");
-                    }}
+                    onOpenFeed={() => setShowComingSoon(true)}
                   />
                 )}
                 {view === "feed" && (
