@@ -589,6 +589,11 @@ export function ExamProvider({ children }: { children: ReactNode }) {
       setGlobalError(null);
       return merged;
     } catch (e: any) {
+      let errorMsg = e?.message || 'unknown error';
+      if (errorMsg === 'Failed to fetch') {
+        errorMsg = 'Backend is waking up (cold start). Please try again in 30 seconds.';
+      }
+      
       updateExamPageState((prev) => ({
         ...prev,
         [key]: {
@@ -596,11 +601,11 @@ export function ExamProvider({ children }: { children: ReactNode }) {
           hasMore: prev[key]?.hasMore ?? true,
           nextCursor: prev[key]?.nextCursor ?? null,
           loading: false,
-          error: e?.message || 'unknown error',
+          error: errorMsg,
         },
       }));
       setGlobalError(
-        `Could not load "${examName}" ${year}: ${e?.message || 'unknown error'}`
+        `Could not load "${examName}" ${year}: ${errorMsg}`
       );
       return examCache[key] || [];
     }
