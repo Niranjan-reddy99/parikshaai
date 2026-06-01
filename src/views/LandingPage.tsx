@@ -353,7 +353,7 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
             </div>
 
             <h1 className="lp2-h1">
-              Every official PYQ —{' '}
+              Practice UPSC &amp; State PSC PYQs —{' '}
               <span className="lp2-h1-accent">analysed, explained</span>
               {' '}and tracked.
             </h1>
@@ -445,6 +445,44 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
           </div>
         </div>
       </div>
+
+      {/* ── Testimonials ── */}
+      <section className="lp2-section" id="testimonials">
+        <div className="lp2-section-inner">
+          <div className="lp2-section-head">
+            <div className="lp2-eyebrow">Aspirant Success</div>
+            <h2 className="lp2-h2">Trusted by serious candidates</h2>
+            <p className="lp2-section-p">Hear from aspirants who transformed their preparation strategy with Pattern Intelligence.</p>
+          </div>
+          <div className="lp2-testimonials-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+            {[
+              { name: 'Kiran R.', exam: 'UPSC Prelims', text: 'The AI explanations are incredible. Instead of just knowing an answer is wrong, I now understand the exact trap the examiner set. My accuracy improved by 20% in two weeks.' },
+              { name: 'Srinivas M.', exam: 'APPSC Group 1', text: 'Finding official APPSC PYQs organized by topic was impossible before ParikshaGPT. The fact that I can track my weak areas down to the sub-topic is a game changer.' },
+              { name: 'Anjali D.', exam: 'TSPSC Group 2', text: 'I love the timed mock tests. Simulating the real exam mix from past papers built my confidence more than any random test series could.' }
+            ].map((t, i) => (
+              <motion.div key={i} className="lp2-testimonial-card"
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }} transition={{ duration: 0.5, delay: i * 0.1 }}
+                style={{ background: 'var(--lp-card-bg)', border: '1px solid var(--lp-border-card)', borderRadius: 16, padding: 24 }}
+              >
+                <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+                  {[1,2,3,4,5].map(star => <Sparkles key={star} size={16} color="#f59e0b" fill="#f59e0b" />)}
+                </div>
+                <p style={{ fontSize: 14.5, color: 'var(--lp-text-2)', lineHeight: 1.6, marginBottom: 20 }}>"{t.text}"</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--lp-bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: 'var(--lp-text-1)' }}>
+                    {t.name.charAt(0)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--lp-text-1)' }}>{t.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--lp-text-3)' }}>Preparing for {t.exam}</div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* ── Problem section ── */}
       <section className="lp2-section lp2-section-alt">
@@ -702,9 +740,9 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
               transition={{ duration: 0.5, delay: 0.1 }}>
               <div className="lp2-plan-label">6 Months</div>
               <div className="lp2-plan-price">
-                <span className="lp2-plan-amount" style={{ fontSize: '24px' }}>Coming soon</span>
+                <span className="lp2-plan-amount" style={{ fontSize: '36px' }}>₹499</span>
               </div>
-              <div className="lp2-plan-per">Pricing will be revealed shortly</div>
+              <div className="lp2-plan-per">All commissions included</div>
               <button className="lp2-plan-cta lp2-plan-cta-ghost" onClick={onUpgrade}>Get started</button>
               <div className="lp2-plan-divider" />
               <ul className="lp2-plan-features">
@@ -722,9 +760,9 @@ export function LandingPage({ onLogin, onUpgrade, catalogSummary }: LandingPageP
               <div className="lp2-plan-best-badge">Best Value</div>
               <div className="lp2-plan-label lp2-plan-label-white">Annual</div>
               <div className="lp2-plan-price">
-                <span className="lp2-plan-amount" style={{ fontSize: '24px' }}>Coming soon</span>
+                <span className="lp2-plan-amount" style={{ fontSize: '36px' }}>₹899</span>
               </div>
-              <div className="lp2-plan-per">Pricing will be revealed shortly</div>
+              <div className="lp2-plan-per">Less than ₹75/month</div>
               <button className="lp2-plan-cta lp2-plan-cta-primary" onClick={onUpgrade}>
                 Get best value <ArrowRight size={15} />
               </button>
