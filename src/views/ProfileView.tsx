@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { User } from 'firebase/auth';
+import { User, updateProfile } from 'firebase/auth';
 import { type CommissionMap } from '../types';
 import { type UserStats, xpToLevel } from '../lib/stats';
 
@@ -109,6 +109,8 @@ export function ProfileView({ user, stats, commissionMap, handleLogout, isPremiu
   const xpProgress = Math.min(100, Math.round((stats.xp / xpNext) * 100));
   const [expandedRow, setExpandedRow] = useState<ExpandedRow>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(user.displayName || '');
+  const [isSavingName, setIsSavingName] = useState(false);
 
   const [enrolledExams, setEnrolledExams] = useState<string[]>(() => {
     try {
@@ -156,6 +158,19 @@ export function ProfileView({ user, stats, commissionMap, handleLogout, isPremiu
   const flash = (msg: string) => {
     setSavedMsg(msg);
     setTimeout(() => setSavedMsg(null), 1800);
+  };
+
+  const handleNameSave = async () => {
+    if (editingName.trim() === (user.displayName || '')) return;
+    setIsSavingName(true);
+    try {
+      await updateProfile(user, { displayName: editingName.trim() });
+      flash('Name updated successfully');
+    } catch (e: any) {
+      flash('Error: ' + (e.message || 'Failed to update'));
+    } finally {
+      setIsSavingName(false);
+    }
   };
 
   const avatarInitials = user.displayName
@@ -313,19 +328,31 @@ export function ProfileView({ user, stats, commissionMap, handleLogout, isPremiu
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Full Name</div>
-                <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7 }}>
-                  {user.displayName || 'Not set'}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={e => setEditingName(e.target.value)}
+                    style={{ flex: 1, fontSize: 13.5, fontWeight: 500, color: 'var(--text)', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7, outline: 'none', fontFamily: 'inherit' }}
+                    placeholder="Enter your full name"
+                  />
+                  {editingName.trim() !== (user.displayName || '') && (
+                    <button
+                      onClick={handleNameSave}
+                      disabled={isSavingName}
+                      style={{ padding: '0 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: isSavingName ? 'wait' : 'pointer', fontFamily: 'inherit' }}
+                    >
+                      {isSavingName ? 'Saving...' : 'Save'}
+                    </button>
+                  )}
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Email</div>
-                <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-sec)', padding: '8px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 7, cursor: 'not-allowed' }}>
                   {user.email}
                 </div>
               </div>
-              <p style={{ fontSize: 12, color: 'var(--text-tert)', margin: 0, lineHeight: 1.5 }}>
-                Personal details are managed by your Google account.
-              </p>
             </div>
           </SettingRow>
 
