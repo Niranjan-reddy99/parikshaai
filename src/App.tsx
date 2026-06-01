@@ -1114,19 +1114,25 @@ function AppContent() {
         return;
       }
 
-      if (answerMeta) {
-        updatePracticeQuestion(questionId, answerMeta);
-      }
-      const resolvedQuestion: Question = {
-        ...questionAtAnswerTime,
-        ...(answerMeta || {}),
-      };
-      // Check explanation cache BEFORE revealing the answer so loading state is set atomically.
       const cachedExplanation =
         explanationCacheRef.current[questionId] ||
         questionAtAnswerTime.explanation;
-      const needsExplanationFetch =
-        !isRenderableExplanation(cachedExplanation);
+      const isRenderable = isRenderableExplanation(cachedExplanation);
+      const needsExplanationFetch = !isRenderable;
+
+      if (answerMeta || isRenderable) {
+        updatePracticeQuestion(questionId, {
+          ...(answerMeta || {}),
+          ...(isRenderable ? { explanation: cachedExplanation } : {})
+        });
+      }
+      
+      const resolvedQuestion: Question = {
+        ...questionAtAnswerTime,
+        ...(answerMeta || {}),
+        ...(isRenderable ? { explanation: cachedExplanation } : {})
+      };
+      
       setPracticeAnswered(true);
       if (needsExplanationFetch) setPracticeExplanationLoading(true);
 
