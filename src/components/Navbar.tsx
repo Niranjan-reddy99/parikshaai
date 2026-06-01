@@ -315,7 +315,10 @@ export function Navbar({
         borderBottom: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 9, flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+        <div 
+          onClick={() => { setView('home'); onNavigate?.(); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}
+        >
           <img src="/pwa-192x192.png" alt="" width="30" height="30" aria-hidden="true" />
           <div>
             <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: 0, color: 'var(--text)', lineHeight: 1 }}>
