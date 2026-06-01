@@ -278,7 +278,12 @@ export function ProfileView({ user, stats, commissionMap, handleLogout, isPremiu
           </div>
 
           {/* Edit Profile button */}
-          <button className="profile-edit-btn" style={{
+          <button className="profile-edit-btn" onClick={() => {
+            setExpandedRow('personal');
+            setTimeout(() => {
+              document.getElementById('personal-info-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+          }} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 14px', background: 'var(--bg)',
             border: '1.5px solid var(--border)', borderRadius: 8,
@@ -318,13 +323,14 @@ export function ProfileView({ user, stats, commissionMap, handleLogout, isPremiu
         <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Account</div>
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
 
-          <SettingRow
-            id="personal" icon={<PersonIcon />}
-            title="Personal Information"
-            description="Update your name, email and contact details"
-            expanded={expandedRow === 'personal'}
-            onToggle={toggleRow}
-          >
+          <div id="personal-info-section">
+            <SettingRow
+              id="personal" icon={<PersonIcon />}
+              title="Personal Information"
+              description="Update your name, email and contact details"
+              expanded={expandedRow === 'personal'}
+              onToggle={toggleRow}
+            >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tert)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Full Name</div>
@@ -354,7 +360,8 @@ export function ProfileView({ user, stats, commissionMap, handleLogout, isPremiu
                 </div>
               </div>
             </div>
-          </SettingRow>
+            </SettingRow>
+          </div>
 
           <SettingRow
             id="security" icon={<LockIcon />}
