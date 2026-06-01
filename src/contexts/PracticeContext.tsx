@@ -239,12 +239,12 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     questionIds: string[]
   ): Promise<Record<string, string>> => {
     const url = `${API_BASE}/explanations/batch`;
-    const token = await getApiToken();
+    let token = await getApiToken();
     const merged: Record<string, string> = {};
     for (let i = 0; i < questionIds.length; i += 50) {
       const chunk = questionIds.slice(i, i + 50);
       if (!chunk.length) continue;
-      const res = await fetch(url, {
+      let res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -253,6 +253,23 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ question_ids: chunk }),
         signal: AbortSignal.timeout(8000),
       });
+      if (res.status === 401) {
+        try {
+          const { auth } = await import('../firebase');
+          token = await auth.currentUser?.getIdToken(true) ?? null;
+        } catch {
+          token = null;
+        }
+        res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ question_ids: chunk }),
+          signal: AbortSignal.timeout(8000),
+        });
+      }
       if (!res.ok) continue;
       const batch: Record<string, string> = await res.json();
       Object.assign(merged, batch || {});
@@ -300,10 +317,23 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
       }
       const promise: Promise<string | null> = (async () => {
         try {
-          const res = await fetch(singleUrl(id), {
+          let token = tokenParam;
+          let res = await fetch(singleUrl(id), {
             signal: AbortSignal.timeout(12000),
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
+          if (res.status === 401) {
+            try {
+              const { auth } = await import('../firebase');
+              token = await auth.currentUser?.getIdToken(true) ?? null;
+            } catch {
+              token = null;
+            }
+            res = await fetch(singleUrl(id), {
+              signal: AbortSignal.timeout(12000),
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+          }
           if (!res.ok) return null;
           const data = await res.json();
           const explanation = (
@@ -389,10 +419,23 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     const explanationToken = await getApiToken();
     const promise = (async () => {
       try {
-        const res = await fetch(explanationUrl, {
+        let token = explanationToken;
+        let res = await fetch(explanationUrl, {
           signal: controller.signal,
-          headers: explanationToken ? { Authorization: `Bearer ${explanationToken}` } : {},
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
+        if (res.status === 401) {
+          try {
+            const { auth } = await import('../firebase');
+            token = await auth.currentUser?.getIdToken(true) ?? null;
+          } catch {
+            token = null;
+          }
+          res = await fetch(explanationUrl, {
+            signal: controller.signal,
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+        }
         if (!res.ok) {
           if (!options?.background && !options?.deferUnavailable) {
             updatePracticeQuestion(questionId, {
