@@ -3851,8 +3851,9 @@ def _get_subscription(firebase_uid: str) -> dict:
     """Fetch and auto-expire subscription row. Returns normalized dict."""
     try:
         r = supabase.table("user_subscriptions").select("*").eq("firebase_uid", firebase_uid).limit(1).execute()
+        is_forced = os.getenv("FORCE_PREMIUM", "").lower() in ("1", "true", "yes")
         if not r.data:
-            return {"plan": "free", "status": "active", "is_premium": False, "plan_expires_at": None}
+            return {"plan": "free" if not is_forced else "pro", "status": "active", "is_premium": is_forced, "plan_expires_at": None}
         sub = r.data[0]
         plan   = str(sub.get("plan") or "free").lower()
         status = str(sub.get("status") or "active").lower()
@@ -3871,10 +3872,14 @@ def _get_subscription(firebase_uid: str) -> dict:
                 except Exception:
                     pass
         is_premium = (plan != "free") and (status == "active")
+        if is_forced:
+            is_premium = True
+            plan = "pro"
         return {"plan": plan, "status": status, "is_premium": is_premium, "plan_expires_at": expires_at}
     except Exception as e:
         print(f"WARN _get_subscription({firebase_uid}): {e}")
-        return {"plan": "free", "status": "active", "is_premium": False, "plan_expires_at": None}
+        is_forced = os.getenv("FORCE_PREMIUM", "").lower() in ("1", "true", "yes")
+        return {"plan": "free" if not is_forced else "pro", "status": "active", "is_premium": is_forced, "plan_expires_at": None}
 
 
 def _get_subscription_cached(firebase_uid: str) -> dict:
@@ -3917,7 +3922,7 @@ def _require_exam_access(user: dict, exam_name: str | None, exam_year: int | Non
     if not exam_name or not exam_year:
         return
     # Dev bypass: localhost with no real auth infrastructure can skip gating
-    if os.getenv("DISABLE_EXAM_GATING", "").lower() in ("1", "true", "yes"):
+    if os.getenv("DISABLE_EXAM_GATING", "").lower() in ("1", "true", "yes") or os.getenv("FORCE_PREMIUM", "").lower() in ("1", "true", "yes"):
         return
     uid = user.get("uid") if isinstance(user, dict) else None
     if uid:
