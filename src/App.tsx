@@ -977,7 +977,7 @@ function AppContent() {
             offset: 0,
           })))(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Request timed out. Check your connection and try again.")), 20000)
+          setTimeout(() => reject(new Error("Request timed out. Check your connection and try again.")), 40000)
         ),
       ]);
       const firstPage = await fetchWithTimeout;

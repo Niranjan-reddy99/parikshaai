@@ -193,7 +193,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     try {
       let res = await fetch(`${API_BASE}/questions/${questionId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(30000),
       });
       if (res.status === 401) {
         try {
@@ -204,7 +204,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
         }
         res = await fetch(`${API_BASE}/questions/${questionId}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(30000),
         });
       }
       if (!res.ok) return null;
@@ -251,7 +251,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ question_ids: chunk }),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(20000),
       });
       if (res.status === 401) {
         try {
@@ -267,7 +267,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({ question_ids: chunk }),
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(20000),
         });
       }
       if (!res.ok) continue;
@@ -319,7 +319,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
         try {
           let token = tokenParam;
           let res = await fetch(singleUrl(id), {
-            signal: AbortSignal.timeout(12000),
+            signal: AbortSignal.timeout(30000),
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
           if (res.status === 401) {
@@ -330,7 +330,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
               token = null;
             }
             res = await fetch(singleUrl(id), {
-              signal: AbortSignal.timeout(12000),
+              signal: AbortSignal.timeout(30000),
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
           }
@@ -414,7 +414,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController();
     const timeout = window.setTimeout(
       () => controller.abort(),
-      options?.background ? 12000 : 25000
+      options?.background ? 25000 : 40000
     );
     const explanationToken = await getApiToken();
     const promise = (async () => {
