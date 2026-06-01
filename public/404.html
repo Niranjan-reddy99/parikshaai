@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page Not Found (404) | ParikshaGPT</title>
+  <meta name="description" content="The page you're looking for doesn't exist. Return to ParikshaGPT and continue practising UPSC, APPSC, TSPSC and SSC previous year questions." />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="canonical" href="https://parikshagpt.in/" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <meta name="theme-color" content="#0d1f1e" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1f1e;
+      color: #fff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      line-height: 1.6;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 520px;
+      width: 100%;
+    }
+
+    /* Big glowing 404 */
+    .error-code {
+      font-size: clamp(80px, 20vw, 130px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, #10b981 0%, #059669 50%, #34d399 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 40px rgba(16,185,129,0.3));
+      margin-bottom: 8px;
+      animation: glow-pulse 3s ease-in-out infinite;
+    }
+    @keyframes glow-pulse {
+      0%, 100% { filter: drop-shadow(0 0 30px rgba(16,185,129,0.25)); }
+      50%       { filter: drop-shadow(0 0 55px rgba(16,185,129,0.45)); }
+    }
+
+    /* Logo bar */
+    .logo-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+    .logo-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #10b981;
+      animation: dot-blink 1.6s ease-in-out infinite;
+    }
+    @keyframes dot-blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+    .logo-text {
+      font-size: 16px;
+      font-weight: 900;
+      color: #10b981;
+      letter-spacing: -0.02em;
+    }
+
+    /* Heading */
+    h1 {
+      font-size: clamp(20px, 4vw, 26px);
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      font-size: 15px;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.65;
+      margin-bottom: 36px;
+    }
+
+    /* Action buttons */
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 40px;
+    }
+    .btn-primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 15px 24px;
+      border-radius: 12px;
+      background: #10b981;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 4px 20px rgba(16,185,129,0.28);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 28px rgba(16,185,129,0.35);
+    }
+    .btn-secondary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 14px 24px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.75);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: background 0.15s;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.08); }
+
+    /* Quick links */
+    .divider-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.25);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .divider-label::before,
+    .divider-label::after {
+      content: '';
+      position: absolute;
+      top: 50%; width: 30%;
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+    }
+    .divider-label::before { left: 0; }
+    .divider-label::after  { right: 0; }
+
+    .quick-links {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .quick-link {
+      padding: 8px 16px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.55);
+      font-size: 12.5px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .quick-link:hover {
+      border-color: rgba(16,185,129,0.35);
+      color: #10b981;
+    }
+
+    /* Decorative bg circles */
+    .bg-circle {
+      position: fixed;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: -1;
+    }
+    .bg-circle-1 {
+      width: 400px; height: 400px;
+      top: -100px; right: -100px;
+      background: radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%);
+    }
+    .bg-circle-2 {
+      width: 350px; height: 350px;
+      bottom: -80px; left: -80px;
+      background: radial-gradient(circle, rgba(37,99,235,0.07) 0%, transparent 70%);
+    }
+
+    /* Footer credit */
+    .page-footer {
+      margin-top: 48px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.2);
+    }
+    .page-footer a { color: #10b981; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Decorative background -->
+  <div class="bg-circle bg-circle-1" aria-hidden="true"></div>
+  <div class="bg-circle bg-circle-2" aria-hidden="true"></div>
+
+  <main class="container" role="main">
+
+    <!-- Logo -->
+    <div class="logo-bar" aria-label="ParikshaGPT">
+      <div class="logo-dot" aria-hidden="true"></div>
+      <span class="logo-text">ParikshaGPT</span>
+    </div>
+
+    <!-- 404 Number -->
+    <div class="error-code" aria-hidden="true">404</div>
+
+    <!-- Heading and copy -->
+    <h1>Page Not Found</h1>
+    <p class="subtitle">
+      The page you're looking for doesn't exist or may have been moved.<br>
+      Let's get you back to practising UPSC &amp; State PSC PYQs.
+    </p>
+
+    <!-- CTA buttons -->
+    <nav class="actions" aria-label="Recovery options">
+      <a href="/" class="btn-primary" id="go-home-btn">
+        <span aria-hidden="true">🏠</span> Go to Homepage
+      </a>
+      <a href="/" class="btn-secondary" id="start-practice-btn">
+        <span aria-hidden="true">📚</span> Start Practising UPSC PYQs
+      </a>
+    </nav>
+
+    <!-- Quick navigation links -->
+    <p class="divider-label">Quick links</p>
+    <div class="quick-links" role="list">
+      <a href="/" class="quick-link" role="listitem" id="ql-upsc">UPSC PYQs</a>
+      <a href="/" class="quick-link" role="listitem" id="ql-appsc">APPSC Group 1</a>
+      <a href="/" class="quick-link" role="listitem" id="ql-tspsc">TSPSC Practice</a>
+      <a href="/" class="quick-link" role="listitem" id="ql-ssc">SSC CGL</a>
+      <a href="/" class="quick-link" role="listitem" id="ql-pricing">Pricing</a>
+    </div>
+
+    <footer class="page-footer">
+      <a href="/">parikshagpt.in</a> · India's UPSC &amp; State PSC PYQ Practice Platform
+    </footer>
+
+  </main>
+
+</body>
+</html>
