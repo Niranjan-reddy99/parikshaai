@@ -1,18 +1,6 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "redirects": [
-    {
-      "source": "https://www.parikshagpt.in/:path*",
-      "destination": "https://parikshagpt.in/:path*",
-      "permanent": true
-    },
-    {
-      "source": "http://parikshagpt.in/:path*",
-      "destination": "https://parikshagpt.in/:path*",
-      "permanent": true
-    }
-  ],
   "headers": [
     {
       "source": "/__/auth/:path*",
