@@ -225,18 +225,15 @@ export function Navbar({
     },
     {
       id: 'browse', icon: 'search', label: 'Question Bank', isActive: view === 'browse',
-      badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
-      onClick: () => onComingSoon(),
+      onClick: () => setView('browse'),
     },
     {
       id: 'bookmarks', icon: 'bookmark', label: 'Bookmarks', isActive: view === 'bookmarks',
       onClick: () => setView('bookmarks'),
     },
     {
-      id: 'pattern', icon: 'pulse', label: 'Pattern Practice', isActive: false,
-      badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
-      onClick: () => onComingSoon(),
-      locked: true,
+      id: 'pattern', icon: 'pulse', label: 'Pattern Practice', isActive: view === 'pattern-practice',
+      onClick: () => setView('pattern-practice'),
     },
   ];
 
@@ -254,13 +251,11 @@ export function Navbar({
   const communityItems: NavItemDef[] = [
     {
       id: 'feed', icon: 'feed', label: 'PYQ Feed', isActive: view === 'feed',
-      badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
-      onClick: () => onComingSoon(),
+      onClick: () => setView('feed'),
     },
     {
       id: 'referral', icon: 'users', label: 'Refer & Earn', isActive: view === 'referral',
-      badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
-      onClick: () => onComingSoon(),
+      onClick: () => setView('referral'),
     },
   ];
 
