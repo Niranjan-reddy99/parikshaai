@@ -232,8 +232,10 @@ export function Navbar({
       onClick: () => setView('bookmarks'),
     },
     {
-      id: 'pattern', icon: 'pulse', label: 'Pattern Practice', isActive: view === 'pattern-practice',
-      onClick: () => setView('pattern-practice'),
+      id: 'pattern', icon: 'pulse', label: 'Pattern Practice', isActive: false,
+      badge: { text: 'SOON', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
+      onClick: () => onComingSoon(),
+      locked: true,
     },
   ];
 
