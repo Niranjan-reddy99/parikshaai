@@ -255,13 +255,15 @@ function AppContent() {
 
   // ── Auth (from context) ──────────────────────────────────────────────────────
   const {
-    user, authLoading, isPremium, subscriptionLoaded,
+    user, authLoading, isPremium: realIsPremium, subscriptionLoaded,
     showPremiumModal, setShowPremiumModal,
     showAuthModal, setShowAuthModal,
     handleLogin, handleGoogleSignIn, handleEmailSignIn,
     handleEmailSignUp, handleForgotPassword, handleLogout,
     getApiToken,
   } = useAuth();
+
+  const isPremium = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? true : realIsPremium;
 
   // ── Catalog (from context) ────────────────────────────────────────────────────
   const { catalogSummary, feedSummary, dataLoading, globalError, setGlobalError, fetchData } = useCatalog();
