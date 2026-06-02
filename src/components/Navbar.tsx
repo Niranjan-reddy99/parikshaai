@@ -225,7 +225,7 @@ export function Navbar({
     },
     {
       id: 'browse', icon: 'search', label: 'Question Bank', isActive: view === 'browse',
-      onClick: () => setView('browse'),
+      onClick: () => openQuestionBankHome(),
     },
     {
       id: 'bookmarks', icon: 'bookmark', label: 'Bookmarks', isActive: view === 'bookmarks',
