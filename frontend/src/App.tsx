@@ -738,7 +738,7 @@ function QuestionEditorModal({ question, onClose, onSaved, onDeleted }: Question
                     >
                       <img
                         ref={cropImageRef}
-                        src={`${imageUrl}?v=${imageVersion}`}
+                        src={imageUrl.includes('?') ? `${imageUrl}&v=${imageVersion}` : `${imageUrl}?v=${imageVersion}`}
                         alt="Crop question"
                         crossOrigin="anonymous"
                         style={{ maxWidth: '100%', maxHeight: 320, display: 'block', margin: '0 auto' }}
@@ -758,7 +758,7 @@ function QuestionEditorModal({ question, onClose, onSaved, onDeleted }: Question
                   </div>
                 ) : (
                   <img
-                    src={`${imageUrl}?v=${imageVersion}`}
+                    src={imageUrl.includes('?') ? `${imageUrl}&v=${imageVersion}` : `${imageUrl}?v=${imageVersion}`}
                     alt="Question preview"
                     style={{ maxWidth: '100%', maxHeight: 260, objectFit: 'contain', display: 'block', margin: '0 auto' }}
                   />
