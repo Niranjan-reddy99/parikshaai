@@ -2098,6 +2098,11 @@ export default function App() {
                             <p style={{ margin: 0, fontSize: 13, color: '#374151', lineHeight: 1.4 }}>{q.question_text}</p>
                             <small style={{ color: '#9ca3af', fontSize: 11.5 }}>{q.topic}{q.subtopic ? ` · ${q.subtopic}` : ''}</small>
                           </div>
+                          {q.has_image && q.image_url ? (
+                            <div style={{ flexShrink: 0, marginLeft: 16 }}>
+                              <img src={q.image_url} alt="Question" style={{ maxWidth: 120, maxHeight: 80, borderRadius: 6, border: '1px solid var(--border)', objectFit: 'contain' }} />
+                            </div>
+                          ) : null}
                           <button className="secondary-button" style={{ flexShrink: 0 }} onClick={() => void openQuestionEditor(q.id)}>
                             <FilePenLine size={13} />Edit
                           </button>
